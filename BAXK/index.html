@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dasholda Atelier</title>
+  <meta
+    name="description"
+    content="Dashboard atelier."
+  >
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="Navigation principale">
+      <div class="brand-block">
+        <p class="eyebrow">Dasholda</p>
+        <h1>Atelier</h1>
+      </div>
+
+      <nav class="menu" aria-label="Modules">
+        <button class="menu-link" type="button" data-view="tasks">Taches</button>
+        <button class="menu-link is-active" type="button" data-view="planning">Commande</button>
+        <button class="menu-link" type="button" data-view="dtfMockups">Maquette a faire</button>
+        <button class="menu-link" type="button" data-view="dtf">Demande de DTF</button>
+        <button class="menu-link" type="button" data-view="production">Production</button>
+        <button class="menu-link" type="button" data-view="clients">Clients Pro</button>
+        <button class="menu-link" type="button" data-view="workshop">Gestion d'atelier</button>
+        <button class="menu-link" type="button" data-view="purchase">Achat</button>
+        <button class="menu-link" type="button" data-view="textile">Achat Textile</button>
+        <button class="menu-link" type="button" data-view="improvements">Ameliorations</button>
+      </nav>
+
+    </aside>
+
+    <main class="workspace">
+      <header class="topbar">
+        <div class="topbar-copy">
+          <p class="eyebrow" id="pageEyebrow">Tableau de bord</p>
+          <h2 id="pageTitle">Taches</h2>
+          <p id="pageIntro"></p>
+        </div>
+
+        <div class="topbar-actions">
+          <label class="search" aria-label="Recherche globale du module">
+            <span class="search-icon" aria-hidden="true">⌕</span>
+            <input
+              id="globalSearch"
+              name="search"
+              type="search"
+              placeholder="Rechercher..."
+              autocomplete="off"
+            >
+          </label>
+          <button class="button button-primary" type="button" id="primaryActionButton">+ Ajouter</button>
+        </div>
+      </header>
+
+      <section class="status-strip" id="statusStrip" aria-label="Indicateurs du module"></section>
+      <section class="content-shell" id="viewRoot" aria-live="polite"></section>
+    </main>
+  </div>
+
+  <dialog class="sheet-dialog" id="sheetDialog">
+    <form class="sheet-form" id="sheetForm" method="dialog">
+      <header class="sheet-head">
+        <div>
+          <p class="eyebrow" id="sheetEyebrow">Creation</p>
+          <h3 id="sheetTitle">Nouveau</h3>
+        </div>
+        <button class="icon-button" type="button" id="closeSheetButton" aria-label="Fermer">×</button>
+      </header>
+      <div id="sheetBody"></div>
+      <footer class="sheet-actions">
+        <button class="button" type="button" id="cancelSheetButton">Annuler</button>
+        <button class="button button-primary" type="submit" id="submitSheetButton">Enregistrer</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" hidden></div>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

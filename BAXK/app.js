@@ -1,0 +1,5152 @@
+const STORAGE_KEY = "dasholda.erp.v3";
+const STORAGE_MIRROR_KEY = `${STORAGE_KEY}.mirror`;
+const STORAGE_BACKUPS_KEY = `${STORAGE_KEY}.backups`;
+const SHEET_DRAFTS_KEY = `${STORAGE_KEY}.sheetDrafts`;
+const MAX_STORAGE_BACKUPS = 20;
+const DATA_VERSION = 3;
+
+const views = {
+  tasks: {
+    label: "Taches",
+    eyebrow: "Taches",
+    intro: "",
+    primaryAction: null,
+    searchPlaceholder: "Rechercher dans les notes..."
+  },
+  planning: {
+    label: "Commande",
+    eyebrow: "Commande",
+    intro: "",
+    primaryAction: "addOrder",
+    searchPlaceholder: "Rechercher..."
+  },
+  clients: {
+    label: "Clients Pro",
+    eyebrow: "Clients",
+    intro: "",
+    primaryAction: "addClient",
+    searchPlaceholder: "Rechercher..."
+  },
+  dtf: {
+    label: "Demande de DTF",
+    eyebrow: "DTF",
+    intro: "",
+    primaryAction: "addDtf",
+    searchPlaceholder: "Rechercher..."
+  },
+  dtfMockups: {
+    label: "Maquette a faire",
+    eyebrow: "DTF",
+    intro: "",
+    primaryAction: null,
+    searchPlaceholder: "Rechercher..."
+  },
+  production: {
+    label: "Production",
+    eyebrow: "Production",
+    intro: "",
+    primaryAction: "addProductionItem",
+    searchPlaceholder: "Rechercher..."
+  },
+  workshop: {
+    label: "Gestion d'atelier",
+    eyebrow: "Atelier",
+    intro: "",
+    primaryAction: "addWorkshopTask",
+    searchPlaceholder: "Rechercher..."
+  },
+  purchase: {
+    label: "Achat",
+    eyebrow: "Achat",
+    intro: "",
+    primaryAction: "addPurchaseItem",
+    searchPlaceholder: "Rechercher..."
+  },
+  textile: {
+    label: "Achat Textile",
+    eyebrow: "Textile",
+    intro: "",
+    primaryAction: "addTextileOrder",
+    searchPlaceholder: "Rechercher..."
+  },
+  improvements: {
+    label: "Ameliorations",
+    eyebrow: "Ameliorations",
+    intro: "",
+    primaryAction: null,
+    searchPlaceholder: "Rechercher..."
+  }
+};
+
+const ORDER_STATUS_GROUPS = [
+  {
+    label: "Commercial & Validation",
+    options: ["À deviser", "Attente validation"]
+  },
+  {
+    label: "Logistique",
+    options: ["À préparer", "Attente marchandise", "Manque information"]
+  },
+  {
+    label: "Production (Atelier)",
+    options: ["Maquette à faire", "À produire", "En production", "À monter/nettoyer"]
+  },
+  {
+    label: "Suivi Client",
+    options: ["Prévenir client", "Client prévenu", "Relance client", "Produit récupéré", "Terminé"]
+  },
+  {
+    label: "Comptabilité",
+    options: ["À facturer", "Facture faite"]
+  }
+];
+
+const ORDER_STATUS_DEFAULT = "À deviser";
+const ORDER_STATUS_SET = new Set(ORDER_STATUS_GROUPS.flatMap((group) => group.options));
+const ORDER_STATUS_BUCKETS = {
+  validation: ORDER_STATUS_GROUPS[0].options,
+  logistique: ORDER_STATUS_GROUPS[1].options,
+  production: ORDER_STATUS_GROUPS[2].options,
+  client: ORDER_STATUS_GROUPS[3].options,
+  accounting: ORDER_STATUS_GROUPS[4].options
+};
+const ORDER_ZONE_OPTIONS = ["Textiles", "Gravure et découpe laser", "Impression UV", "Goodies"];
+const ORDER_ASSIGNEES = ["L", "M", "C", "A", "R"];
+const ORDER_PRODUCT_OPTIONS = ["Tshirt", "Pochette", "Sac", "Casquette", "Tasses", "Goodies"];
+const PRODUCTION_STATUS_OPTIONS = ["A imprimer", "Impression en cours", "Erreur", "Terminé"];
+const PRODUCTION_STATUS_DEFAULT = "A imprimer";
+const TEAM_NOTE_MEMBERS = ["Loic", "Charlie", "Melina", "Amandine"];
+const IMPROVEMENT_TYPES = [
+  { key: "bug", label: "Bug" },
+  { key: "problem", label: "Probleme" },
+  { key: "request", label: "Modification souhaitee" }
+];
+const TEXTILE_COLUMN_DEFINITIONS = [
+  { key: "client", label: "Client" },
+  { key: "supplier", label: "Fournisseur" },
+  { key: "brand", label: "Marque" },
+  { key: "gender", label: "Genre" },
+  { key: "designation", label: "Désignation" },
+  { key: "catalogReference", label: "Référence" },
+  { key: "color", label: "Couleur" },
+  { key: "size", label: "Taille" },
+  { key: "quantity", label: "Qté" },
+  { key: "deliveryStatus", label: "Livraison" },
+  { key: "sessionLabel", label: "Session" },
+  { key: "expectedDate", label: "Date" }
+];
+const TEXTILE_SUPPLIER_OPTIONS = ["Toptex", "Wordans"];
+const TEXTILE_BRAND_OPTIONS = ["-", "Native Spirit", "Westford Mill", "Gildan"];
+const TEXTILE_GENDER_OPTIONS = ["-", "Mixte", "Homme", "Femme", "Enfant"];
+const TEXTILE_DELIVERY_OPTIONS = ["pending", "maritime", "received"];
+const TEXTILE_COLOR_OPTIONS = [
+  "multicolor",
+  "noir",
+  "kaki",
+  "bleu marine",
+  "bleu royal",
+  "rouge",
+  "orange",
+  "corail",
+  "vert",
+  "lavande",
+  "rose bébé",
+  "bleu clair",
+  "vert pastel",
+  "menthe",
+  "jaune",
+  "beige",
+  "blanc"
+];
+const FRONT_LOGO_OPTIONS = ["FLE-PI", "PAL-PI", "COEUR-PI", "BEA-16", "TOR-04", "SXM-12 POITRINE", "SXM-20"];
+const BACK_LOGO_OPTIONS = ["PAY-01", "SLO-01", "SXM-24", "COR-04", "COC-03", "GOO-01", "TEQ-01", "SXM-15", "PAL-16", "SXM-23", "VOI-02"];
+const TEXTILE_ORDER_IMPORTS = [
+  {
+    clientName: "OLDA STD",
+    supplier: "Toptex",
+    brand: "-",
+    gender: "-",
+    designation: "Tote Bag",
+    catalogReference: "KI3223",
+    color: "nature",
+    size: "S/M...",
+    quantity: 200,
+    deliveryStatus: "maritime",
+    sessionLabel: "—",
+    expectedDate: "2026-03-10",
+    archivedAt: "",
+    createdAt: "2026-03-16"
+  }
+];
+const DEFAULT_PURCHASE_ITEMS = [
+  { zone: "SXM", label: "Porte VU", checked: true },
+  { zone: "SXM", label: "Sac 50L", checked: false },
+  { zone: "SXM", label: "Piles Lithium CR2032", checked: false },
+  { zone: "SXM", label: "Glue avec bouton pressoir sur le coté", checked: false },
+  { zone: "Europe", label: "DTF Objets x25 :", checked: false },
+  { zone: "Europe", label: "BEA-16 Bleu clair H=50 L=45", checked: false },
+  { zone: "Europe", label: "BEA-16 Rose H=50 L=45", checked: false },
+  { zone: "Europe", label: "BEA-13 Multi color H=48 L=60", checked: false },
+  { zone: "Europe", label: "TOR-04 Blanc H=52 L=49", checked: false },
+  { zone: "Europe", label: "DTF Objet x100 : Pas lave vaisselle", checked: false },
+  { zone: "Europe", label: "SXM-12 Navy D=50", checked: false }
+];
+const DEFAULT_WORKSHOP_TASKS = [
+  { group: "standard", label: "Laisser 1 Clim a 26° la nuit (AIRWELL)", recurring: true },
+  { group: "standard", label: "Eteindre les multiprises de l'atelier ...", recurring: true },
+  { group: "standard", label: "Allumer PC trotec pour syncro drop...", recurring: true },
+  { group: "dtf", label: "Vider la colle chaque soir", recurring: true },
+  { group: "dtf", label: "Vendredi nettoyage complet", recurring: true },
+  { group: "dtf", label: "Checker les quantite d'encre chaqu...", recurring: true },
+  { group: "dtf", label: "remettre la protection sur le papier ...", recurring: true },
+  { group: "dtf", label: "Changement Papier le 06/03/26", recurring: false }
+];
+const SAMPLE_CLIENT_NAMES = new Set(["Hotel Rive Sud", "Festival Moko", "Maison Ledor"]);
+const IMPORTED_CLIENT_DATE = "2026-03-16";
+const importedContact = (name, role, phone = "", email = "") => ({ name, role, phone, email });
+const IMPORTED_PRO_CLIENTS = [
+  { name: "VOILA SXM", clientType: "Boutique", city: "GRAND CASE", contacts: [importedContact("Clara", "Patronne", "0690377241")] },
+  { name: "SEA YOU", clientType: "Boutique", city: "GRAND CASE", contacts: [importedContact("Iris", "Patronne", "0690552585")] },
+  { name: "BREAD N BUTTER", clientType: "Epicerie", city: "OYSTER POND", contacts: [importedContact("Sandra / Sylvain", "Patrons", "0690333519")] },
+  { name: "JOA", clientType: "Restaurant", city: "BAIE ORIENTALE", contacts: [importedContact("Alexandre", "Patron", "0630010339")] },
+  { name: "BEACHLIFE", clientType: "Boutique", city: "BAIE ORIENTALE", contacts: [importedContact("Jenni", "Patronne", "0690652190")] },
+  { name: "LA PLAYA", clientType: "Hotel", city: "BAIE ORIENTALE", contacts: [importedContact("Caty", "Patronne", "0690279131")] },
+  { name: "ORIENT BEACH HOTEL", clientType: "Hotel", city: "BAIE ORIENTALE", contacts: [importedContact("Myriam", "Patronne", "0690629097")] },
+  { name: "PIOU", clientType: "Boutique", city: "HOPE ESTATE", contacts: [importedContact("Clara / Iris", "Patronnes")] },
+  { name: "NSEA STEM", clientType: "Créatrice", city: "SAINT-BARTHELEMY", contacts: [importedContact("Andréa", "Patronne", "0659318983")] },
+  {
+    name: "IGUANA FITNESS",
+    clientType: "Complexe Sportif",
+    city: "GRAND CASE",
+    contacts: [
+      importedContact("Jérôme", "Patron", "0690662400"),
+      importedContact("Pasqualine", "communication", "0677029350")
+    ]
+  },
+  { name: "3SP", clientType: "Entretien", city: "?", contacts: [importedContact("Fabien", "Patron", "0690382769")] },
+  { name: "ART FOR SCIENCES", clientType: "Association", city: "HOPE ESTATE", contacts: [importedContact("Mélanie", "Patronne", "0609531462")] },
+  { name: "LA QUINTESSENCE", clientType: "Restaurant", city: "GRAND CASE", contacts: [importedContact("Olivier", "Patron", "0690711502")] },
+  { name: "INTERIOR DESIGN", clientType: "Agenceur", city: "HOPE ESTATE", contacts: [importedContact("Joris", "communication", "0690485741")] },
+  { name: "TI PALM", clientType: "Restaurant", city: "BAIE ORIENTALE", contacts: [importedContact("Sophie", "Patronne", "0690733700")] },
+  { name: "BILLIE", clientType: "Boutique", city: "MARIGOT", contacts: [importedContact("Peal", "Patronne", "0690555343")] },
+  { name: "ICON", clientType: "Boutique", city: "MARIGOT", contacts: [importedContact("Peal", "Patronne", "0690555343")] },
+  { name: "FRIENDLY PADEL CLUB", clientType: "Complexe Sportif", city: "GRAND CASE", contacts: [importedContact("Camille", "Patronne com", "0690661498")] },
+  {
+    name: "LE TEMPS DES CERISES",
+    clientType: "Restaurant",
+    city: "GRAND CASE",
+    contacts: [
+      importedContact("Cédric", "Patron", "0690613009"),
+      importedContact("Lucas", "Frère du patron & Beach Manager", "0646784546")
+    ]
+  },
+  {
+    name: "SIMA",
+    clientType: "Agenceur",
+    city: "HOPE ESTATE",
+    contacts: [
+      importedContact("Anais", "femme du gérant", "0690534369"),
+      importedContact("Vincent", "Gérant", "0690543498")
+    ]
+  },
+  { name: "PHARMACIE HOPE ESTATE", clientType: "Médical", city: "HOPE ESTATE", contacts: [importedContact("Julien", "Gérant", "0690777248")] },
+  { name: "LA GAGNE BRASERO", clientType: "Restaurant", city: "-", contacts: [importedContact("Antoine", "Gérant", "0618631726")] },
+  { name: "ONE LOVE", clientType: "Boutique", city: "HOPE ESTATE", contacts: [importedContact("Karine", "Gérant", "0690754191")] },
+  { name: "KARIBUNI HOTEL", clientType: "Hotel", city: "CUL DE SAC", contacts: [importedContact("Manon", "fille de Gréant", "0690643858")] },
+  {
+    name: "KARIBUNI RESTAURANT",
+    clientType: "Restaurant",
+    city: "PINEL",
+    contacts: [
+      importedContact("Marion", "Gérante", "0690613851"),
+      importedContact("Emy", "Responsable de salle", "0690707862")
+    ]
+  },
+  { name: "EDEIS", clientType: "Aéroport", city: "GRAND CASE", contacts: [importedContact("Virginie", "Chargée de boutique", "0690221235")] },
+  { name: "GO & SEA", clientType: "Bateau", city: "ANSE MARCEL", contacts: [importedContact("Franck", "Gérant", "0690665869")] },
+  { name: "KALATUA WATERSPORTS", clientType: "Watersports", city: "MULLET BAY", contacts: [importedContact("Cyril", "Gérant", "0690554266")] },
+  { name: "LES PETITES AIGUILLES", clientType: "Couturière", city: "MARIGOT", contacts: [importedContact("Mathilde", "Gérant", "0683922788")] },
+  { name: "SUN LOCATION", clientType: "Watersports", city: "MARIGOT", contacts: [importedContact("?", "Gérant", "0690231511")] },
+  { name: "A DOM CARAIBES", clientType: "Entretien", city: "HOPE ESTATE", contacts: [importedContact("Ophélie", "Gérante", "0690221221", "ophelie.e@adom-caraibes.fr")] },
+  { name: "LA TERRASSE", clientType: "Restaurant", city: "MARIGOT", contacts: [importedContact("Dylan", "Gérante", "0690669999")] },
+  {
+    name: "CARIBBEAN LUXURY VACATION",
+    clientType: "Agence Voyage",
+    city: "MARIGOT",
+    contacts: [
+      importedContact("Muta", "femme gérant", "0786053934"),
+      importedContact("Thomas", "Gérant", "0687682648")
+    ]
+  },
+  { name: "YKB BRUNO", clientType: "Créatrice", city: "SAINT-BARTHELEMY", contacts: [importedContact("Bruno", "Gérant", "0690533358")] },
+  { name: "PATES ATRA", clientType: "Restaurant", city: "HOPE ESTATE", contacts: [importedContact("Mathilde", "Gérant", "0690705106")] },
+  { name: "POLO LE BOUCHER", clientType: "Restaurant", city: "HOPE ESTATE", contacts: [importedContact("Jessica", "Gérante", "0690222046")] },
+  { name: "DREAM OF TRAIL", clientType: "Association", city: "-", contacts: [importedContact("Quentin", "chargé de goodies", "0690751104")] },
+  { name: "KALATUA RESTAURANT", clientType: "Restaurant", city: "MULLET BAY", contacts: [importedContact("Emmanuelle", "Gérante", "0783652392")] },
+  { name: "INNOVATION MEDICAL CARAIBES", clientType: "Médical", city: "-", contacts: [importedContact("?", "Gérante", "0690485844")] },
+  { name: "SOLEA STUDIO", clientType: "Pole Dance", city: "?", contacts: [importedContact("Adèle", "Gérante", "0690437940")] },
+  { name: "MOOD", clientType: "Restaurant", city: "HOPE ESTATE", contacts: [importedContact("Schmidt", "Gérante", "0620102980")] },
+  { name: "ANNE MODE CONCEPT (KALATUA)", clientType: "Boutique", city: "MULLET BAY", contacts: [importedContact("Anne", "Gérante", "0690298858")] },
+  { name: "OLDA STD", clientType: "", city: "", contacts: [] },
+  { name: "DFR (BUZZ)", clientType: "Boutique", city: "HOPE ESTATE", contacts: [importedContact("Thomas", "Adjoint direction", "0690351641")] },
+  { name: "OFFICE DU TOURISME", clientType: "Office du tourisme", city: "MARIGOT", contacts: [importedContact("Lou", "Responsable goodies", "0690420505")] },
+  { name: "FARWOOD", clientType: "Charpentier", city: "LA SAVANE", contacts: [importedContact("Margo", "Femme du Gérant", "0690096600")] },
+  { name: "SOUALIGA HOMES", clientType: "Conciergerie", city: "GRAND CASE", contacts: [importedContact("Christine", "Gérante", "0690889786")] },
+  { name: "C CLIM", clientType: "Entretien", city: "-", contacts: [importedContact("Bertrand", "Gérant", "0690555018")] },
+  { name: "HAPPY SCHOOL", clientType: "Ecole", city: "GRAND CASE", contacts: [importedContact("Hélène", "Responsable", "0661506224")] },
+  { name: "LE RADEAU BLEU", clientType: "Watersports", city: "ANSE MARCEL", contacts: [importedContact("?", "Gérant", "0691282309")] },
+  { name: "VILLA PRIVILEGE", clientType: "Conciergerie", city: "ANSE MARCEL", contacts: [importedContact("Alisson", "Gérante", "0690348899")] },
+  { name: "OUALICHI GOURMET", clientType: "Boutique", city: "CUL DE SAC", contacts: [importedContact("Alain", "Gérant", "0690172732")] },
+  { name: "WEST INDIES ISLANDER", clientType: "Boutique", city: "MARIGOT", contacts: [importedContact("Fred", "Gérant", "0690445588")] },
+  { name: "CLEAN FOSSES", clientType: "Entretien", city: "-", contacts: [importedContact("Eric", "Gérant", "0690398812")] },
+  { name: "HOTEL JM (KOHO)", clientType: "Hotel", city: "GRAND CASE", contacts: [importedContact("Mathis", "Gérant", "0622361122")] },
+  { name: "JC BAR COMPANY", clientType: "Restaurant", city: "CONCORDIA", contacts: [importedContact("Jordan", "Gérant", "0690219000")] },
+  { name: "LIGUE DE FOOTBALL SM", clientType: "Complexe Sportif", city: "MARIGOT", contacts: [importedContact("Ladislas", "Directeur", "0690374600")] },
+  { name: "CAPTAIN JO", clientType: "Bateau", city: "ANSE MARCEL", contacts: [importedContact("Julie", "Gérante", "0690379173")] },
+  { name: "GRAND CASE BEACH CLUB", clientType: "Hotel", city: "GRAND CASE", contacts: [importedContact("Alexandra", "Gérante", "0690610515")] },
+  { name: "LE CARPACCIO", clientType: "Restaurant", city: "GRAND CASE", contacts: [importedContact("Kévin", "Gérant", "0690505441")] },
+  { name: "100% VILLAS", clientType: "Conciergerie", city: "BAIE NETTLE", contacts: [importedContact("Vinciane", "Resp. Marketing", "0642266949")] },
+  { name: "LA SAMANNA", clientType: "Hotel", city: "BAIE LONGUE", contacts: [importedContact("Eleonore", "Directrice", "12645846212")] },
+  { name: "SOLUTION RESINE", clientType: "Artisan", city: "-", contacts: [importedContact("Guillaume", "Gérant", "0690297282")] },
+  {
+    name: "BOIS ATTITUDE",
+    clientType: "Agenceur",
+    city: "MONT VERNON 1",
+    contacts: [
+      importedContact("Basile", "Fils Gérant", "0690669424"),
+      importedContact("David", "Gérant", "0690246474")
+    ]
+  },
+  { name: "COOL SXM", clientType: "Location", city: "BAIE ORIENTALE", contacts: [importedContact("Patrick", "Gérant", "0699291969")] },
+  { name: "LOVE BOAT", clientType: "Bateau", city: "ANSE MARCEL", contacts: [importedContact("Chris", "Capitaine bateau", "0690183337")] },
+  { name: "TROPICAL RIDE", clientType: "Watersports", city: "BAIE ORIENTALE", contacts: [importedContact("Léa", "Gérante", "0690371349")] },
+  { name: "KEN BROKER", clientType: "Agence immobilière", city: "GRAND CASE", contacts: [importedContact("Ken", "Gérant", "0690888333")] },
+  { name: "CSTL", clientType: "Plombier", city: "-", contacts: [importedContact("Max", "Gérant", "0690522588")] },
+  {
+    name: "LE MARTIN",
+    clientType: "Hotel",
+    city: "CUL DE SAC",
+    contacts: [
+      importedContact("Marion", "Gérante", "0690565376", "info@lemartinhotel.com"),
+      importedContact("Emmanuel", "Gérant", "0690358528", "info@lemartinhotel.com")
+    ]
+  },
+  { name: "LLPM", clientType: "Conciergerie", city: "?", contacts: [importedContact("Chelsea", "Assistante Direction", "0690633449")] },
+  { name: "CREOL ROCK WATERSPORTS", clientType: "Boutique", city: "GRAND CASE", contacts: [importedContact("Jérôme", "Gérant", "0690565056")] },
+  { name: "CANONICA", clientType: "Boutique", city: "Aéroport Princesse Juliana", contacts: [importedContact("", "Responsable")] },
+  {
+    name: "BLUE MARTINI",
+    clientType: "Restaurant",
+    city: "GRAND CASE",
+    contacts: [
+      importedContact("Victor", "Gérant"),
+      importedContact("Martin", "Gérant")
+    ]
+  },
+  { name: "SOUALIGA ELEVATOR", clientType: "Artisan", city: "-", contacts: [importedContact("Benoît", "Gérant")] },
+  { name: "TWENTY TWO", clientType: "Boutique", city: "-", contacts: [importedContact("Hélia", "Gérante")] },
+  {
+    name: "Atelier Agencement",
+    clientType: "Agenceur",
+    city: "HOPE ESTATE",
+    contacts: [
+      importedContact("Gaëtan", "Resp. Site"),
+      importedContact("Gaylord", "Gérant")
+    ]
+  },
+  { name: "LA CIGALE", clientType: "Restaurant", city: "BAIE NETTLE", contacts: [importedContact("", "", "", "restaurantlacigale@gmail.com")] },
+  { name: "ARAWAK CHARTER BOAT", clientType: "Bateau", city: "ANSE MARCEL", contacts: [importedContact("", "", "0690502521", "contact@arawakcharters.com")] }
+].map((client) => ({
+  postalCode: "",
+  createdAt: IMPORTED_CLIENT_DATE,
+  ...client
+}));
+const IMPORTED_CUSTOMER_ORDERS = [
+  { orderType: "", urgency: "Moyenne", clientName: "Cool SXM", zone: "Textile", quantity: 0, note: "Devis + Maquette drapeau", deliveryDate: "2026-03-20", status: "Attente validation", assignedTo: "M" },
+  { orderType: "", urgency: "Moyenne", clientName: "la chingona", zone: "DTF", quantity: 55, note: "Devis pour DTF objet client la chingona hauteur 110 / faire devis sans la pose.", deliveryDate: "", status: "À deviser", assignedTo: "L" },
+  { orderType: "", urgency: "Moyenne", clientName: "Sea You", zone: "Textile", quantity: 150, note: "CROP TOP", deliveryDate: "", status: "À facturer", assignedTo: "L" },
+  { orderType: "", urgency: "Moyenne", clientName: "Sea You", zone: "Textile", quantity: 15, note: "LYCRA 5 S / 5 M / 5 L TOR-04", deliveryDate: "", status: "À facturer", assignedTo: "L" },
+  { orderType: "", urgency: "Moyenne", clientName: "Soualiga Elevator", zone: "Goodies", quantity: 50, note: "sticker 100 x 100", deliveryDate: "", status: "Attente validation", assignedTo: "L" },
+  { orderType: "", urgency: "Moyenne", clientName: "Villa Riviera", zone: "Textile", quantity: 0, note: "F-006 + Polo K240 + K239", deliveryDate: "2026-03-20", status: "Attente marchandise", assignedTo: "M" },
+  { orderType: "", urgency: "Moyenne", clientName: "Karibuni restaurant", zone: "Textile", quantity: 60, note: "H-001 Almond Green", deliveryDate: "2026-03-20", status: "Attente marchandise", assignedTo: "M" },
+  { orderType: "", urgency: "Moyenne", clientName: "Ocean 82 Djaya", zone: "Gravure", quantity: 5, note: "Gravure sur socle de bougie", deliveryDate: "2026-03-11", status: "Attente validation", assignedTo: "L" },
+  { orderType: "", urgency: "Moyenne", clientName: "HD Factory", zone: "Textile", quantity: 20, note: "K3025IC gris foncé", deliveryDate: "2026-04-01", status: "Attente validation", assignedTo: "M" },
+  { orderType: "", urgency: "Moyenne", clientName: "HD Factory", zone: "Goodies", quantity: 0, note: "Deviser liste de goodies", deliveryDate: "2026-04-01", status: "À deviser", assignedTo: "L" },
+  { orderType: "", urgency: "Moyenne", clientName: "Villa Kyanéa", zone: "Gravure", quantity: 0, note: "Panneau entrée seulement lettre", deliveryDate: "2026-03-13", status: "Manque information", assignedTo: "M" },
+  { orderType: "", urgency: "Moyenne", clientName: "Le Martin", zone: "Impression", quantity: 0, note: "PC plexi - logo + nom et n° de chambre", deliveryDate: "2026-03-16", status: "Manque information", assignedTo: "M" },
+  { orderType: "", urgency: "Moyenne", clientName: "SAS Les Jardiniers", zone: "Textile", quantity: 50, note: "K3025 Gris", deliveryDate: "2026-04-03", status: "Attente marchandise", assignedTo: "M" },
+  { orderType: "", urgency: "Moyenne", clientName: "Radeau Bleu", zone: "Textile", quantity: 2, note: "Logo Radeau Bleu rose bébé", deliveryDate: "2026-03-11", status: "Client prévenu", assignedTo: "M" },
+  { orderType: "", urgency: "Moyenne", clientName: "Achille", zone: "Textile", quantity: 2, note: "Logo Aloha x2 320mm", deliveryDate: "2026-03-18", status: "Maquette à faire", assignedTo: "L" },
+  { orderType: "PRO", urgency: "Moyenne", clientName: "N Sea Stem", zone: "Textile", quantity: 0, note: "", deliveryDate: "", status: "Client prévenu", assignedTo: "L" },
+  { orderType: "PRO", urgency: "Moyenne", clientName: "Cool Sxm", zone: "Textile", quantity: 0, note: "Drapeau", deliveryDate: "", status: "En production", assignedTo: "C" },
+  { orderType: "PRO", urgency: "Moyenne", clientName: "Soualiga Elevator", zone: "Textile", quantity: 0, note: "sweet", deliveryDate: "", status: "À produire", assignedTo: "L" },
+  { orderType: "PRO", urgency: "Moyenne", clientName: "Soualiga Elevator", zone: "Textile", quantity: 16, note: "t-shirt pro", deliveryDate: "", status: "Prévenir client", assignedTo: "L" },
+  { orderType: "PERSO", urgency: "Moyenne", clientName: "Julien Pharmacie", zone: "Textile", quantity: 0, note: "Tote bag", deliveryDate: "", status: "À deviser", assignedTo: "L" },
+  { orderType: "PRO", urgency: "Moyenne", clientName: "Blackswan Sbh", zone: "Impression", quantity: 0, note: "", deliveryDate: "", status: "À préparer", assignedTo: "L" },
+  { orderType: "PRO", urgency: "Moyenne", clientName: "Caribbean Luxury", zone: "Goodies", quantity: 0, note: "attente arrivé marchandise", deliveryDate: "", status: "À deviser", assignedTo: "L" },
+  { orderType: "PRO", urgency: "Moyenne", clientName: "The Friendly Books", zone: "Impression", quantity: 0, note: "", deliveryDate: "", status: "À produire", assignedTo: "L" },
+  { orderType: "PERSO", urgency: "Moyenne", clientName: "Raid Des Gendarme", zone: "Impression", quantity: 0, note: "Bon cadeau", deliveryDate: "2026-05-01", status: "À préparer", assignedTo: "L" },
+  { orderType: "PRO", urgency: "Moyenne", clientName: "100 % Villas", zone: "Gravure", quantity: 0, note: "enseigne", deliveryDate: "", status: "À deviser", assignedTo: "L" },
+  { orderType: "PRO", urgency: "Moyenne", clientName: "Oceano Immo", zone: "Gravure", quantity: 0, note: "enseigne", deliveryDate: "", status: "À deviser", assignedTo: "L" },
+  { orderType: "PERSO", urgency: "Moyenne", clientName: "Patrice", zone: "Textile", quantity: 0, note: "Casquette", deliveryDate: "", status: "Attente validation", assignedTo: "M" },
+  { orderType: "PERSO", urgency: "Moyenne", clientName: "Vincent", zone: "Gravure", quantity: 20, note: "4.50 euros / 1", deliveryDate: "", status: "À produire", assignedTo: "L" },
+  { orderType: "", urgency: "Basse", clientName: "Eddy Couteaux", zone: "Gravure", quantity: 0, note: "x20 couteaux", deliveryDate: "2026-03-31", status: "À deviser", assignedTo: "C" },
+  { orderType: "", urgency: "Haute", clientName: "Guymamalou", zone: "Gravure", quantity: 0, note: "", deliveryDate: "", status: "À deviser", assignedTo: "C" },
+  { orderType: "", urgency: "Haute", clientName: "Jessica", zone: "Gravure", quantity: 0, note: "1x Verre Ti-punch", deliveryDate: "", status: "Terminé", assignedTo: "M" },
+  { orderType: "PRO", urgency: "Haute", clientName: "Intérieur Design", zone: "Textile", quantity: 0, note: "", deliveryDate: "", status: "À deviser", assignedTo: "L" },
+  { orderType: "PRO", urgency: "Haute", clientName: "Karibuni", zone: "Textile", quantity: 12, note: "", deliveryDate: "", status: "À monter/nettoyer", assignedTo: "R" },
+  { orderType: "PRO", urgency: "Haute", clientName: "3sp", zone: "Textile", quantity: 0, note: "Polo entreprise + enfant", deliveryDate: "", status: "Prévenir client", assignedTo: "M" },
+  { orderType: "PRO", urgency: "Haute", clientName: "Iguana Fitness", zone: "Textile", quantity: 0, note: "Sur mesure", deliveryDate: "", status: "À produire", assignedTo: "L" },
+  { orderType: "PRO", urgency: "Haute", clientName: "Shima", zone: "Gravure", quantity: 0, note: "Tasses", deliveryDate: "2026-03-19", status: "À produire", assignedTo: "C" },
+  { orderType: "", urgency: "Moyenne", clientName: "AFS", zone: "Textile", quantity: 0, note: "x50 T-shirts", deliveryDate: "", status: "Maquette à faire", assignedTo: "L" },
+  { orderType: "", urgency: "Moyenne", clientName: "Estelle", zone: "Gravure", quantity: 0, note: "Devis pour PC", deliveryDate: "", status: "À deviser", assignedTo: "M" },
+  { orderType: "", urgency: "Moyenne", clientName: "Ligue De Football SXM", zone: "Gravure", quantity: 0, note: "", deliveryDate: "", status: "Client prévenu", assignedTo: "M" },
+  { orderType: "", urgency: "Moyenne", clientName: "Watt sun Fabrice", zone: "Textile", quantity: 25, note: "H-012 Navy x5 + Noir x5 L / H-014 Blanc x10", deliveryDate: "", status: "À deviser", assignedTo: "M" },
+  { orderType: "", urgency: "Moyenne", clientName: "SOTHEBYS", zone: "Gravure", quantity: 50, note: "Plateau en chene", deliveryDate: "", status: "Attente validation", assignedTo: "L" }
+];
+const TEAM_NOTE_DEFAULT_ITEMS = {
+  Loic: [
+    "100 % villa",
+    "Jennifer Cadiso (appeler de la part de Valentines) elle s'occupe des achat cadisco 0690220275",
+    "Mardi pro absent Dentiste + rdv david casquettes",
+    "Projet SBH",
+    "Faire test impression UV magnet OLDA",
+    "Laetitia BILAN",
+    "Voir beach life pour passer en facture les t-shirts en depot",
+    "camera yohan",
+    "Amandine Vista print",
+    "Creer message type pour demande 50% acompte",
+    "point charlie script",
+    "Icon + Billie RDV t-shirts",
+    "point toptex tarif"
+  ],
+  Charlie: [
+    "Pancarte Atelier voir amandine",
+    "Nettoyer PC melina",
+    "Onduleur fournisseur",
+    "Contacter TROTEC",
+    "Point sur Logiciel UV"
+  ],
+  Melina: [
+    "Mettre les nouveaux achats dans le stock sheet",
+    "EBP 3+1 a rentrer",
+    "Reorganiser Boutique",
+    "Faire le point Loic et Charlie devis",
+    "Propre Shop",
+    "Casquette d'assur visio",
+    "Voir stock pour toptex bateau",
+    "Finir commande T-shirts Homme",
+    "Faire commande T-shirts Femme"
+  ],
+  Amandine: [
+    "video contenu The friendly books",
+    "Carte cadeau 20 30 50 euros"
+  ]
+};
+
+const seed = {
+  teamNotes: TEAM_NOTE_MEMBERS.map((name, index) => ({
+    id: index + 1,
+    name,
+    summary: "",
+    items: [],
+    updatedAt: ""
+  })),
+  clients: [
+    {
+      id: 1,
+      name: "Hotel Rive Sud",
+      postalCode: "97150",
+      city: "Saint-Martin",
+      createdAt: "2026-03-02",
+      contacts: [
+        { id: 1, name: "Maya Henry", role: "Direction", phone: "0690 10 02 18", email: "maya@rivesud.com" },
+        { id: 2, name: "Noah Bryan", role: "Marketing", phone: "0690 90 22 14", email: "noah@rivesud.com" }
+      ]
+    },
+    {
+      id: 2,
+      name: "Festival Moko",
+      postalCode: "97150",
+      city: "Grand Case",
+      createdAt: "2026-03-04",
+      contacts: [
+        { id: 3, name: "Clara Joseph", role: "Production event", phone: "0690 31 77 19", email: "clara@moko.fm" }
+      ]
+    },
+    {
+      id: 3,
+      name: "Maison Ledor",
+      postalCode: "97150",
+      city: "Marigot",
+      createdAt: "2026-03-06",
+      contacts: [
+        { id: 4, name: "Leo Mercier", role: "Gerant", phone: "0690 55 21 44", email: "leo@ledor.st" }
+      ]
+    }
+  ],
+  dtfRequests: [
+    {
+      id: 1,
+      clientId: 3,
+      clientName: "Maison Ledor",
+      dimensions: "28 x 34 cm",
+      logoPlacement: "AV",
+      designName: "Palm Sunset",
+      size: "M",
+      color: "Noir",
+      technicalNote: "10/12 ans",
+      quantity: 24,
+      status: "draft",
+      archivedAt: "",
+      createdAt: "2026-03-13"
+    },
+    {
+      id: 2,
+      clientId: 2,
+      clientName: "Festival Moko",
+      dimensions: "32 x 40 cm",
+      logoPlacement: "AV",
+      designName: "Moko Crew",
+      size: "XL",
+      color: "Blanc",
+      technicalNote: "Serie principale",
+      quantity: 48,
+      status: "validated",
+      archivedAt: "",
+      createdAt: "2026-03-12"
+    },
+    {
+      id: 3,
+      clientId: 1,
+      clientName: "Hotel Rive Sud",
+      dimensions: "18 x 12 cm",
+      logoPlacement: "AV",
+      designName: "Welcome Pack",
+      size: "Unique",
+      color: "Sable",
+      technicalNote: "Pose poitrine",
+      quantity: 12,
+      status: "archived",
+      archivedAt: "2026-03-10",
+      createdAt: "2026-03-09"
+    }
+  ],
+  customerOrders: [],
+  textileOrders: [
+    {
+      id: 1,
+      clientId: 2,
+      supplier: "Toptex",
+      brand: "Native Spirit",
+      gender: "Mixte",
+      designation: "T-shirt premium",
+      catalogReference: "NS300",
+      color: "Ecru",
+      size: "L",
+      quantity: 30,
+      deliveryStatus: "maritime",
+      sessionLabel: "Festival avril",
+      expectedDate: "2026-03-25",
+      archivedAt: "",
+      createdAt: "2026-03-11"
+    },
+    {
+      id: 2,
+      clientId: 3,
+      supplier: "Toptex",
+      brand: "Westford Mill",
+      gender: "Mixte",
+      designation: "Tote bag",
+      catalogReference: "WM101",
+      color: "Naturel",
+      size: "Unique",
+      quantity: 80,
+      deliveryStatus: "pending",
+      sessionLabel: "Ledor mars",
+      expectedDate: "2026-03-21",
+      archivedAt: "",
+      createdAt: "2026-03-12"
+    },
+    {
+      id: 3,
+      clientId: 1,
+      supplier: "Wordans",
+      brand: "Gildan",
+      gender: "Mixte",
+      designation: "Polo",
+      catalogReference: "GD72800",
+      color: "Marine",
+      size: "M",
+      quantity: 15,
+      deliveryStatus: "received",
+      sessionLabel: "Hotel staff",
+      expectedDate: "2026-03-14",
+      archivedAt: "",
+      createdAt: "2026-03-08"
+    },
+  ],
+  purchaseItems: DEFAULT_PURCHASE_ITEMS.map((item, index) => ({
+    id: index + 1,
+    zone: item.zone,
+    label: item.label,
+    quantity: 1,
+    checked: item.checked,
+    createdAt: "2026-03-17"
+  })),
+  productionItems: [],
+  workshopTasks: DEFAULT_WORKSHOP_TASKS.map((task, index) => ({
+    id: index + 1,
+    group: task.group,
+    label: task.label,
+    checked: false,
+    recurring: task.recurring,
+    createdAt: "2026-03-17"
+  })),
+  improvementItems: []
+};
+
+const state = {
+  view: "planning",
+  search: "",
+  expandedClients: new Set(),
+  selectedDtfIds: new Set(),
+  selectedOrderId: null,
+  orderAssigneeFilter: "",
+  orderZoneFilter: "",
+  showDtfArchives: false,
+  showOrderArchives: false,
+  showTextileArchives: false,
+  textileSort: { key: "expectedDate", direction: "asc" },
+  activeSheetAction: null,
+  activeOrderId: null,
+  activeDtfId: null,
+  activeTextileId: null,
+  activePurchaseId: null,
+  activeWorkshopTaskId: null,
+  activeImprovementId: null,
+  activeClientId: null,
+  activeTeamNoteEdit: null,
+  toastTimer: null,
+  storageRecoveryMessage: ""
+};
+
+const loadResult = loadDb();
+let db = loadResult.data;
+db.teamNotes = normalizeTeamNotes(db.teamNotes);
+const importedOrdersAdded = mergeImportedCustomerOrders();
+const duplicateOrdersRemoved = dedupeCustomerOrdersInPlace();
+if (importedOrdersAdded || duplicateOrdersRemoved) {
+  persistDb();
+}
+state.storageRecoveryMessage = loadResult.recoveryMessage;
+
+const refs = {
+  menuLinks: [...document.querySelectorAll(".menu-link")],
+  pageEyebrow: document.querySelector("#pageEyebrow"),
+  pageTitle: document.querySelector("#pageTitle"),
+  pageIntro: document.querySelector("#pageIntro"),
+  globalSearch: document.querySelector("#globalSearch"),
+  primaryActionButton: document.querySelector("#primaryActionButton"),
+  statusStrip: document.querySelector("#statusStrip"),
+  viewRoot: document.querySelector("#viewRoot"),
+  sheetDialog: document.querySelector("#sheetDialog"),
+  sheetForm: document.querySelector("#sheetForm"),
+  sheetEyebrow: document.querySelector("#sheetEyebrow"),
+  sheetTitle: document.querySelector("#sheetTitle"),
+  sheetBody: document.querySelector("#sheetBody"),
+  submitSheetButton: document.querySelector("#submitSheetButton"),
+  closeSheetButton: document.querySelector("#closeSheetButton"),
+  cancelSheetButton: document.querySelector("#cancelSheetButton"),
+  toast: document.querySelector("#toast")
+};
+
+let renderQueued = false;
+let pendingRender = {
+  header: true,
+  status: true,
+  view: true,
+  transition: false
+};
+
+init();
+
+function init() {
+  bindGlobalErrorHandlers();
+  bindEvents();
+  requestRender();
+
+  if (state.storageRecoveryMessage) {
+    showToast(state.storageRecoveryMessage);
+  }
+}
+
+function bindGlobalErrorHandlers() {
+  window.addEventListener("error", (event) => {
+    handleFatalUiError(event.error || new Error(event.message || "Erreur interface"));
+  });
+
+  window.addEventListener("unhandledrejection", (event) => {
+    handleFatalUiError(event.reason || new Error("Promesse non geree"));
+  });
+}
+
+function handleFatalUiError(error) {
+  console.error(error);
+
+  const message = "Une erreur critique est survenue. Recharge la page.";
+  refs.statusStrip.hidden = true;
+  refs.statusStrip.innerHTML = "";
+  refs.viewRoot.innerHTML = `
+    <section class="module-layout">
+      <article class="placeholder-card">
+        <p class="module-kicker">Erreur</p>
+        <strong>Le module a rencontre un probleme.</strong>
+        <p>${escapeHtml(message)}</p>
+      </article>
+    </section>
+  `;
+  showToast(message);
+}
+
+function bindEvents() {
+  refs.menuLinks.forEach((button) => {
+    button.addEventListener("click", () => {
+      state.view = button.dataset.view;
+      state.search = "";
+      state.selectedDtfIds.clear();
+      state.selectedOrderId = null;
+      state.orderAssigneeFilter = "";
+      state.orderZoneFilter = "";
+      state.showOrderArchives = false;
+      refs.globalSearch.value = "";
+      requestRender({ transition: true });
+    });
+  });
+
+  refs.globalSearch.addEventListener("input", (event) => {
+    state.search = event.target.value.trim().toLowerCase();
+    requestRender({ header: false, status: true, view: true });
+  });
+
+  refs.primaryActionButton.addEventListener("click", () => {
+    if (!views[state.view].primaryAction) {
+      return;
+    }
+
+    openSheet(views[state.view].primaryAction);
+  });
+
+  refs.closeSheetButton.addEventListener("click", closeSheet);
+  refs.cancelSheetButton.addEventListener("click", closeSheet);
+  refs.sheetForm.addEventListener("submit", handleSheetSubmit);
+  refs.sheetForm.addEventListener("input", handleSheetDraftInput);
+  refs.sheetForm.addEventListener("change", handleSheetDraftInput);
+
+  refs.viewRoot.addEventListener("click", handleRootClick);
+  refs.viewRoot.addEventListener("input", handleRootInput);
+  refs.viewRoot.addEventListener("dblclick", handleRootDoubleClick);
+  refs.viewRoot.addEventListener("keydown", handleRootKeyDown);
+  refs.viewRoot.addEventListener("change", handleRootChange);
+  refs.viewRoot.addEventListener("submit", handleRootSubmit);
+}
+
+function handleRootClick(event) {
+  const target = event.target;
+  const actionNode = target.closest("[data-action]");
+
+  if (actionNode) {
+    const { action } = actionNode.dataset;
+    const id = Number(actionNode.dataset.id);
+
+    if (action === "toggle-client") {
+      if (state.expandedClients.has(id)) {
+        state.expandedClients.delete(id);
+      } else {
+        state.expandedClients.add(id);
+      }
+      requestRender({ header: false, status: false, view: true });
+      return;
+    }
+
+    if (action === "toggle-team-note-item") {
+      const noteId = Number(actionNode.dataset.noteId);
+      const itemId = Number(actionNode.dataset.itemId);
+      const note = db.teamNotes.find((item) => item.id === noteId);
+      const entry = note?.items.find((item) => item.id === itemId);
+      if (!entry) {
+        return;
+      }
+
+      entry.checked = !entry.checked;
+      note.updatedAt = isoToday();
+      persistDb();
+      requestRender({ header: false, status: true, view: true });
+      return;
+    }
+
+    if (action === "delete-team-note-item") {
+      const noteId = Number(actionNode.dataset.noteId);
+      const itemId = Number(actionNode.dataset.itemId);
+      const note = db.teamNotes.find((item) => item.id === noteId);
+      if (!note) {
+        return;
+      }
+
+      note.items = note.items.filter((item) => item.id !== itemId);
+      if (state.activeTeamNoteEdit === teamNoteEditKey(noteId, itemId)) {
+        state.activeTeamNoteEdit = null;
+      }
+      note.updatedAt = isoToday();
+      persistDb();
+      requestRender({ header: false, status: true, view: true });
+      return;
+    }
+
+    if (action === "edit-team-note-item") {
+      const noteId = Number(actionNode.dataset.noteId);
+      const itemId = Number(actionNode.dataset.itemId);
+      startEditingTeamNoteItem(noteId, itemId);
+      return;
+    }
+
+    if (action === "toggle-dtf-archives") {
+      state.showDtfArchives = !state.showDtfArchives;
+      state.selectedDtfIds.clear();
+      requestRender({ transition: true });
+      return;
+    }
+
+    if (action === "toggle-textile-archives") {
+      state.showTextileArchives = !state.showTextileArchives;
+      requestRender({ transition: true });
+      return;
+    }
+
+    if (action === "complete-order-mockup") {
+      const order = db.customerOrders.find((item) => item.id === id);
+      if (!order) {
+        return;
+      }
+
+      const shouldCreateDtf = normalizeOrderZone(order.zone) === "Textiles";
+      order.mockupCompletedAt = isoNow();
+      if (order.status === "Maquette à faire") {
+        order.status = "Attente validation";
+      }
+      if (shouldCreateDtf) {
+        createDtfFromTextileOrder(order);
+      }
+      persistDb();
+      requestRender({ header: false, status: true, view: true });
+      showToast(shouldCreateDtf ? "Maquette terminee. Demande DTF ajoutee." : "Maquette commande terminee.");
+      return;
+    }
+
+    if (action === "complete-dtf-mockup") {
+      const dtf = db.dtfRequests.find((item) => item.id === id);
+      if (!dtf) {
+        return;
+      }
+
+      dtf.needsMockup = false;
+      dtf.mockupCompletedAt = isoNow();
+      persistDb();
+      requestRender({ header: false, status: true, view: true });
+      showToast("Maquette DTF terminee.");
+      return;
+    }
+
+    if (action === "toggle-order-archives") {
+      state.showOrderArchives = !state.showOrderArchives;
+      state.selectedOrderId = null;
+      requestRender({ transition: true });
+      return;
+    }
+
+    if (action === "duplicate-dtf") {
+      duplicateDtfItems([...state.selectedDtfIds]);
+      return;
+    }
+
+    if (action === "validate-dtf") {
+      updateDtfStatus([...state.selectedDtfIds], "validated");
+      return;
+    }
+
+    if (action === "archive-dtf") {
+      archiveDtfItems([...state.selectedDtfIds], !state.showDtfArchives);
+      return;
+    }
+
+    if (action === "delete-dtf") {
+      deleteDtfItems([...state.selectedDtfIds]);
+      return;
+    }
+
+    if (action === "delete-single-dtf") {
+      deleteDtfItems([id]);
+      return;
+    }
+
+    if (action === "archive-single-dtf") {
+      archiveDtfItems([id], true);
+      return;
+    }
+
+    if (action === "restore-single-dtf") {
+      archiveDtfItems([id], false);
+      return;
+    }
+
+    if (action === "sort-textile") {
+      toggleTextileSort(actionNode.dataset.key);
+      requestRender({ header: false, status: false, view: true });
+      return;
+    }
+
+    if (action === "archive-textile") {
+      archiveTextileOrder(id, true);
+      return;
+    }
+
+    if (action === "restore-textile") {
+      archiveTextileOrder(id, false);
+      return;
+    }
+
+    if (action === "delete-textile") {
+      db.textileOrders = db.textileOrders.filter((item) => item.id !== id);
+      persistDb();
+      requestRender({ header: false, status: true, view: true });
+      showToast("Commande textile supprimee.");
+      return;
+    }
+
+    if (action === "delete-purchase") {
+      db.purchaseItems = db.purchaseItems.filter((item) => item.id !== id);
+      persistDb();
+      requestRender();
+      showToast("Article supprime.");
+      return;
+    }
+
+    if (action === "delete-task") {
+      db.workshopTasks = db.workshopTasks.filter((item) => item.id !== id);
+      persistDb();
+      requestRender();
+      showToast("Tache supprimee.");
+      return;
+    }
+
+    if (action === "delete-improvement") {
+      db.improvementItems = db.improvementItems.filter((item) => item.id !== id);
+      persistDb();
+      requestRender();
+      showToast("Remontee supprimee.");
+      return;
+    }
+
+    if (action === "increase-production-quantity") {
+      const item = db.productionItems.find((entry) => entry.id === id);
+      if (!item) {
+        return;
+      }
+
+      item.prints.push({
+        id: nextId(item.prints),
+        checked: false
+      });
+      item.updatedAt = isoNow();
+      persistDb();
+      requestRender({ header: false, status: true, view: true });
+      return;
+    }
+
+    if (action === "decrease-production-quantity") {
+      const item = db.productionItems.find((entry) => entry.id === id);
+      if (!item) {
+        return;
+      }
+
+      if (item.prints.length <= 1) {
+        return;
+      }
+
+      const removable = [...item.prints].reverse().find((print) => !print.checked) ?? item.prints[item.prints.length - 1];
+      item.prints = item.prints.filter((print) => print.id !== removable.id);
+      item.updatedAt = isoNow();
+      persistDb();
+      requestRender({ header: false, status: true, view: true });
+      return;
+    }
+
+    if (action === "delete-production-item") {
+      db.productionItems = db.productionItems.filter((item) => item.id !== id);
+      persistDb();
+      requestRender({ header: false, status: true, view: true });
+      showToast("Ligne production supprimee.");
+      return;
+    }
+
+    if (action === "filter-order-assignee") {
+      state.orderAssigneeFilter = state.orderAssigneeFilter === actionNode.dataset.assignee ? "" : String(actionNode.dataset.assignee ?? "");
+      requestRender({ header: false, status: true, view: true });
+      return;
+    }
+
+    if (action === "clear-order-assignee-filter") {
+      state.orderAssigneeFilter = "";
+      requestRender({ header: false, status: true, view: true });
+      return;
+    }
+
+    if (action === "assign-order") {
+      const order = db.customerOrders.find((item) => item.id === id);
+      if (!order) {
+        return;
+      }
+
+      const assignee = String(actionNode.dataset.assignee ?? "");
+      order.assignedTo = assignee;
+      persistDb();
+      requestRender({ header: false, status: false, view: true });
+      return;
+    }
+
+    if (action === "archive-order") {
+      db.customerOrders = db.customerOrders.map((item) => (
+        item.id === id ? { ...item, archivedAt: isoToday() } : item
+      ));
+      if (state.selectedOrderId === id) {
+        state.selectedOrderId = null;
+      }
+      persistDb();
+      requestRender({ header: false, status: true, view: true });
+      showToast("Commande archivee.");
+      return;
+    }
+
+    if (action === "restore-order") {
+      db.customerOrders = db.customerOrders.map((item) => (
+        item.id === id ? { ...item, archivedAt: "" } : item
+      ));
+      persistDb();
+      requestRender({ header: false, status: true, view: true });
+      showToast("Commande restauree.");
+      return;
+    }
+
+    if (action === "delete-order") {
+      db.customerOrders = db.customerOrders.filter((item) => item.id !== id);
+      if (state.selectedOrderId === id) {
+        state.selectedOrderId = null;
+      }
+      persistDb();
+      requestRender({ header: false, status: true, view: true });
+      showToast("Commande supprimee.");
+      return;
+    }
+  }
+
+  if (!["planning", "clients", "dtf", "textile", "purchase", "workshop", "improvements"].includes(state.view)) {
+    return;
+  }
+
+  const interactiveNode = target.closest("button, input, select, textarea, a, label");
+  if (interactiveNode) {
+    return;
+  }
+
+  if (state.view === "planning") {
+    const row = target.closest("[data-order-id]");
+    if (!row) {
+      return;
+    }
+
+    const orderId = Number(row.dataset.orderId);
+    selectOrderRow(orderId, { render: false });
+    openSheet("editOrder", { id: orderId });
+    return;
+  }
+
+  if (state.view === "clients") {
+    const row = target.closest("[data-client-id]");
+    if (!row) {
+      return;
+    }
+
+    openSheet("editClient", { id: Number(row.dataset.clientId) });
+    return;
+  }
+
+  if (state.view === "textile") {
+    const row = target.closest("[data-textile-id]");
+    if (!row) {
+      return;
+    }
+
+    openSheet("editTextileOrder", { id: Number(row.dataset.textileId) });
+    return;
+  }
+
+  if (state.view === "purchase") {
+    const row = target.closest("[data-purchase-id]");
+    if (!row) {
+      return;
+    }
+
+    openSheet("editPurchaseItem", { id: Number(row.dataset.purchaseId) });
+    return;
+  }
+
+  if (state.view === "workshop") {
+    const row = target.closest("[data-workshop-task-id]");
+    if (!row) {
+      return;
+    }
+
+    openSheet("editWorkshopTask", { id: Number(row.dataset.workshopTaskId) });
+    return;
+  }
+
+  if (state.view === "improvements") {
+    const row = target.closest("[data-improvement-id]");
+    if (!row) {
+      return;
+    }
+
+    openSheet("editImprovementItem", { id: Number(row.dataset.improvementId) });
+    return;
+  }
+
+  const row = target.closest("[data-dtf-id]");
+  if (!row) {
+    return;
+  }
+
+  openSheet("editDtf", { id: Number(row.dataset.dtfId) });
+}
+
+function handleRootDoubleClick(event) {
+  if (!["planning", "clients", "dtf", "textile", "purchase", "workshop", "improvements"].includes(state.view)) {
+    return;
+  }
+
+  const interactiveNode = event.target.closest("button, input, select, textarea, a, label");
+  if (interactiveNode) {
+    return;
+  }
+
+  if (state.view === "planning") {
+    const row = event.target.closest("[data-order-id]");
+    if (!row) {
+      return;
+    }
+
+    const orderId = Number(row.dataset.orderId);
+    selectOrderRow(orderId, { render: false });
+    openSheet("editOrder", { id: orderId });
+    return;
+  }
+
+  if (state.view === "clients") {
+    const row = event.target.closest("[data-client-id]");
+    if (!row) {
+      return;
+    }
+
+    openSheet("editClient", { id: Number(row.dataset.clientId) });
+    return;
+  }
+
+  if (state.view === "textile") {
+    const row = event.target.closest("[data-textile-id]");
+    if (!row) {
+      return;
+    }
+
+    openSheet("editTextileOrder", { id: Number(row.dataset.textileId) });
+    return;
+  }
+
+  if (state.view === "purchase") {
+    const row = event.target.closest("[data-purchase-id]");
+    if (!row) {
+      return;
+    }
+
+    openSheet("editPurchaseItem", { id: Number(row.dataset.purchaseId) });
+    return;
+  }
+
+  if (state.view === "workshop") {
+    const row = event.target.closest("[data-workshop-task-id]");
+    if (!row) {
+      return;
+    }
+
+    openSheet("editWorkshopTask", { id: Number(row.dataset.workshopTaskId) });
+    return;
+  }
+
+  if (state.view === "improvements") {
+    const row = event.target.closest("[data-improvement-id]");
+    if (!row) {
+      return;
+    }
+
+    openSheet("editImprovementItem", { id: Number(row.dataset.improvementId) });
+    return;
+  }
+
+  const row = event.target.closest("[data-dtf-id]");
+  if (!row) {
+    return;
+  }
+
+  openSheet("editDtf", { id: Number(row.dataset.dtfId) });
+}
+
+function handleRootKeyDown(event) {
+  if (event.key !== "Enter" || !["planning", "clients", "textile", "purchase", "workshop", "improvements"].includes(state.view)) {
+    return;
+  }
+
+  event.preventDefault();
+
+  if (state.view === "planning") {
+    const row = event.target.closest("[data-order-id]");
+    if (!row) {
+      return;
+    }
+
+    const orderId = Number(row.dataset.orderId);
+    selectOrderRow(orderId, { render: false });
+    openSheet("editOrder", { id: orderId });
+    return;
+  }
+
+  if (state.view === "clients") {
+    const row = event.target.closest("[data-client-id]");
+    if (!row) {
+      return;
+    }
+
+    openSheet("editClient", { id: Number(row.dataset.clientId) });
+    return;
+  }
+
+  if (state.view === "textile") {
+    const row = event.target.closest("[data-textile-id]");
+    if (!row) {
+      return;
+    }
+
+    openSheet("editTextileOrder", { id: Number(row.dataset.textileId) });
+    return;
+  }
+
+  if (state.view === "purchase") {
+    const row = event.target.closest("[data-purchase-id]");
+    if (!row) {
+      return;
+    }
+
+    openSheet("editPurchaseItem", { id: Number(row.dataset.purchaseId) });
+    return;
+  }
+
+  if (state.view === "workshop") {
+    const row = event.target.closest("[data-workshop-task-id]");
+    if (!row) {
+      return;
+    }
+
+    openSheet("editWorkshopTask", { id: Number(row.dataset.workshopTaskId) });
+    return;
+  }
+
+  const row = event.target.closest("[data-improvement-id]");
+  if (!row) {
+    return;
+  }
+
+  openSheet("editImprovementItem", { id: Number(row.dataset.improvementId) });
+}
+
+function handleRootInput(event) {
+  const target = event.target;
+
+  if (target.name === "team-note-edit-label") {
+    autosizeTextarea(target);
+    syncTeamNoteItemInput(
+      Number(target.dataset.noteId),
+      Number(target.dataset.itemId),
+      String(target.value ?? "")
+    );
+  }
+
+  if (target.name === "team-note-summary") {
+    autosizeTextarea(target);
+    syncTeamNoteSummary(
+      Number(target.dataset.noteId),
+      String(target.value ?? "")
+    );
+  }
+}
+
+function handleSheetDraftInput(event) {
+  const target = event?.target;
+
+  if (target?.name === "designPreset") {
+    const presetValue = String(target.value ?? "").trim();
+    const designInput = refs.sheetForm.elements.namedItem("designName");
+    if (designInput instanceof HTMLInputElement) {
+      designInput.value = presetValue;
+    }
+  }
+
+  if (target?.name === "zone") {
+    syncOrderMockupField();
+  }
+
+  persistSheetDraft();
+}
+
+function handleRootChange(event) {
+  const target = event.target;
+
+  if (target.name === "team-note-edit-label") {
+    saveTeamNoteItem(
+      Number(target.dataset.noteId),
+      Number(target.dataset.itemId),
+      String(target.value ?? "")
+    );
+    return;
+  }
+
+  if (target.name === "order-zone-filter") {
+    state.orderZoneFilter = String(target.value ?? "");
+    requestRender({ header: false, status: true, view: true });
+    return;
+  }
+
+  if (target.name === "dtf-select") {
+    const id = Number(target.value);
+    if (target.checked) {
+      state.selectedDtfIds.add(id);
+    } else {
+      state.selectedDtfIds.delete(id);
+    }
+    requestRender({ header: false, status: true, view: true });
+    return;
+  }
+
+  if (target.name === "dtf-select-all") {
+    state.selectedDtfIds.clear();
+    getVisibleDtfItems().forEach((item) => {
+      if (target.checked) {
+        state.selectedDtfIds.add(item.id);
+      }
+    });
+    requestRender({ header: false, status: true, view: true });
+    return;
+  }
+
+  if (target.name === "purchase-checked") {
+    const id = Number(target.value);
+    const item = db.purchaseItems.find((entry) => entry.id === id);
+    if (item) {
+      item.checked = target.checked;
+      persistDb();
+      requestRender({ header: false, status: true, view: false });
+    }
+    return;
+  }
+
+  if (target.name === "order-status") {
+    const id = Number(target.dataset.id);
+    const order = db.customerOrders.find((entry) => entry.id === id);
+    if (order) {
+      order.status = normalizeOrderStatus(target.value);
+      order.mockupCompletedAt = order.status === "Maquette à faire" ? "" : String(order.mockupCompletedAt ?? "");
+      persistDb();
+      requestRender({ header: false, status: false, view: true });
+    }
+    return;
+  }
+
+  if (target.name === "task-checked") {
+    const id = Number(target.value);
+    const item = db.workshopTasks.find((entry) => entry.id === id);
+    if (item) {
+      item.checked = target.checked;
+      persistDb();
+      requestRender({ header: false, status: true, view: false });
+    }
+    return;
+  }
+
+  if (target.name === "production-status") {
+    const id = Number(target.dataset.id);
+    const item = db.productionItems.find((entry) => entry.id === id);
+    if (item) {
+      item.status = normalizeProductionStatus(target.value);
+      item.updatedAt = isoNow();
+      persistDb();
+      requestRender({ header: false, status: true, view: true });
+    }
+    return;
+  }
+
+  if (target.name === "production-error") {
+    const id = Number(target.dataset.id);
+    const item = db.productionItems.find((entry) => entry.id === id);
+    if (item) {
+      item.errorNote = String(target.value ?? "").trim();
+      item.updatedAt = isoNow();
+      persistDb();
+      requestRender({ header: false, status: false, view: false });
+    }
+    return;
+  }
+
+  if (target.name === "production-print-checked") {
+    const itemId = Number(target.dataset.id);
+    const printId = Number(target.value);
+    const item = db.productionItems.find((entry) => entry.id === itemId);
+    const print = item?.prints.find((entry) => entry.id === printId);
+    if (print) {
+      print.checked = target.checked;
+      item.updatedAt = isoNow();
+      persistDb();
+      requestRender({ header: false, status: true, view: false });
+    }
+  }
+}
+
+function handleRootSubmit(event) {
+  const form = event.target;
+
+  if (form.dataset.form === "team-note-add") {
+    event.preventDefault();
+    const formData = new FormData(form);
+    const noteId = Number(formData.get("noteId"));
+    const label = String(formData.get("label") ?? "").trim();
+
+    if (!label) {
+      return;
+    }
+
+    const note = db.teamNotes.find((item) => item.id === noteId);
+    if (!note) {
+      return;
+    }
+
+    note.items.unshift({
+      id: nextId(note.items),
+      label,
+      checked: false
+    });
+    note.updatedAt = isoToday();
+    persistDb();
+    form.reset();
+    requestRender({ header: false, status: true, view: true });
+    return;
+  }
+
+  if (form.dataset.form === "team-note-edit") {
+    event.preventDefault();
+    const formData = new FormData(form);
+    saveTeamNoteItem(
+      Number(formData.get("noteId")),
+      Number(formData.get("itemId")),
+      String(formData.get("team-note-edit-label") ?? "")
+    );
+    return;
+  }
+
+  if (form.dataset.form === "purchase-quick-add") {
+    event.preventDefault();
+    const formData = new FormData(form);
+    const zone = String(formData.get("zone"));
+    const label = String(formData.get("label") ?? "").trim();
+
+    if (!label) {
+      return;
+    }
+
+    db.purchaseItems.unshift({
+      id: nextId(db.purchaseItems),
+      zone,
+      label,
+      quantity: 1,
+      checked: false,
+      createdAt: isoToday()
+    });
+    persistDb();
+    form.reset();
+    requestRender();
+    showToast("Article ajoute.");
+    return;
+  }
+
+  if (form.dataset.form === "task-quick-add") {
+    event.preventDefault();
+    const formData = new FormData(form);
+    const group = String(formData.get("group"));
+    const label = String(formData.get("label") ?? "").trim();
+
+    if (!label) {
+      return;
+    }
+
+    db.workshopTasks.unshift({
+      id: nextId(db.workshopTasks),
+      group,
+      label,
+      checked: false,
+      recurring: false,
+      createdAt: isoToday()
+    });
+    persistDb();
+    form.reset();
+    requestRender();
+    showToast("Tache ajoutee.");
+    return;
+  }
+
+  if (form.dataset.form === "improvement-quick-add") {
+    event.preventDefault();
+    const formData = new FormData(form);
+    const type = String(formData.get("type") ?? "bug");
+    const label = String(formData.get("label") ?? "").trim();
+
+    if (!label) {
+      return;
+    }
+
+    db.improvementItems.unshift({
+      id: nextId(db.improvementItems),
+      type,
+      label,
+      createdAt: isoToday()
+    });
+    persistDb();
+    form.reset();
+    requestRender();
+    showToast("Remontee ajoutee.");
+    return;
+  }
+}
+
+function handleSheetSubmit(event) {
+  event.preventDefault();
+  const formData = new FormData(refs.sheetForm);
+
+  if (state.activeSheetAction === "addClient") {
+    const client = {
+      id: nextId(db.clients),
+      name: String(formData.get("name") ?? "").trim(),
+      postalCode: String(formData.get("postalCode") ?? "").trim(),
+      city: String(formData.get("city") ?? "").trim(),
+      createdAt: isoToday(),
+      contacts: [
+        {
+          id: 1,
+          name: String(formData.get("contactName") ?? "").trim(),
+          role: String(formData.get("contactRole") ?? "").trim(),
+          phone: String(formData.get("contactPhone") ?? "").trim(),
+          email: String(formData.get("contactEmail") ?? "").trim()
+        }
+      ].filter((contact) => contact.name)
+    };
+
+    db.clients.unshift(client);
+    persistDb();
+    clearSheetDraftByAction("addClient");
+    closeSheet();
+    requestRender({ transition: true });
+    showToast("Client ajoute.");
+    return;
+  }
+
+  if (state.activeSheetAction === "editClient") {
+    const client = db.clients.find((item) => item.id === state.activeClientId);
+    if (!client) {
+      closeSheet();
+      showToast("Client introuvable.");
+      return;
+    }
+
+    const primaryContact = primaryClientContact(client);
+    client.name = String(formData.get("name") ?? "").trim();
+    client.postalCode = String(formData.get("postalCode") ?? "").trim();
+    client.city = String(formData.get("city") ?? "").trim();
+
+    const contactName = String(formData.get("contactName") ?? "").trim();
+    const contact = {
+      id: primaryContact.id || 1,
+      name: contactName,
+      role: String(formData.get("contactRole") ?? "").trim(),
+      phone: String(formData.get("contactPhone") ?? "").trim(),
+      email: String(formData.get("contactEmail") ?? "").trim()
+    };
+    client.contacts = contactName ? [contact] : [];
+
+    persistDb();
+    clearSheetDraftByAction("editClient", client.id);
+    closeSheet();
+    requestRender({ transition: true });
+    showToast("Client mis a jour.");
+    return;
+  }
+
+  if (state.activeSheetAction === "addOrder") {
+    const client = parseOrderClient(formData.get("clientName"));
+    const status = formData.get("markMockup") === "on"
+      ? "Maquette à faire"
+      : normalizeOrderStatus(formData.get("status"));
+    db.customerOrders.unshift({
+      id: nextId(db.customerOrders),
+      clientId: client.clientId,
+      clientName: client.clientName,
+      product: String(formData.get("product") ?? "").trim(),
+      urgency: String(formData.get("urgency") ?? "Moyenne"),
+      contact: String(formData.get("contact") ?? "").trim(),
+      zone: normalizeOrderZone(formData.get("zone")),
+      quantity: Math.max(1, Number(formData.get("quantity") ?? 1) || 1),
+      note: String(formData.get("note") ?? "").trim(),
+      deliveryDate: String(formData.get("deliveryDate") ?? isoToday()),
+      status,
+      mockupCompletedAt: "",
+      assignedTo: String(formData.get("assignedTo") ?? "").trim(),
+      createdAt: isoNow(),
+      archivedAt: ""
+    });
+    persistDb();
+    clearSheetDraftByAction("addOrder");
+    closeSheet();
+    requestRender({ transition: true });
+    showToast("Commande ajoutee.");
+    return;
+  }
+
+  if (state.activeSheetAction === "editOrder") {
+    const orderId = state.activeOrderId;
+    const order = db.customerOrders.find((item) => item.id === orderId);
+
+    if (!order) {
+      closeSheet();
+      showToast("Commande introuvable.");
+      return;
+    }
+
+    const client = parseOrderClient(formData.get("clientName"));
+    const status = formData.get("markMockup") === "on"
+      ? "Maquette à faire"
+      : normalizeOrderStatus(formData.get("status"));
+
+    order.clientId = client.clientId;
+    order.clientName = client.clientName;
+    order.product = String(formData.get("product") ?? "").trim();
+    order.urgency = String(formData.get("urgency") ?? "Moyenne");
+    order.contact = String(formData.get("contact") ?? "").trim();
+    order.zone = normalizeOrderZone(formData.get("zone"));
+    order.quantity = Math.max(1, Number(formData.get("quantity") ?? 1) || 1);
+    order.note = String(formData.get("note") ?? "").trim();
+    order.deliveryDate = String(formData.get("deliveryDate") ?? isoToday());
+    order.status = status;
+    order.mockupCompletedAt = order.status === "Maquette à faire" ? "" : String(order.mockupCompletedAt ?? "");
+    order.assignedTo = String(formData.get("assignedTo") ?? "").trim();
+    persistDb();
+    clearSheetDraftByAction("editOrder", orderId);
+    closeSheet();
+    requestRender({ transition: true });
+    showToast("Commande mise a jour.");
+    return;
+  }
+
+  if (state.activeSheetAction === "addDtf") {
+    const client = parseOrderClient(formData.get("clientName"));
+    db.dtfRequests.unshift({
+      id: nextId(db.dtfRequests),
+      clientId: client.clientId,
+      clientName: client.clientName,
+      dimensions: String(formData.get("dimensions") ?? "").trim(),
+      logoPlacement: inferLogoPlacement(formData.get("designName")),
+      designName: String(formData.get("designName") ?? "").trim(),
+      size: String(formData.get("size") ?? "").trim(),
+      color: String(formData.get("color") ?? "").trim(),
+      technicalNote: String(formData.get("technicalNote") ?? "").trim(),
+      quantity: Math.max(1, Number(formData.get("quantity") ?? 1) || 1),
+      needsMockup: formData.get("needsMockup") === "on",
+      mockupCompletedAt: "",
+      status: "draft",
+      archivedAt: "",
+      createdAt: isoToday()
+    });
+    persistDb();
+    clearSheetDraftByAction("addDtf");
+    closeSheet();
+    requestRender({ transition: true });
+    showToast("Demande DTF ajoutee.");
+    return;
+  }
+
+  if (state.activeSheetAction === "editDtf") {
+    const dtf = db.dtfRequests.find((item) => item.id === state.activeDtfId);
+    if (!dtf) {
+      return;
+    }
+
+    const client = parseOrderClient(formData.get("clientName"));
+    dtf.clientId = client.clientId;
+    dtf.clientName = client.clientName;
+    dtf.dimensions = String(formData.get("dimensions") ?? "").trim();
+    dtf.logoPlacement = inferLogoPlacement(formData.get("designName"), dtf.logoPlacement);
+    dtf.designName = String(formData.get("designName") ?? "").trim();
+    dtf.size = String(formData.get("size") ?? "").trim();
+    dtf.color = String(formData.get("color") ?? "").trim();
+    dtf.technicalNote = String(formData.get("technicalNote") ?? "").trim();
+    dtf.quantity = Math.max(1, Number(formData.get("quantity") ?? 1) || 1);
+    dtf.needsMockup = formData.get("needsMockup") === "on";
+    dtf.mockupCompletedAt = dtf.needsMockup ? "" : String(dtf.mockupCompletedAt ?? "");
+    persistDb();
+    clearSheetDraftByAction("editDtf", dtf.id);
+    closeSheet();
+    requestRender({ transition: true });
+    showToast("Demande DTF mise a jour.");
+    return;
+  }
+
+  if (state.activeSheetAction === "addTextileOrder") {
+    const client = parseOrderClient(formData.get("clientName"));
+    db.textileOrders.unshift({
+      id: nextId(db.textileOrders),
+      clientId: client.clientId,
+      clientName: client.clientName,
+      supplier: String(formData.get("supplier") ?? "").trim(),
+      brand: String(formData.get("brand") ?? "").trim(),
+      gender: String(formData.get("gender") ?? "").trim(),
+      designation: String(formData.get("designation") ?? "").trim(),
+      catalogReference: String(formData.get("catalogReference") ?? "").trim(),
+      color: String(formData.get("color") ?? "").trim(),
+      size: String(formData.get("size") ?? "").trim(),
+      quantity: Math.max(1, Number(formData.get("quantity") ?? 1) || 1),
+      deliveryStatus: String(formData.get("deliveryStatus") ?? "pending"),
+      sessionLabel: String(formData.get("sessionLabel") ?? "").trim(),
+      expectedDate: String(formData.get("expectedDate") ?? isoToday()),
+      archivedAt: "",
+      createdAt: isoToday()
+    });
+    persistDb();
+    clearSheetDraftByAction("addTextileOrder");
+    closeSheet();
+    requestRender({ transition: true });
+    showToast("Commande textile ajoutee.");
+    return;
+  }
+
+  if (state.activeSheetAction === "editTextileOrder") {
+    const textileOrder = db.textileOrders.find((item) => item.id === state.activeTextileId);
+    if (!textileOrder) {
+      closeSheet();
+      showToast("Commande textile introuvable.");
+      return;
+    }
+
+    const client = parseOrderClient(formData.get("clientName"));
+    textileOrder.clientId = client.clientId;
+    textileOrder.clientName = client.clientName;
+    textileOrder.supplier = String(formData.get("supplier") ?? "").trim();
+    textileOrder.brand = String(formData.get("brand") ?? "").trim();
+    textileOrder.gender = String(formData.get("gender") ?? "").trim();
+    textileOrder.designation = String(formData.get("designation") ?? "").trim();
+    textileOrder.catalogReference = String(formData.get("catalogReference") ?? "").trim();
+    textileOrder.color = String(formData.get("color") ?? "").trim();
+    textileOrder.size = String(formData.get("size") ?? "").trim();
+    textileOrder.quantity = Math.max(1, Number(formData.get("quantity") ?? 1) || 1);
+    textileOrder.deliveryStatus = String(formData.get("deliveryStatus") ?? "pending");
+    textileOrder.sessionLabel = String(formData.get("sessionLabel") ?? "").trim();
+    textileOrder.expectedDate = String(formData.get("expectedDate") ?? isoToday());
+    persistDb();
+    clearSheetDraftByAction("editTextileOrder", textileOrder.id);
+    closeSheet();
+    requestRender({ transition: true });
+    showToast("Commande textile mise a jour.");
+    return;
+  }
+
+  if (state.activeSheetAction === "editPurchaseItem") {
+    const purchaseItem = db.purchaseItems.find((item) => item.id === state.activePurchaseId);
+    if (!purchaseItem) {
+      closeSheet();
+      showToast("Article introuvable.");
+      return;
+    }
+
+    purchaseItem.zone = String(formData.get("zone") ?? "SXM");
+    purchaseItem.label = String(formData.get("label") ?? "").trim();
+    purchaseItem.quantity = Math.max(1, Number(formData.get("quantity") ?? 1) || 1);
+    persistDb();
+    clearSheetDraftByAction("editPurchaseItem", purchaseItem.id);
+    closeSheet();
+    requestRender({ transition: true });
+    showToast("Article mis a jour.");
+    return;
+  }
+
+  if (state.activeSheetAction === "editWorkshopTask") {
+    const workshopTask = db.workshopTasks.find((item) => item.id === state.activeWorkshopTaskId);
+    if (!workshopTask) {
+      closeSheet();
+      showToast("Tache introuvable.");
+      return;
+    }
+
+    workshopTask.group = String(formData.get("group") ?? "standard");
+    workshopTask.label = String(formData.get("label") ?? "").trim();
+    workshopTask.recurring = formData.get("recurring") === "on";
+    persistDb();
+    clearSheetDraftByAction("editWorkshopTask", workshopTask.id);
+    closeSheet();
+    requestRender({ transition: true });
+    showToast("Tache mise a jour.");
+    return;
+  }
+
+  if (state.activeSheetAction === "addProductionItem") {
+    const quantity = Math.max(1, Number(formData.get("quantity") ?? 1) || 1);
+    db.productionItems.unshift({
+      id: nextId(db.productionItems),
+      label: String(formData.get("label") ?? "").trim(),
+      prints: Array.from({ length: quantity }, (_, index) => ({
+        id: index + 1,
+        checked: false
+      })),
+      status: PRODUCTION_STATUS_DEFAULT,
+      errorNote: "",
+      createdAt: isoNow(),
+      updatedAt: isoNow()
+    });
+    persistDb();
+    clearSheetDraftByAction("addProductionItem");
+    closeSheet();
+    requestRender({ transition: true });
+    showToast("Ligne production ajoutee.");
+    return;
+  }
+
+  if (state.activeSheetAction === "addPurchaseItem") {
+    db.purchaseItems.unshift({
+      id: nextId(db.purchaseItems),
+      zone: String(formData.get("zone") ?? "SXM"),
+      label: String(formData.get("label") ?? "").trim(),
+      quantity: Math.max(1, Number(formData.get("quantity") ?? 1) || 1),
+      checked: false,
+      createdAt: isoToday()
+    });
+    persistDb();
+    clearSheetDraftByAction("addPurchaseItem");
+    closeSheet();
+    requestRender({ transition: true });
+    showToast("Article achat ajoute.");
+    return;
+  }
+
+  if (state.activeSheetAction === "addWorkshopTask") {
+    db.workshopTasks.unshift({
+      id: nextId(db.workshopTasks),
+      group: String(formData.get("group") ?? "standard"),
+      label: String(formData.get("label") ?? "").trim(),
+      checked: false,
+      recurring: formData.get("recurring") === "on",
+      createdAt: isoToday()
+    });
+    persistDb();
+    clearSheetDraftByAction("addWorkshopTask");
+    closeSheet();
+    requestRender({ transition: true });
+    showToast("Tache atelier ajoutee.");
+    return;
+  }
+
+  if (state.activeSheetAction === "editImprovementItem") {
+    const improvementItem = db.improvementItems.find((item) => item.id === state.activeImprovementId);
+    if (!improvementItem) {
+      closeSheet();
+      showToast("Remontee introuvable.");
+      return;
+    }
+
+    improvementItem.type = String(formData.get("type") ?? "bug");
+    improvementItem.label = String(formData.get("label") ?? "").trim();
+    persistDb();
+    clearSheetDraftByAction("editImprovementItem", improvementItem.id);
+    closeSheet();
+    requestRender({ transition: true });
+    showToast("Remontee mise a jour.");
+  }
+}
+
+function render() {
+  requestRender();
+}
+
+function requestRender(options = {}) {
+  const next = {
+    header: options.header ?? true,
+    status: options.status ?? true,
+    view: options.view ?? true,
+    transition: Boolean(options.transition)
+  };
+
+  pendingRender.header = next.header || pendingRender.header;
+  pendingRender.status = next.status || pendingRender.status;
+  pendingRender.view = next.view || pendingRender.view;
+  pendingRender.transition = next.transition || pendingRender.transition;
+
+  if (renderQueued) {
+    return;
+  }
+
+  renderQueued = true;
+
+  requestAnimationFrame(() => {
+    renderQueued = false;
+
+    const commit = () => {
+      try {
+        if (pendingRender.header) {
+          syncHeader();
+          syncMenu();
+        }
+
+        if (pendingRender.status) {
+          renderStatusStrip();
+        }
+
+        if (pendingRender.view) {
+          renderView();
+          syncTeamNoteEditors();
+        }
+      } catch (error) {
+        handleFatalUiError(error);
+      } finally {
+        pendingRender = {
+          header: false,
+          status: false,
+          view: false,
+          transition: false
+        };
+      }
+    };
+
+    if (pendingRender.transition && typeof document.startViewTransition === "function") {
+      document.startViewTransition(commit);
+      return;
+    }
+
+    commit();
+  });
+}
+
+function syncHeader() {
+  const config = views[state.view];
+  refs.pageEyebrow.textContent = config.eyebrow;
+  refs.pageTitle.textContent = config.label;
+  refs.pageIntro.textContent = config.intro;
+  refs.globalSearch.placeholder = config.searchPlaceholder;
+
+  if (config.primaryAction) {
+    refs.primaryActionButton.hidden = false;
+    refs.primaryActionButton.disabled = false;
+    refs.primaryActionButton.style.display = "";
+    refs.primaryActionButton.textContent = primaryLabel(config.primaryAction);
+  } else {
+    refs.primaryActionButton.hidden = true;
+    refs.primaryActionButton.disabled = true;
+    refs.primaryActionButton.style.display = "none";
+    refs.primaryActionButton.textContent = "";
+  }
+}
+
+function syncMenu() {
+  refs.menuLinks.forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.view === state.view);
+  });
+}
+
+function renderStatusStrip() {
+  refs.statusStrip.hidden = true;
+  refs.statusStrip.innerHTML = "";
+}
+
+function renderView() {
+  switch (state.view) {
+    case "tasks":
+      refs.viewRoot.innerHTML = renderTasksView();
+      break;
+    case "planning":
+      refs.viewRoot.innerHTML = renderOrdersView();
+      break;
+    case "clients":
+      refs.viewRoot.innerHTML = renderClientsView();
+      break;
+    case "dtf":
+      refs.viewRoot.innerHTML = renderDtfView();
+      break;
+    case "dtfMockups":
+      refs.viewRoot.innerHTML = renderMockupsView();
+      break;
+    case "production":
+      refs.viewRoot.innerHTML = renderProductionView();
+      break;
+    case "textile":
+      refs.viewRoot.innerHTML = renderTextileView();
+      break;
+    case "purchase":
+      refs.viewRoot.innerHTML = renderPurchaseView();
+      break;
+    case "improvements":
+      refs.viewRoot.innerHTML = renderImprovementsView();
+      break;
+    case "workshop":
+      refs.viewRoot.innerHTML = renderWorkshopView();
+      break;
+    default:
+      refs.viewRoot.innerHTML = renderPlaceholderView();
+      break;
+  }
+}
+
+function renderPlaceholderView() {
+  return `
+    <section class="module-layout">
+      <article class="placeholder-card">
+        <p class="module-kicker">${escapeHtml(views[state.view].label)}</p>
+        <strong>Module en attente de construction</strong>
+      </article>
+    </section>
+  `;
+}
+
+function renderTasksView() {
+  const notes = getVisibleTeamNotes();
+  return `
+    <section class="module-layout">
+      <section class="team-notes-grid">
+        ${notes.map(renderTeamNoteCard).join("")}
+      </section>
+    </section>
+  `;
+}
+
+function renderTeamNoteCard(note) {
+  const visibleItems = getVisibleTeamNoteItems(note);
+  return `
+    <article class="team-note-card" data-tone="${teamNoteTone(note.name)}">
+      <header class="team-note-head">
+        <div>
+          <h3>${escapeHtml(note.name)}</h3>
+        </div>
+        <span class="chip">${note.updatedAt ? escapeHtml(formatDate(note.updatedAt)) : "Vide"}</span>
+      </header>
+      <label class="team-note-summary">
+        <span class="team-note-summary-label">Informations importantes</span>
+        <textarea
+          class="team-note-summary-input"
+          name="team-note-summary"
+          rows="2"
+          data-note-id="${note.id}"
+          placeholder="Ajouter une information..."
+        >${escapeHtml(note.summary ?? "")}</textarea>
+      </label>
+      <form class="team-note-add" data-form="team-note-add">
+        <input type="hidden" name="noteId" value="${note.id}">
+        <div class="quick-add-row team-note-add-row">
+          <input name="label" type="text">
+          <button class="button" type="submit">Ajouter</button>
+        </div>
+      </form>
+      <div class="team-note-list" aria-label="Notes de ${escapeHtml(note.name)}">
+        ${visibleItems.length ? visibleItems.map((item) => renderTeamNoteItem(note.id, item)).join("") : `<div class="empty-state">Aucune ligne.</div>`}
+      </div>
+    </article>
+  `;
+}
+
+function renderTeamNoteItem(noteId, item) {
+  return `
+    <article class="team-note-item" data-checked="${item.checked ? "true" : "false"}">
+      <button class="team-note-dot" type="button" data-action="toggle-team-note-item" data-note-id="${noteId}" data-item-id="${item.id}" aria-label="${item.checked ? "Marquer comme non faite" : "Marquer comme faite"}"></button>
+      <form class="team-note-edit" data-form="team-note-edit">
+        <input type="hidden" name="noteId" value="${noteId}">
+        <input type="hidden" name="itemId" value="${item.id}">
+        <textarea
+          class="team-note-edit-input"
+          name="team-note-edit-label"
+          rows="1"
+          data-note-id="${noteId}"
+          data-item-id="${item.id}"
+          autocomplete="off"
+        >${escapeHtml(item.label)}</textarea>
+      </form>
+      <button class="row-action row-action-subtle is-danger" type="button" data-action="delete-team-note-item" data-note-id="${noteId}" data-item-id="${item.id}" aria-label="Supprimer la ligne">×</button>
+    </article>
+  `;
+}
+
+function renderOrdersView() {
+  const rows = getVisibleCustomerOrders();
+  const sections = buildOrderPlanningSections(rows);
+  const archiveCount = db.customerOrders.filter((item) => item.archivedAt).length;
+  return `
+    <section class="module-layout orders-layout">
+      <div class="archive-toggle">
+        <div>
+          <strong>Archives commandes</strong>
+          <p class="archive-copy">${archiveCount}</p>
+        </div>
+        <div class="archive-actions">
+          <button class="pill-button ${state.showOrderArchives ? "is-active" : ""}" type="button" data-action="toggle-order-archives">
+            ${state.showOrderArchives ? "Voir les actives" : "Voir les archives"}
+          </button>
+        </div>
+      </div>
+      <article class="module-panel orders-toolbar">
+        <header class="module-head orders-toolbar-head">
+          <div>
+            <p class="module-kicker">Planning</p>
+            <h3>Commandes</h3>
+          </div>
+          <div class="module-actions">
+            <span class="chip">${rows.length} commande${rows.length > 1 ? "s" : ""}</span>
+            <label>
+              <span class="sr-only">Filtrer par zone</span>
+              <select class="field-select" name="order-zone-filter" aria-label="Filtrer par zone">
+                <option value="">Toutes les zones</option>
+                ${ORDER_ZONE_OPTIONS.map((zone) => `<option value="${escapeHtml(zone)}" ${state.orderZoneFilter === zone ? "selected" : ""}>${escapeHtml(zone)}</option>`).join("")}
+              </select>
+            </label>
+            ${state.showOrderArchives ? "" : `
+              <button class="pill-button ${state.orderAssigneeFilter ? "" : "is-active"}" type="button" data-action="clear-order-assignee-filter">Toutes</button>
+              ${ORDER_ASSIGNEES.map((assignee) => `
+                <button class="team-bubble ${state.orderAssigneeFilter === assignee ? "is-active" : ""}" type="button" data-action="filter-order-assignee" data-assignee="${assignee}" aria-label="Filtrer les commandes de ${assignee}">
+                  ${assignee}
+                </button>
+              `).join("")}
+            `}
+          </div>
+        </header>
+      </article>
+      <section class="orders-planning-list">
+        ${sections.map(renderOrderPlanningSection).join("")}
+      </section>
+    </section>
+  `;
+}
+
+function renderOrderPlanningSection(section) {
+  return `
+    <article class="planning-section">
+      <header class="planning-section-head">
+        <div>
+          <p class="module-kicker">${escapeHtml(section.kicker)}</p>
+          <h3>${escapeHtml(section.title)}</h3>
+        </div>
+        <span class="chip">${section.rows.length}</span>
+      </header>
+      <div class="planning-section-body">
+        ${section.rows.length ? section.rows.map(renderOrderRow).join("") : `<div class="empty-state">Aucune commande.</div>`}
+      </div>
+    </article>
+  `;
+}
+
+function renderOrderRow(order) {
+  const isSelected = state.selectedOrderId === order.id;
+  const hasContact = Boolean(order.contact);
+  const hasNote = Boolean(order.note);
+  const createdAtCopy = formatOrderCreatedAt(order.createdAt);
+  const typeBadge = orderTypeLabel(order)
+    ? `<span class="order-type-badge" data-tone="${orderTypeTone(order)}">${orderTypeLabel(order)}</span>`
+    : "";
+  return `
+    <article
+      class="order-card order-card-line"
+      data-order-id="${order.id}"
+      data-zone="${escapeHtml(order.zone || "Autre")}"
+      data-selected="${isSelected ? "true" : "false"}"
+      tabindex="0"
+      aria-selected="${isSelected ? "true" : "false"}"
+    >
+      <div class="order-line-primary">
+        <div class="order-line-summary order-line-primary-main">
+          <strong class="order-client-name">${escapeHtml(orderClientLabel(order))}</strong>
+          <span class="order-zone-chip" data-zone="${escapeHtml(order.zone || "Autre")}">${escapeHtml(order.zone || "Autre")}</span>
+          ${typeBadge}
+          <span class="order-priority-badge" data-tone="${urgencyTone(order.urgency)}">${escapeHtml(order.urgency)}</span>
+          ${order.mockupCompletedAt ? `<span class="status-badge" data-tone="ready">Maquette faite</span>` : ""}
+          ${order.quantity > 0 ? `<span class="order-qty-chip">${order.quantity}</span>` : ""}
+          ${hasContact ? `<span class="order-inline-copy">${escapeHtml(order.contact)}</span>` : ""}
+        </div>
+        ${hasNote || createdAtCopy ? `
+          <div class="order-line-primary-note">
+            ${hasNote ? `<span class="order-inline-copy order-inline-note">${escapeHtml(order.note)}</span>` : ""}
+            ${createdAtCopy ? `<span class="order-created-meta">${escapeHtml(createdAtCopy)}</span>` : ""}
+          </div>
+        ` : ""}
+      </div>
+      <div class="order-line-meta">
+        ${renderOrderDeadline(order)}
+      </div>
+      <div class="order-card-controls order-card-controls-line">
+        <select class="field-select table-status-select" name="order-status" data-id="${order.id}" aria-label="Etat">
+          ${renderOrderStatusOptions(order.status)}
+        </select>
+        <div class="order-controls-inline">
+          <div class="team-bubble-group" aria-label="Assignation commande">
+            ${ORDER_ASSIGNEES.map((assignee) => `
+              <button
+                class="team-bubble ${order.assignedTo === assignee ? "is-active" : ""}"
+                type="button"
+                data-action="assign-order"
+                data-id="${order.id}"
+                data-assignee="${assignee}"
+                aria-label="Assigner a ${assignee}"
+              >
+                ${assignee}
+              </button>
+            `).join("")}
+          </div>
+          <div class="order-side-actions" aria-label="Actions de la commande">
+            <button class="row-action row-action-subtle" type="button" data-action="${order.archivedAt ? "restore-order" : "archive-order"}" data-id="${order.id}" aria-label="${order.archivedAt ? "Restaurer" : "Archiver"} la commande">${order.archivedAt ? "↺" : "⤴"}</button>
+            <button class="row-action row-action-subtle is-danger" type="button" data-action="delete-order" data-id="${order.id}" aria-label="Supprimer la commande">×</button>
+          </div>
+        </div>
+      </div>
+    </article>
+  `;
+}
+
+function renderClientsView() {
+  const rows = getVisibleClientRows();
+  return `
+    <section class="module-layout">
+      <article class="module-panel orders-toolbar">
+        <header class="module-head orders-toolbar-head">
+          <div>
+            <p class="module-kicker">Liste</p>
+            <h3>Clients Pro</h3>
+          </div>
+          <div class="module-actions">
+            <span class="chip">${rows.length} ligne${rows.length > 1 ? "s" : ""}</span>
+          </div>
+        </header>
+      </article>
+      <div class="table-shell">
+        <div class="dense-table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Société</th>
+                <th>Ville</th>
+                <th>Contact</th>
+                <th>Tél.</th>
+                <th>Email</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.length ? rows.map(renderClientRow).join("") : `<tr><td colspan="5"><div class="empty-state">Aucun client ne correspond a la recherche.</div></td></tr>`}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function renderClientRow(row) {
+  const client = row.client;
+  const contact = row.contact;
+  return `
+    <tr data-client-id="${client.id}" data-contact-id="${contact.id}" tabindex="0">
+      <td><strong>${escapeHtml(client.name)}</strong></td>
+      <td>${escapeHtml(client.city || "—")}</td>
+      <td>${escapeHtml(contact.name || "—")}</td>
+      <td>${escapeHtml(contact.phone || "—")}</td>
+      <td>${escapeHtml(contact.email || "—")}</td>
+    </tr>
+  `;
+}
+
+function renderDtfView() {
+  const rows = getVisibleDtfItems();
+  const archiveCount = db.dtfRequests.filter((item) => item.archivedAt).length;
+  const allSelected = rows.length > 0 && rows.every((row) => state.selectedDtfIds.has(row.id));
+  const isMockupView = state.view === "dtfMockups";
+
+  return `
+    <section class="module-layout">
+      <div class="archive-toggle">
+        <div>
+          <strong>${isMockupView ? "Archives maquettes" : "Archives DTF"}</strong>
+          <p class="archive-copy">${archiveCount}</p>
+        </div>
+        <div class="archive-actions">
+          <button class="pill-button ${state.showDtfArchives ? "is-active" : ""}" type="button" data-action="toggle-dtf-archives">
+            ${state.showDtfArchives ? "Voir les actives" : "Voir les archives"}
+          </button>
+      </div>
+      </div>
+      ${state.selectedDtfIds.size ? renderDtfSelectionBar() : ""}
+      <div class="table-shell">
+        <div class="dense-table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th class="checkbox-cell"><input type="checkbox" name="dtf-select-all" ${allSelected ? "checked" : ""}></th>
+                <th>Client</th>
+                <th>Design</th>
+                <th>Dimension</th>
+                <th>Logo</th>
+                <th>Taille</th>
+                <th>Couleur</th>
+                <th>Note</th>
+                <th>Qte</th>
+                <th>Type</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.length ? rows.map(renderDtfRow).join("") : `<tr><td colspan="11"><div class="empty-state">${isMockupView ? "Aucune maquette DTF a afficher." : "Aucune demande DTF a afficher."}</div></td></tr>`}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function renderDtfSelectionBar() {
+  return `
+    <section class="selection-bar">
+      <div>
+        <strong>${state.selectedDtfIds.size} selection${state.selectedDtfIds.size > 1 ? "s" : ""}</strong>
+      </div>
+      <div class="selection-actions">
+        <button class="pill-button" type="button" data-action="duplicate-dtf">Dupliquer</button>
+        <button class="pill-button" type="button" data-action="validate-dtf">Valider</button>
+        <button class="pill-button" type="button" data-action="archive-dtf">${state.showDtfArchives ? "Restaurer" : "Archiver"}</button>
+        <button class="pill-button" type="button" data-action="delete-dtf">Supprimer</button>
+      </div>
+    </section>
+  `;
+}
+
+function renderDtfRow(row) {
+  const checked = state.selectedDtfIds.has(row.id);
+  const typeTone = row.mockupCompletedAt ? "ready" : row.needsMockup ? "urgent" : "draft";
+  const typeLabel = row.mockupCompletedAt ? "Maquette faite" : row.needsMockup ? "Maquette" : "Magasin";
+  return `
+    <tr data-dtf-id="${row.id}">
+      <td class="checkbox-cell"><input type="checkbox" name="dtf-select" value="${row.id}" ${checked ? "checked" : ""}></td>
+      <td>${escapeHtml(dtfClientLabel(row))}</td>
+      <td><strong>${escapeHtml(row.designName)}</strong></td>
+      <td>${escapeHtml(row.dimensions)}</td>
+      <td><span class="status-badge" data-tone="draft">${escapeHtml(normalizeLogoPlacement(row.logoPlacement))}</span></td>
+      <td>${escapeHtml(row.size)}</td>
+      <td>${escapeHtml(row.color)}</td>
+      <td>${escapeHtml(row.technicalNote)}</td>
+      <td>${row.quantity}</td>
+      <td><span class="status-badge" data-tone="${typeTone}">${typeLabel}</span></td>
+      <td>
+        <div class="row-actions">
+          <button class="row-action" type="button" data-action="${row.archivedAt ? "restore-single-dtf" : "archive-single-dtf"}" data-id="${row.id}">
+            ${row.archivedAt ? "↺" : "⤴"}
+          </button>
+          <button class="row-action is-danger" type="button" data-action="delete-single-dtf" data-id="${row.id}">×</button>
+        </div>
+      </td>
+    </tr>
+  `;
+}
+
+function renderMockupsView() {
+  const rows = getVisibleMockupItems();
+  const archiveCount = db.customerOrders.filter((item) => item.archivedAt && item.status === "Maquette à faire").length
+    + db.dtfRequests.filter((item) => item.archivedAt && item.needsMockup).length;
+
+  return `
+    <section class="module-layout orders-layout">
+      <div class="archive-toggle">
+        <div>
+          <strong>Archives maquettes</strong>
+          <p class="archive-copy">${archiveCount}</p>
+        </div>
+        <div class="archive-actions">
+          <button class="pill-button ${state.showDtfArchives ? "is-active" : ""}" type="button" data-action="toggle-dtf-archives">
+            ${state.showDtfArchives ? "Voir les actives" : "Voir les archives"}
+          </button>
+        </div>
+      </div>
+      <section class="orders-board">
+        <div class="orders-list">
+          ${rows.length ? rows.map(renderMockupRow).join("") : `<div class="empty-state">Aucune maquette a faire.</div>`}
+        </div>
+      </section>
+    </section>
+  `;
+}
+
+function renderMockupRow(item) {
+  const isOrder = item.kind === "order";
+  const sourceLabel = isOrder ? "Commande" : "DTF";
+  return `
+    <article class="order-card order-card-line" data-zone="${escapeHtml(isOrder ? item.zone || "Autre" : "DTF")}">
+      <div class="order-line-primary">
+        <div class="order-line-summary order-line-primary-main">
+          <strong class="order-client-name">${escapeHtml(item.client)}</strong>
+          <span class="order-zone-chip" data-zone="${escapeHtml(isOrder ? item.zone || "Autre" : "DTF")}">${escapeHtml(isOrder ? item.zone || "Autre" : "DTF")}</span>
+          <span class="order-type-badge" data-tone="pro">${sourceLabel}</span>
+          ${item.quantity > 0 ? `<span class="order-qty-chip">${item.quantity}</span>` : ""}
+          ${item.meta ? `<span class="order-inline-copy">${escapeHtml(item.meta)}</span>` : ""}
+        </div>
+        <div class="order-line-primary-note">
+          <span class="order-inline-copy order-inline-note">${escapeHtml(item.title)}</span>
+        </div>
+      </div>
+      <div class="order-line-meta">
+        <div class="order-deadline">
+          <strong>${escapeHtml(item.date ? formatDate(item.date) : "—")}</strong>
+        </div>
+      </div>
+      <div class="order-card-controls order-card-controls-line">
+        <div class="order-controls-inline">
+          <button class="button button-primary" type="button" data-action="${isOrder ? "complete-order-mockup" : "complete-dtf-mockup"}" data-id="${item.id}">
+            Maquette faite
+          </button>
+        </div>
+      </div>
+    </article>
+  `;
+}
+
+function renderProductionView() {
+  const rows = getVisibleProductionItems();
+  return `
+    <section class="module-layout">
+      <article class="module-panel orders-toolbar">
+        <header class="module-head orders-toolbar-head">
+          <div>
+            <p class="module-kicker">Suivi atelier</p>
+            <h3>Production</h3>
+          </div>
+          <div class="module-actions">
+            <span class="chip">${rows.length} PRT${rows.length > 1 ? "s" : ""}</span>
+          </div>
+        </header>
+      </article>
+      <section class="orders-board">
+        <div class="orders-list production-list">
+          ${rows.length ? rows.map(renderProductionItem).join("") : `<div class="empty-state">Aucune ligne de production.</div>`}
+        </div>
+      </section>
+    </section>
+  `;
+}
+
+function renderProductionItem(item) {
+  const showError = item.status === "Erreur";
+  const totalPrints = getProductionQuantity(item);
+  const completedPrints = getProductionCompletedCount(item);
+  return `
+    <article class="order-card production-card" data-status="${escapeHtml(item.status)}">
+      <div class="production-card-main">
+        <div class="order-line-summary">
+          <strong class="order-client-name">${escapeHtml(item.label)}</strong>
+          <span class="status-badge" data-tone="${productionTone(item.status)}">${escapeHtml(item.status)}</span>
+          <span class="order-qty-chip">${completedPrints}/${totalPrints}</span>
+        </div>
+        <div class="production-checklist" aria-label="Points de production">
+          ${item.prints.map((print) => `
+            <label class="production-checkpoint">
+              <input
+                type="checkbox"
+                name="production-print-checked"
+                data-id="${item.id}"
+                value="${print.id}"
+                ${print.checked ? "checked" : ""}
+              >
+              <span></span>
+            </label>
+          `).join("")}
+        </div>
+        ${showError && item.errorNote ? `<p class="production-error-copy">${escapeHtml(item.errorNote)}</p>` : ""}
+      </div>
+      <div class="production-counter" aria-label="Compteur">
+        <button class="row-action" type="button" data-action="decrease-production-quantity" data-id="${item.id}" aria-label="Diminuer">−</button>
+        <strong>${totalPrints}</strong>
+        <button class="row-action" type="button" data-action="increase-production-quantity" data-id="${item.id}" aria-label="Augmenter">+</button>
+      </div>
+      <div class="production-card-controls">
+        <select class="field-select table-status-select" name="production-status" data-id="${item.id}" aria-label="Statut production">
+          ${renderProductionStatusOptions(item.status)}
+        </select>
+        <button class="row-action is-danger" type="button" data-action="delete-production-item" data-id="${item.id}" aria-label="Supprimer la ligne">×</button>
+      </div>
+      ${showError ? `
+        <label class="production-error-field">
+          <span class="field-label">Erreur</span>
+          <textarea class="field-textarea production-error-textarea" name="production-error" data-id="${item.id}" placeholder="Ajouter l'erreur...">${escapeHtml(item.errorNote ?? "")}</textarea>
+        </label>
+      ` : ""}
+    </article>
+  `;
+}
+
+function renderTextileView() {
+  const rows = getVisibleTextileOrders();
+  const archiveCount = db.textileOrders.filter((item) => item.archivedAt).length;
+  return `
+    <section class="module-layout">
+      <div class="archive-toggle">
+        <div>
+          <strong>Commandes fournisseur</strong>
+          <p class="archive-copy">${archiveCount}</p>
+        </div>
+        <div class="archive-actions">
+          <button class="pill-button ${state.showTextileArchives ? "is-active" : ""}" type="button" data-action="toggle-textile-archives">
+            ${state.showTextileArchives ? "Voir les actives" : "Voir les archives"}
+          </button>
+        </div>
+      </div>
+      <div class="table-shell">
+        <div class="dense-table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                ${TEXTILE_COLUMN_DEFINITIONS.map((column) => renderTextileHead(column.label, column.key)).join("")}
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.length ? rows.map(renderTextileRow).join("") : `<tr><td colspan="13"><div class="empty-state">Aucune commande textile a afficher.</div></td></tr>`}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function renderTextileHead(label, key) {
+  const direction = state.textileSort.key === key ? state.textileSort.direction : "";
+  return `<th><button class="sort-button" type="button" data-action="sort-textile" data-key="${key}" ${direction ? `data-direction="${direction}"` : ""}>${label}</button></th>`;
+}
+
+function renderTextileRow(row) {
+  return `
+    <tr data-textile-id="${row.id}" tabindex="0">
+      <td>${escapeHtml(textileClientLabel(row))}</td>
+      <td>${escapeHtml(row.supplier)}</td>
+      <td>${escapeHtml(row.brand)}</td>
+      <td>${escapeHtml(row.gender)}</td>
+      <td>${escapeHtml(row.designation)}</td>
+      <td>${escapeHtml(row.catalogReference)}</td>
+      <td>${escapeHtml(row.color)}</td>
+      <td>${escapeHtml(row.size)}</td>
+      <td>${row.quantity}</td>
+      <td><span class="delivery-badge" data-tone="${deliveryTone(row.deliveryStatus)}">${escapeHtml(row.deliveryStatus)}</span></td>
+      <td>${escapeHtml(row.sessionLabel)}</td>
+      <td>${formatDate(row.expectedDate)}</td>
+      <td>
+        <div class="row-actions">
+          <button class="row-action" type="button" data-action="${row.archivedAt ? "restore-textile" : "archive-textile"}" data-id="${row.id}">
+            ${row.archivedAt ? "↺" : "⤴"}
+          </button>
+          <button class="row-action is-danger" type="button" data-action="delete-textile" data-id="${row.id}">×</button>
+        </div>
+      </td>
+    </tr>
+  `;
+}
+
+function renderPurchaseView() {
+  const zones = ["SXM", "Europe", "USA"];
+  return `
+    <section class="module-layout">
+      <div class="zone-grid">
+        ${zones.map(renderPurchaseZone).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderPurchaseZone(zone) {
+  const items = getVisiblePurchaseItems(zone);
+  return `
+    <article class="zone-column">
+      <header class="module-head">
+        <div>
+          <p class="module-kicker">${zone}</p>
+          <h3>${items.length} article${items.length > 1 ? "s" : ""}</h3>
+        </div>
+      </header>
+      <div class="module-body">
+        <form class="quick-add" data-form="purchase-quick-add">
+          <input type="hidden" name="zone" value="${zone}">
+          <div class="quick-add-row">
+            <input name="label" type="text" placeholder="Nouvel article">
+            <button class="button" type="submit">Ajouter</button>
+          </div>
+        </form>
+        <div class="list-grid">
+          ${items.length ? items.map(renderPurchaseItem).join("") : `<div class="empty-state">Aucun article pour ${zone}.</div>`}
+        </div>
+      </div>
+    </article>
+  `;
+}
+
+function renderPurchaseItem(item) {
+  return `
+    <article class="item-row" data-purchase-id="${item.id}" tabindex="0">
+      <label class="stack-meta">
+        <input type="checkbox" name="purchase-checked" value="${item.id}" ${item.checked ? "checked" : ""}>
+        <strong>${escapeHtml(item.label)}</strong>
+        <span>x${item.quantity}</span>
+      </label>
+      <button class="row-action is-danger" type="button" data-action="delete-purchase" data-id="${item.id}">×</button>
+    </article>
+  `;
+}
+
+function renderWorkshopView() {
+  const groups = [
+    { key: "standard", label: "Standard" },
+    { key: "atelier", label: "Atelier" },
+    { key: "dtf", label: "DTF" }
+  ];
+
+  return `
+    <section class="module-layout">
+      <div class="task-grid">
+        ${groups.map(renderWorkshopColumn).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderWorkshopColumn(group) {
+  const tasks = getVisibleWorkshopTasks(group.key);
+  return `
+    <article class="task-column">
+      <header class="module-head">
+        <div>
+          <p class="module-kicker">${group.label}</p>
+          <h3>${tasks.filter((item) => !item.checked).length} restantes</h3>
+        </div>
+      </header>
+      <div class="module-body">
+        <form class="quick-add" data-form="task-quick-add">
+          <input type="hidden" name="group" value="${group.key}">
+          <div class="quick-add-row">
+            <input name="label" type="text" placeholder="Nouvelle tache">
+            <button class="button" type="submit">Ajouter</button>
+            <span></span>
+          </div>
+        </form>
+        <div class="list-grid">
+          ${tasks.length ? tasks.map(renderWorkshopTask).join("") : `<div class="empty-state">Aucune tache dans ${group.label}.</div>`}
+        </div>
+      </div>
+    </article>
+  `;
+}
+
+function renderWorkshopTask(task) {
+  return `
+    <article class="task-row" data-workshop-task-id="${task.id}" tabindex="0">
+      <label class="stack-meta">
+        <input type="checkbox" name="task-checked" value="${task.id}" ${task.checked ? "checked" : ""}>
+        <strong>${escapeHtml(task.label)}</strong>
+        <span>${task.recurring ? "Recurrente" : "Ponctuelle"}</span>
+      </label>
+      <button class="row-action is-danger" type="button" data-action="delete-task" data-id="${task.id}">×</button>
+    </article>
+  `;
+}
+
+function renderImprovementsView() {
+  return `
+    <section class="module-layout">
+      <div class="task-grid">
+        ${IMPROVEMENT_TYPES.map(renderImprovementColumn).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderImprovementColumn(type) {
+  const items = getVisibleImprovementItems(type.key);
+  return `
+    <article class="task-column">
+      <header class="module-head">
+        <div>
+          <p class="module-kicker">${escapeHtml(type.label)}</p>
+          <h3>${items.length} ligne${items.length > 1 ? "s" : ""}</h3>
+        </div>
+      </header>
+      <div class="module-body">
+        <form class="quick-add" data-form="improvement-quick-add">
+          <input type="hidden" name="type" value="${type.key}">
+          <div class="quick-add-row">
+            <input name="label" type="text" placeholder="Nouvelle remontee">
+            <button class="button" type="submit">Ajouter</button>
+            <span></span>
+          </div>
+        </form>
+        <div class="list-grid">
+          ${items.length ? items.map(renderImprovementItem).join("") : `<div class="empty-state">Aucune remontee dans ${escapeHtml(type.label)}.</div>`}
+        </div>
+      </div>
+    </article>
+  `;
+}
+
+function renderImprovementItem(item) {
+  return `
+    <article class="task-row" data-improvement-id="${item.id}" tabindex="0">
+      <div class="stack-meta">
+        <strong>${escapeHtml(item.label)}</strong>
+        <span>${escapeHtml(improvementTypeLabel(item.type))}</span>
+      </div>
+      <button class="row-action is-danger" type="button" data-action="delete-improvement" data-id="${item.id}">×</button>
+    </article>
+  `;
+}
+
+function openSheet(action, options = {}) {
+  state.activeSheetAction = action;
+  state.activeOrderId = action === "editOrder" ? options.id ?? null : null;
+  state.activeDtfId = action === "editDtf" ? options.id ?? null : null;
+  state.activeTextileId = action === "editTextileOrder" ? options.id ?? null : null;
+  state.activePurchaseId = action === "editPurchaseItem" ? options.id ?? null : null;
+  state.activeWorkshopTaskId = action === "editWorkshopTask" ? options.id ?? null : null;
+  state.activeImprovementId = action === "editImprovementItem" ? options.id ?? null : null;
+  state.activeClientId = action === "editClient" ? options.id ?? null : null;
+  refs.sheetDialog.dataset.layout = (
+    action === "addDtf" || action === "editDtf" ? "dtf-inline"
+      : action === "addOrder" || action === "editOrder" ? "order-inline"
+        : action === "addTextileOrder" || action === "editTextileOrder" ? "textile-inline"
+        : action === "addClient" || action === "editClient" ? "client-inline"
+        : ""
+  );
+  refs.sheetBody.innerHTML = renderSheetBody(action);
+  restoreSheetDraft(action, options);
+  syncOrderMockupField();
+  refs.sheetEyebrow.textContent = sheetEyebrow(action);
+  refs.sheetTitle.textContent = primaryLabel(action);
+  refs.submitSheetButton.textContent = submitLabel(action);
+  refs.sheetDialog.showModal();
+}
+
+function closeSheet() {
+  if (refs.sheetDialog.open) {
+    refs.sheetDialog.close();
+  }
+  delete refs.sheetDialog.dataset.layout;
+  state.activeSheetAction = null;
+  state.activeOrderId = null;
+  state.activeDtfId = null;
+  state.activeTextileId = null;
+  state.activePurchaseId = null;
+  state.activeWorkshopTaskId = null;
+  state.activeImprovementId = null;
+  state.activeClientId = null;
+}
+
+function renderSheetBody(action) {
+  if (action === "addClient") {
+    return renderClientForm();
+  }
+
+  if (action === "editClient") {
+    const client = db.clients.find((item) => item.id === state.activeClientId);
+    if (!client) {
+      return "";
+    }
+
+    return renderClientForm(client);
+  }
+
+  if (action === "addOrder") {
+    return renderOrderForm();
+  }
+
+  if (action === "editOrder") {
+    const order = db.customerOrders.find((item) => item.id === state.activeOrderId);
+    if (!order) {
+      return "";
+    }
+
+    return renderOrderForm(order);
+  }
+
+  if (action === "addDtf") {
+    return renderDtfForm();
+  }
+
+  if (action === "editDtf") {
+    const dtf = db.dtfRequests.find((item) => item.id === state.activeDtfId);
+    if (!dtf) {
+      return "";
+    }
+
+    return renderDtfForm(dtf);
+  }
+
+  if (action === "addTextileOrder") {
+    return renderTextileOrderForm();
+  }
+
+  if (action === "editTextileOrder") {
+    const textileOrder = db.textileOrders.find((item) => item.id === state.activeTextileId);
+    if (!textileOrder) {
+      return "";
+    }
+
+    return renderTextileOrderForm(textileOrder);
+  }
+
+  if (action === "addProductionItem") {
+    return `
+      <div class="field-grid production-form-grid">
+        <label class="field-span">
+          <span class="field-label">Nom du PRT</span>
+          <input class="field-input" name="label" type="text" placeholder="Ex: Logo dos noir" required>
+        </label>
+        <label>
+          <span class="field-label">Combien de fois</span>
+          <input class="field-input" name="quantity" type="number" min="1" value="1" required>
+        </label>
+      </div>
+    `;
+  }
+
+  if (action === "addPurchaseItem") {
+    return renderPurchaseItemForm();
+  }
+
+  if (action === "editPurchaseItem") {
+    const purchaseItem = db.purchaseItems.find((item) => item.id === state.activePurchaseId);
+    if (!purchaseItem) {
+      return "";
+    }
+
+    return renderPurchaseItemForm(purchaseItem);
+  }
+
+  if (action === "addWorkshopTask") {
+    return renderWorkshopTaskForm();
+  }
+
+  if (action === "editWorkshopTask") {
+    const workshopTask = db.workshopTasks.find((item) => item.id === state.activeWorkshopTaskId);
+    if (!workshopTask) {
+      return "";
+    }
+
+    return renderWorkshopTaskForm(workshopTask);
+  }
+
+  if (action === "editImprovementItem") {
+    const improvementItem = db.improvementItems.find((item) => item.id === state.activeImprovementId);
+    if (!improvementItem) {
+      return "";
+    }
+
+    return renderImprovementForm(improvementItem);
+  }
+
+  return "";
+}
+
+function renderPurchaseItemForm(item = null) {
+  return `
+    <div class="field-grid">
+      <label>
+        <span class="field-label">Zone</span>
+        <select class="field-select" name="zone">
+          <option value="SXM" ${item?.zone === "SXM" ? "selected" : ""}>SXM</option>
+          <option value="Europe" ${item?.zone === "Europe" ? "selected" : ""}>Europe</option>
+          <option value="USA" ${item?.zone === "USA" ? "selected" : ""}>USA</option>
+        </select>
+      </label>
+      <label>
+        <span class="field-label">Quantite</span>
+        <input class="field-input" name="quantity" type="number" min="1" value="${Math.max(1, Number(item?.quantity) || 1)}" required>
+      </label>
+      <label class="field-span">
+        <span class="field-label">Article</span>
+        <input class="field-input" name="label" type="text" value="${escapeHtml(item?.label ?? "")}" required>
+      </label>
+    </div>
+  `;
+}
+
+function renderWorkshopTaskForm(task = null) {
+  return `
+    <div class="field-grid">
+      <label>
+        <span class="field-label">Categorie</span>
+        <select class="field-select" name="group">
+          <option value="standard" ${task?.group === "standard" ? "selected" : ""}>Standard</option>
+          <option value="atelier" ${task?.group === "atelier" ? "selected" : ""}>Atelier</option>
+          <option value="dtf" ${task?.group === "dtf" ? "selected" : ""}>DTF</option>
+        </select>
+      </label>
+      <label class="field-span">
+        <span class="field-label">Tache</span>
+        <input class="field-input" name="label" type="text" value="${escapeHtml(task?.label ?? "")}" required>
+      </label>
+      <label>
+        <span class="field-label">Recurrente</span>
+        <input name="recurring" type="checkbox" ${task?.recurring ? "checked" : ""}>
+      </label>
+    </div>
+  `;
+}
+
+function renderImprovementForm(item = null) {
+  return `
+    <div class="field-grid">
+      <label>
+        <span class="field-label">Categorie</span>
+        <select class="field-select" name="type">
+          ${IMPROVEMENT_TYPES.map((type) => `<option value="${type.key}" ${item?.type === type.key ? "selected" : ""}>${escapeHtml(type.label)}</option>`).join("")}
+        </select>
+      </label>
+      <label class="field-span">
+        <span class="field-label">Remontee</span>
+        <input class="field-input" name="label" type="text" value="${escapeHtml(item?.label ?? "")}" required>
+      </label>
+    </div>
+  `;
+}
+
+function renderClientOptions(selectedClientId = null) {
+  return db.clients
+    .filter((client) => !isSampleClient(client))
+    .map((client) => `<option value="${client.id}" ${Number(selectedClientId) === client.id ? "selected" : ""}>${escapeHtml(client.name)}</option>`)
+    .join("");
+}
+
+function renderDtfForm(dtf = null) {
+  return `
+    <div class="field-grid dtf-form-grid">
+      <label class="dtf-form-wide">
+        <span class="field-label">Client</span>
+        <input class="field-input" name="clientName" type="text" list="clientSuggestions" value="${escapeHtml(dtfClientLabel(dtf))}" required>
+      </label>
+      <label>
+        <span class="field-label">Dimension</span>
+        <input class="field-input" name="dimensions" type="text" value="${escapeHtml(dtf?.dimensions ?? "")}" required>
+      </label>
+      <label class="dtf-logo-field">
+        <span class="field-label">Nom du logo</span>
+        <input type="hidden" name="designName" value="${escapeHtml(dtf?.designName ?? "")}">
+        <select class="field-select" name="designPreset" required>
+          ${renderLogoPresetOptions(dtf?.designName)}
+        </select>
+      </label>
+      <label>
+        <span class="field-label">Taille</span>
+        <input class="field-input" name="size" type="text" value="${escapeHtml(dtf?.size ?? "")}" required>
+      </label>
+      <label>
+        <span class="field-label">Couleur</span>
+        <input class="field-input" name="color" type="text" list="dtfColorOptions" value="${escapeHtml(dtf?.color ?? "")}" required>
+      </label>
+      <label>
+        <span class="field-label">Quantite</span>
+        <input class="field-input" name="quantity" type="number" min="1" value="${Math.max(1, Number(dtf?.quantity) || 1)}" required>
+      </label>
+      <label class="field-checkbox">
+        <span class="field-label">Type de demande</span>
+        <span class="checkbox-row">
+          <input name="needsMockup" type="checkbox" ${dtf?.needsMockup ? "checked" : ""}>
+          <span>Maquette a faire</span>
+        </span>
+      </label>
+      <label class="dtf-form-note">
+        <span class="field-label">Note technique</span>
+        <input class="field-input" name="technicalNote" type="text" value="${escapeHtml(dtf?.technicalNote ?? "")}">
+      </label>
+    </div>
+    <datalist id="clientSuggestions">${renderClientSuggestionOptions()}</datalist>
+    <datalist id="dtfColorOptions">${renderListOptions(TEXTILE_COLOR_OPTIONS)}</datalist>
+  `;
+}
+
+function renderTextileOrderForm(order = null) {
+  return `
+    <div class="field-grid textile-form-grid">
+      <label>
+        <span class="field-label">Client</span>
+        <input class="field-input" name="clientName" type="text" list="clientSuggestions" value="${escapeHtml(textileClientLabel(order))}" required>
+      </label>
+      <label>
+        <span class="field-label">Fournisseur</span>
+        <input class="field-input" name="supplier" type="text" list="textileSupplierOptions" value="${escapeHtml(order?.supplier ?? "Toptex")}" required>
+      </label>
+      <label>
+        <span class="field-label">Marque</span>
+        <input class="field-input" name="brand" type="text" list="textileBrandOptions" value="${escapeHtml(order?.brand ?? "")}" required>
+      </label>
+      <label>
+        <span class="field-label">Genre</span>
+        <input class="field-input" name="gender" type="text" list="textileGenderOptions" value="${escapeHtml(order?.gender ?? "-")}" required>
+      </label>
+      <label>
+        <span class="field-label">Designation</span>
+        <input class="field-input" name="designation" type="text" list="textileDesignationOptions" value="${escapeHtml(order?.designation ?? "")}" required>
+      </label>
+      <label>
+        <span class="field-label">Référence</span>
+        <input class="field-input" name="catalogReference" type="text" list="textileReferenceOptions" value="${escapeHtml(order?.catalogReference ?? "")}" required>
+      </label>
+      <label>
+        <span class="field-label">Couleur</span>
+        <input class="field-input" name="color" type="text" list="textileColorOptions" value="${escapeHtml(order?.color ?? "")}" required>
+      </label>
+      <label>
+        <span class="field-label">Taille</span>
+        <input class="field-input" name="size" type="text" list="textileSizeOptions" value="${escapeHtml(order?.size ?? "")}" required>
+      </label>
+      <label>
+        <span class="field-label">Quantite</span>
+        <input class="field-input" name="quantity" type="number" min="1" value="${Math.max(1, Number(order?.quantity) || 1)}" required>
+      </label>
+      <label>
+        <span class="field-label">Livraison</span>
+        <input class="field-input" name="deliveryStatus" type="text" list="textileDeliveryOptions" value="${escapeHtml(order?.deliveryStatus ?? "pending")}" required>
+      </label>
+      <label>
+        <span class="field-label">Session</span>
+        <input class="field-input" name="sessionLabel" type="text" value="${escapeHtml(order?.sessionLabel ?? "")}" required>
+      </label>
+      <label>
+        <span class="field-label">Date</span>
+        <input class="field-input" name="expectedDate" type="date" value="${escapeHtml(order?.expectedDate ?? isoToday())}" required>
+      </label>
+    </div>
+    <datalist id="clientSuggestions">${renderClientSuggestionOptions()}</datalist>
+    <datalist id="textileSupplierOptions">${renderListOptions(TEXTILE_SUPPLIER_OPTIONS)}</datalist>
+    <datalist id="textileBrandOptions">${renderTextileValueOptions("brand", TEXTILE_BRAND_OPTIONS)}</datalist>
+    <datalist id="textileGenderOptions">${renderListOptions(TEXTILE_GENDER_OPTIONS)}</datalist>
+    <datalist id="textileDesignationOptions">${renderTextileValueOptions("designation")}</datalist>
+    <datalist id="textileReferenceOptions">${renderTextileValueOptions("catalogReference")}</datalist>
+    <datalist id="textileColorOptions">${renderTextileValueOptions("color", TEXTILE_COLOR_OPTIONS)}</datalist>
+    <datalist id="textileSizeOptions">${renderTextileValueOptions("size")}</datalist>
+    <datalist id="textileDeliveryOptions">${renderListOptions(TEXTILE_DELIVERY_OPTIONS)}</datalist>
+  `;
+}
+
+function renderClientSuggestionOptions() {
+  return db.clients
+    .filter((client) => !isSampleClient(client))
+    .map((client) => `<option value="${escapeHtml(client.name)}"></option>`)
+    .join("");
+}
+
+function primaryClientContact(client) {
+  return client?.contacts?.[0] ?? { name: "", role: "", phone: "", email: "" };
+}
+
+function renderClientForm(client = null) {
+  const contact = primaryClientContact(client);
+  return `
+    <div class="field-grid client-form-grid">
+      <label>
+        <span class="field-label">Société</span>
+        <input class="field-input" name="name" type="text" value="${escapeHtml(client?.name ?? "")}" required>
+      </label>
+      <label>
+        <span class="field-label">Ville</span>
+        <input class="field-input" name="city" type="text" value="${escapeHtml(client?.city ?? "")}" required>
+      </label>
+      <label>
+        <span class="field-label">Code postal</span>
+        <input class="field-input" name="postalCode" type="text" value="${escapeHtml(client?.postalCode ?? "")}">
+      </label>
+      <label>
+        <span class="field-label">Contact</span>
+        <input class="field-input" name="contactName" type="text" value="${escapeHtml(contact.name ?? "")}">
+      </label>
+      <label>
+        <span class="field-label">Téléphone</span>
+        <input class="field-input" name="contactPhone" type="tel" value="${escapeHtml(contact.phone ?? "")}">
+      </label>
+      <label class="client-form-wide">
+        <span class="field-label">Email</span>
+        <input class="field-input" name="contactEmail" type="email" value="${escapeHtml(contact.email ?? "")}">
+      </label>
+    </div>
+  `;
+}
+
+function renderOrderProductOptions(selectedProduct = "") {
+  const current = String(selectedProduct ?? "").trim();
+  const options = current && !ORDER_PRODUCT_OPTIONS.includes(current)
+    ? [current, ...ORDER_PRODUCT_OPTIONS]
+    : ORDER_PRODUCT_OPTIONS;
+
+  return renderSelectOptions(options, current || ORDER_PRODUCT_OPTIONS[0]);
+}
+
+function renderOrderAssigneeChoices(selectedAssignee = "") {
+  const current = normalizeImportedAssignee(selectedAssignee);
+  return ORDER_ASSIGNEES.map((assignee) => `
+    <label class="team-bubble-choice" aria-label="Assigner a ${assignee}">
+      <input class="team-bubble-choice-input" type="radio" name="assignedTo" value="${assignee}" ${current === assignee ? "checked" : ""}>
+      <span class="team-bubble ${current === assignee ? "is-active" : ""}">${assignee}</span>
+    </label>
+  `).join("");
+}
+
+function canOrderUseMockup(zone) {
+  return Boolean(normalizeOrderZone(zone));
+}
+
+function renderOrderForm(order = null) {
+  const zone = normalizeOrderZone(order?.zone);
+  const showMockupField = canOrderUseMockup(zone);
+  return `
+    <div class="field-grid order-form-grid">
+      <label>
+        <span class="field-label">Produit</span>
+        <select class="field-select" name="product" required>
+          ${renderOrderProductOptions(order?.product)}
+        </select>
+      </label>
+      <label>
+        <span class="field-label">Urgence</span>
+        <select class="field-select" name="urgency">
+          ${renderSelectOptions(["Haute", "Moyenne", "Basse"], order?.urgency ?? "Moyenne")}
+        </select>
+      </label>
+      <label>
+        <span class="field-label">Client</span>
+        <input class="field-input" name="clientName" type="text" list="clientSuggestions" value="${escapeHtml(orderClientLabel(order))}" required>
+      </label>
+      <label>
+        <span class="field-label">Contact</span>
+        <input class="field-input" name="contact" type="text" value="${escapeHtml(order?.contact ?? "")}">
+      </label>
+      <label>
+        <span class="field-label">Zone</span>
+        <select class="field-select" name="zone">
+          ${renderSelectOptions(ORDER_ZONE_OPTIONS, normalizeOrderZone(order?.zone))}
+        </select>
+      </label>
+      <label>
+        <span class="field-label">Quantite</span>
+        <input class="field-input" name="quantity" type="number" min="1" value="${Math.max(1, Number(order?.quantity) || 1)}" required>
+      </label>
+      <label>
+        <span class="field-label">Livraison</span>
+        <input class="field-input" name="deliveryDate" type="date" value="${escapeHtml(order?.deliveryDate ?? isoToday())}" required>
+      </label>
+      <label>
+        <span class="field-label">Statut</span>
+        <select class="field-select" name="status">${renderOrderStatusOptions(order?.status)}</select>
+      </label>
+      <label class="field-checkbox" data-order-mockup-field ${showMockupField ? "" : "hidden"}>
+        <span class="field-label">Maquette</span>
+        <span class="checkbox-row">
+          <input name="markMockup" type="checkbox" ${order?.status === "Maquette à faire" ? "checked" : ""} ${showMockupField ? "" : "disabled"}>
+          <span>Maquette a faire</span>
+        </span>
+      </label>
+      <label class="field-choice-group">
+        <span class="field-label">Assigne</span>
+        <span class="team-bubble-group" aria-label="Assignation commande">
+          ${renderOrderAssigneeChoices(order?.assignedTo)}
+        </span>
+      </label>
+      <label class="order-form-note">
+        <span class="field-label">Note</span>
+        <input class="field-input" name="note" type="text" value="${escapeHtml(order?.note ?? "")}">
+      </label>
+    </div>
+    <datalist id="clientSuggestions">${renderClientSuggestionOptions()}</datalist>
+  `;
+}
+
+function getVisibleClients() {
+  const visibleIds = new Set(getVisibleClientRows().map((row) => row.client.id));
+  return db.clients.filter((client) => visibleIds.has(client.id));
+}
+
+function getVisibleClientRows() {
+  const query = state.search;
+  const rows = [];
+
+  db.clients.forEach((client) => {
+    if (isSampleClient(client)) {
+      return;
+    }
+
+    const contacts = client.contacts?.length
+      ? client.contacts
+      : [{ id: 1, name: "", role: "", phone: "", email: "" }];
+
+    contacts.forEach((contact, index) => {
+      const haystack = [
+        client.name,
+        client.clientType,
+        client.postalCode,
+        client.city,
+        contact.name,
+        contact.role,
+        contact.email,
+        contact.phone
+      ]
+        .join(" ")
+        .toLowerCase();
+
+      if (!query || haystack.includes(query)) {
+        rows.push({
+          client,
+          contact: {
+            id: contact.id ?? index + 1,
+            name: contact.name ?? "",
+            role: contact.role ?? "",
+            phone: contact.phone ?? "",
+            email: contact.email ?? ""
+          }
+        });
+      }
+    });
+  });
+
+  return rows;
+}
+
+function getVisibleProductionItems() {
+  if (!state.search) {
+    return [...db.productionItems];
+  }
+
+  return db.productionItems.filter((item) => [
+    item.label,
+    item.status,
+    item.errorNote
+  ].join(" ").toLowerCase().includes(state.search));
+}
+
+function countProductionByStatus(status, collection = db.productionItems) {
+  return collection.filter((item) => item.status === status).length;
+}
+
+function sumProductionQuantity(collection) {
+  return collection.reduce((sum, item) => sum + getProductionQuantity(item), 0);
+}
+
+function getProductionQuantity(item) {
+  return Array.isArray(item?.prints) && item.prints.length
+    ? item.prints.length
+    : Math.max(1, Number(item?.quantity) || 1);
+}
+
+function getProductionCompletedCount(item) {
+  return Array.isArray(item?.prints)
+    ? item.prints.filter((print) => print.checked).length
+    : 0;
+}
+
+function getVisibleTeamNotes() {
+  if (!state.search) {
+    return db.teamNotes;
+  }
+
+  return db.teamNotes.filter((note) => [
+    note.name,
+    note.summary,
+    ...note.items.map((item) => item.label)
+  ].join(" ").toLowerCase().includes(state.search));
+}
+
+function getVisibleTeamNoteItems(note) {
+  if (!state.search) {
+    return note.items;
+  }
+
+  if (`${note.name} ${note.summary}`.toLowerCase().includes(state.search)) {
+    return note.items;
+  }
+
+  return note.items.filter((item) => `${note.name} ${item.label}`.toLowerCase().includes(state.search));
+}
+
+function getVisibleCustomerOrders(options = {}) {
+  return db.customerOrders.filter((item) => {
+    if (state.showOrderArchives && !item.archivedAt) {
+      return false;
+    }
+
+    if (!state.showOrderArchives && item.archivedAt) {
+      return false;
+    }
+
+    if (!state.showOrderArchives && state.orderZoneFilter) {
+      if (normalizeOrderZone(item.zone) !== state.orderZoneFilter) {
+        return false;
+      }
+    }
+
+    if (!state.showOrderArchives && !options.ignoreAssigneeFilter && state.orderAssigneeFilter && item.assignedTo !== state.orderAssigneeFilter) {
+      return false;
+    }
+
+    if (options.ignoreSearch || !state.search) {
+      return true;
+    }
+
+    const haystack = [
+      orderClientLabel(item),
+      item.product,
+      item.urgency,
+      item.contact,
+      item.zone,
+      item.status,
+      item.note,
+      item.assignedTo
+    ]
+      .join(" ")
+      .toLowerCase();
+
+    return haystack.includes(state.search);
+  }).sort(compareOrderPlanning);
+}
+
+function selectOrderRow(orderId, options = {}) {
+  if (state.selectedOrderId === orderId) {
+    return;
+  }
+
+  state.selectedOrderId = orderId;
+
+  if (options.render === false) {
+    return;
+  }
+
+  requestRender({ header: false, status: false, view: true });
+}
+
+function syncOrderAssigneeBubbles(orderId, assignee) {
+  const row = refs.viewRoot.querySelector(`[data-order-id="${orderId}"]`);
+  if (!row) {
+    return;
+  }
+
+  row.querySelectorAll('[data-action="assign-order"]').forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.assignee === assignee);
+  });
+}
+
+function buildOrderPlanningSections(rows) {
+  const sections = [
+    { key: "late", kicker: "Priorité", title: "En retard", rows: [] },
+    { key: "today", kicker: "Jour", title: "Aujourd'hui", rows: [] },
+    { key: "soon", kicker: "Court terme", title: "Prochains jours", rows: [] },
+    { key: "week", kicker: "Semaine", title: "Cette semaine", rows: [] },
+    { key: "upcoming", kicker: "À venir", title: "Plus tard", rows: [] },
+    { key: "none", kicker: "À classer", title: "Sans date", rows: [] }
+  ];
+
+  rows.forEach((row) => {
+    const offset = orderDayOffset(row.deliveryDate);
+
+    if (offset === null) {
+      sections[5].rows.push(row);
+      return;
+    }
+    if (offset < 0) {
+      sections[0].rows.push(row);
+      return;
+    }
+    if (offset === 0) {
+      sections[1].rows.push(row);
+      return;
+    }
+    if (offset <= 3) {
+      sections[2].rows.push(row);
+      return;
+    }
+    if (offset <= 7) {
+      sections[3].rows.push(row);
+      return;
+    }
+    sections[4].rows.push(row);
+  });
+
+  return sections.filter((section) => section.rows.length);
+}
+
+function compareOrderPlanning(left, right) {
+  const leftOffset = orderDayOffset(left.deliveryDate);
+  const rightOffset = orderDayOffset(right.deliveryDate);
+
+  if (leftOffset === null && rightOffset !== null) {
+    return 1;
+  }
+  if (leftOffset !== null && rightOffset === null) {
+    return -1;
+  }
+  if (leftOffset !== null && rightOffset !== null && leftOffset !== rightOffset) {
+    return leftOffset - rightOffset;
+  }
+
+  const urgencyRank = { Haute: 0, Moyenne: 1, Basse: 2 };
+  const urgencyDiff = (urgencyRank[left.urgency] ?? 3) - (urgencyRank[right.urgency] ?? 3);
+  if (urgencyDiff !== 0) {
+    return urgencyDiff;
+  }
+
+  return orderClientLabel(left).localeCompare(orderClientLabel(right), "fr");
+}
+
+function renderOrderDeadline(order) {
+  if (!order.deliveryDate) {
+    return `
+      <div class="order-deadline">
+        <strong>—</strong>
+      </div>
+    `;
+  }
+
+  const offset = orderDayOffset(order.deliveryDate);
+  const tone = deadlineTone(offset);
+  const badge = offset === null ? "" : `
+    <span class="deadline-badge" data-tone="${tone}">
+      ${escapeHtml(deadlineCopy(offset))}
+    </span>
+  `;
+
+  return `
+    <div class="order-deadline">
+      <strong>${escapeHtml(formatDate(order.deliveryDate))}</strong>
+      ${badge}
+    </div>
+  `;
+}
+
+function getVisibleDtfItems() {
+  return db.dtfRequests.filter((item) => {
+    if (state.showDtfArchives && !item.archivedAt) {
+      return false;
+    }
+
+    if (!state.showDtfArchives && item.archivedAt) {
+      return false;
+    }
+
+    if (item.needsMockup) {
+      return false;
+    }
+
+    if (!state.search) {
+      return true;
+    }
+
+    const haystack = [
+      dtfClientLabel(item),
+      item.designName,
+      item.dimensions,
+      item.logoPlacement,
+      item.size,
+      item.color,
+      item.technicalNote
+    ]
+      .join(" ")
+      .toLowerCase();
+
+    return haystack.includes(state.search);
+  });
+}
+
+function getVisibleMockupItems() {
+  const rows = [];
+
+  db.customerOrders.forEach((item) => {
+    if (state.showDtfArchives && !item.archivedAt) {
+      return;
+    }
+
+    if (!state.showDtfArchives && item.archivedAt) {
+      return;
+    }
+
+    if (item.status !== "Maquette à faire" || item.mockupCompletedAt) {
+      return;
+    }
+
+    const row = {
+      kind: "order",
+      id: item.id,
+      client: orderClientLabel(item),
+      title: item.note || item.product || "Commande",
+      meta: item.contact,
+      quantity: item.quantity,
+      zone: item.zone,
+      date: item.deliveryDate
+    };
+
+    if (state.search && !mockupSearchHaystack(row).includes(state.search)) {
+      return;
+    }
+
+    rows.push(row);
+  });
+
+  db.dtfRequests.forEach((item) => {
+    if (state.showDtfArchives && !item.archivedAt) {
+      return;
+    }
+
+    if (!state.showDtfArchives && item.archivedAt) {
+      return;
+    }
+
+    if (!item.needsMockup || item.mockupCompletedAt) {
+      return;
+    }
+
+    const row = {
+      kind: "dtf",
+      id: item.id,
+      client: dtfClientLabel(item),
+      title: item.designName || item.technicalNote || "Demande DTF",
+      meta: [item.dimensions, item.logoPlacement, item.color, item.size].filter(Boolean).join(" · "),
+      quantity: item.quantity,
+      zone: "DTF",
+      date: item.createdAt
+    };
+
+    if (state.search && !mockupSearchHaystack(row).includes(state.search)) {
+      return;
+    }
+
+    rows.push(row);
+  });
+
+  return rows.sort((left, right) => {
+    const leftTime = mockupSortTime(left.date);
+    const rightTime = mockupSortTime(right.date);
+    if (leftTime !== rightTime) {
+      return leftTime - rightTime;
+    }
+    return left.client.localeCompare(right.client, "fr");
+  });
+}
+
+function mockupSearchHaystack(row) {
+  return [
+    row.client,
+    row.title,
+    row.meta,
+    row.zone
+  ]
+    .join(" ")
+    .toLowerCase();
+}
+
+function mockupSortTime(value) {
+  if (!value) {
+    return Number.MAX_SAFE_INTEGER;
+  }
+
+  const normalized = String(value).includes("T") ? String(value) : `${value}T00:00:00`;
+  const date = new Date(normalized);
+  return Number.isNaN(date.getTime()) ? Number.MAX_SAFE_INTEGER : date.getTime();
+}
+
+function getVisibleTextileOrders() {
+  const rows = db.textileOrders.filter((item) => {
+    if (state.showTextileArchives && !item.archivedAt) {
+      return false;
+    }
+
+    if (!state.showTextileArchives && item.archivedAt) {
+      return false;
+    }
+
+    if (!state.search) {
+      return true;
+    }
+
+    const haystack = [
+      clientName(item.clientId),
+      item.supplier,
+      item.brand,
+      item.designation,
+      item.catalogReference,
+      item.sessionLabel
+    ]
+      .join(" ")
+      .toLowerCase();
+
+    return haystack.includes(state.search);
+  });
+
+  return [...rows].sort((left, right) => compareRows(left, right, state.textileSort.key, state.textileSort.direction));
+}
+
+function getVisiblePurchaseItems(zone) {
+  return db.purchaseItems.filter((item) => {
+    if (item.zone !== zone) {
+      return false;
+    }
+
+    if (!state.search) {
+      return true;
+    }
+
+    return `${item.zone} ${item.label}`.toLowerCase().includes(state.search);
+  });
+}
+
+function getVisibleWorkshopTasks(group) {
+  return db.workshopTasks.filter((item) => {
+    if (item.group !== group) {
+      return false;
+    }
+
+    if (!state.search) {
+      return true;
+    }
+
+    return item.label.toLowerCase().includes(state.search);
+  });
+}
+
+function getVisibleImprovementItems(type) {
+  return db.improvementItems.filter((item) => {
+    if (item.type !== type) {
+      return false;
+    }
+
+    if (!state.search) {
+      return true;
+    }
+
+    return `${improvementTypeLabel(item.type)} ${item.label}`.toLowerCase().includes(state.search);
+  });
+}
+
+function duplicateDtfItems(ids) {
+  let nextCloneId = nextId(db.dtfRequests, db.dtfRequests.length + 10);
+  const clones = db.dtfRequests
+    .filter((item) => ids.includes(item.id))
+    .map((item) => ({
+      ...item,
+      id: nextCloneId++,
+      status: "draft",
+      archivedAt: "",
+      createdAt: isoToday()
+    }));
+
+  db.dtfRequests = [...clones, ...db.dtfRequests];
+  persistDb();
+  state.selectedDtfIds.clear();
+  requestRender();
+  showToast("Demande DTF dupliquee.");
+}
+
+function updateDtfStatus(ids, status) {
+  db.dtfRequests = db.dtfRequests.map((item) => (
+    ids.includes(item.id)
+      ? { ...item, status }
+      : item
+  ));
+  persistDb();
+  state.selectedDtfIds.clear();
+  requestRender();
+  showToast("Demandes mises a jour.");
+}
+
+function archiveDtfItems(ids, shouldArchive) {
+  db.dtfRequests = db.dtfRequests.map((item) => (
+    ids.includes(item.id)
+      ? { ...item, status: shouldArchive ? item.status : "draft", archivedAt: shouldArchive ? isoToday() : "" }
+      : item
+  ));
+  persistDb();
+  state.selectedDtfIds.clear();
+  requestRender();
+  showToast(shouldArchive ? "Demandes archivees." : "Demandes restaurees.");
+}
+
+function deleteDtfItems(ids) {
+  db.dtfRequests = db.dtfRequests.filter((item) => !ids.includes(item.id));
+  persistDb();
+  state.selectedDtfIds.clear();
+  requestRender();
+  showToast("Demandes supprimees.");
+}
+
+function archiveTextileOrder(id, shouldArchive) {
+  db.textileOrders = db.textileOrders.map((item) => (
+    item.id === id ? { ...item, archivedAt: shouldArchive ? isoToday() : "" } : item
+  ));
+  persistDb();
+  requestRender();
+  showToast(shouldArchive ? "Commande textile archivee." : "Commande textile restauree.");
+}
+
+function toggleTextileSort(key) {
+  if (state.textileSort.key === key) {
+    state.textileSort.direction = state.textileSort.direction === "asc" ? "desc" : "asc";
+  } else {
+    state.textileSort.key = key;
+    state.textileSort.direction = key === "expectedDate" ? "asc" : "desc";
+  }
+}
+
+function compareRows(left, right, key, direction) {
+  const factor = direction === "asc" ? 1 : -1;
+  const leftValue = key === "client" ? textileClientLabel(left) : left[key];
+  const rightValue = key === "client" ? textileClientLabel(right) : right[key];
+
+  if (typeof leftValue === "number" && typeof rightValue === "number") {
+    return (leftValue - rightValue) * factor;
+  }
+
+  return String(leftValue).localeCompare(String(rightValue), "fr") * factor;
+}
+
+function normalizeTextileOrder(item) {
+  const deliveryStatus = String(item?.deliveryStatus ?? "").trim();
+  return {
+    ...item,
+    clientId: Number(item?.clientId) || null,
+    clientName: String(item?.clientName ?? "").trim(),
+    supplier: String(item?.supplier ?? "").trim(),
+    brand: String(item?.brand ?? "").trim(),
+    gender: String(item?.gender ?? "").trim(),
+    designation: String(item?.designation ?? "").trim(),
+    catalogReference: String(item?.catalogReference ?? "").trim(),
+    color: String(item?.color ?? "").trim(),
+    size: String(item?.size ?? "").trim(),
+    quantity: Math.max(1, Number(item?.quantity) || 1),
+    deliveryStatus: TEXTILE_DELIVERY_OPTIONS.includes(deliveryStatus) ? deliveryStatus : "pending",
+    sessionLabel: String(item?.sessionLabel ?? "").trim(),
+    expectedDate: String(item?.expectedDate ?? isoToday()),
+    archivedAt: String(item?.archivedAt ?? ""),
+    createdAt: String(item?.createdAt ?? isoToday())
+  };
+}
+
+function injectImportedTextileOrders(collection, clients, parsedVersion) {
+  if (parsedVersion >= DATA_VERSION) {
+    return collection;
+  }
+
+  const orders = structuredClone(Array.isArray(collection) ? collection : []);
+  const clientByName = new Map(
+    (Array.isArray(clients) ? clients : []).map((client) => [normalizeClientKey(client?.name), client.id])
+  );
+  const signatures = new Set(orders.map((item) => textileOrderSignature(item, clients)));
+
+  TEXTILE_ORDER_IMPORTS.forEach((item) => {
+    const importedOrder = normalizeTextileOrder({
+      id: nextId(orders),
+      clientId: clientByName.get(normalizeClientKey(item.clientName)) ?? null,
+      ...item
+    });
+    const signature = textileOrderSignature(importedOrder, clients);
+
+    if (signatures.has(signature)) {
+      return;
+    }
+
+    orders.unshift(importedOrder);
+    signatures.add(signature);
+  });
+
+  return orders;
+}
+
+function textileOrderSignature(item, clients = db.clients) {
+  const clientLabel = textileClientLabel(item, clients);
+  return [
+    normalizeSearchKey(clientLabel),
+    normalizeSearchKey(item?.supplier),
+    normalizeSearchKey(item?.brand),
+    normalizeSearchKey(item?.designation),
+    normalizeSearchKey(item?.catalogReference),
+    normalizeSearchKey(item?.color),
+    normalizeSearchKey(item?.size),
+    String(Math.max(1, Number(item?.quantity) || 1)),
+    normalizeSearchKey(item?.deliveryStatus),
+    normalizeSearchKey(item?.sessionLabel),
+    String(item?.expectedDate ?? "")
+  ].join("|");
+}
+
+function resolveClientName(clientId, clients = db.clients) {
+  return (Array.isArray(clients) ? clients : []).find((client) => client.id === Number(clientId))?.name ?? "";
+}
+
+function textileClientLabel(item, clients = db.clients) {
+  return String(item?.clientName ?? "").trim() || resolveClientName(item?.clientId, clients) || "Client inconnu";
+}
+
+function loadDb() {
+  try {
+    const candidates = getStoredDbCandidates();
+    if (!candidates.length) {
+      return {
+        data: buildSeedDb(),
+        recoveryMessage: ""
+      };
+    }
+
+    for (const candidate of candidates) {
+      try {
+        const parsed = JSON.parse(candidate.raw);
+        return {
+          data: normalizeDb(parsed),
+          recoveryMessage: recoveryMessageForStorageSource(candidate.source)
+        };
+      } catch {
+        continue;
+      }
+    }
+
+    backupCorruptedStorage();
+    return {
+      data: buildSeedDb(),
+      recoveryMessage: "Donnees locales invalides detectees. Une sauvegarde brute a ete preservee."
+    };
+  } catch {
+    backupCorruptedStorage();
+    return {
+      data: buildSeedDb(),
+      recoveryMessage: "Donnees locales invalides detectees. Une sauvegarde brute a ete preservee."
+    };
+  }
+}
+
+function buildSeedDb() {
+  const clients = mergeImportedClients(structuredClone(seed.clients));
+  return {
+    ...structuredClone(seed),
+    clients,
+    textileOrders: injectImportedTextileOrders(structuredClone(seed.textileOrders), clients, 0),
+    purchaseItems: mergePurchaseDefaults(structuredClone(seed.purchaseItems)),
+    workshopTasks: mergeWorkshopDefaults(structuredClone(seed.workshopTasks)),
+    improvementItems: []
+  };
+}
+
+function normalizeDb(parsed) {
+  const parsedVersion = Number(parsed?._meta?.version) || 0;
+  const shouldResetCustomerOrders = parsedVersion > 0 && parsedVersion < 2;
+  const clients = mergeImportedClients(Array.isArray(parsed.clients) ? parsed.clients : structuredClone(seed.clients));
+  const textileOrders = Array.isArray(parsed.textileOrders)
+    ? parsed.textileOrders.map(normalizeTextileOrder)
+    : structuredClone(seed.textileOrders);
+  return {
+    teamNotes: normalizeTeamNotes(parsed.teamNotes),
+    clients,
+    dtfRequests: Array.isArray(parsed.dtfRequests) ? parsed.dtfRequests.map(normalizeDtfRequest) : structuredClone(seed.dtfRequests),
+    customerOrders: dedupeCustomerOrders(
+      shouldResetCustomerOrders ? [] : (
+        Array.isArray(parsed.customerOrders) ? parsed.customerOrders.map(normalizeCustomerOrder) : structuredClone(seed.customerOrders)
+      )
+    ),
+    textileOrders: injectImportedTextileOrders(textileOrders, clients, parsedVersion),
+    purchaseItems: mergePurchaseDefaults(Array.isArray(parsed.purchaseItems) ? parsed.purchaseItems : structuredClone(seed.purchaseItems)),
+    productionItems: Array.isArray(parsed.productionItems) ? parsed.productionItems.map(normalizeProductionItem) : structuredClone(seed.productionItems),
+    workshopTasks: mergeWorkshopDefaults(Array.isArray(parsed.workshopTasks) ? parsed.workshopTasks : structuredClone(seed.workshopTasks)),
+    improvementItems: Array.isArray(parsed.improvementItems) ? parsed.improvementItems.map(normalizeImprovementItem).filter((item) => item.label) : []
+  };
+}
+
+function mergeImportedClients(collection) {
+  const clients = structuredClone(Array.isArray(collection) ? collection : []);
+  const byName = new Map();
+
+  clients.forEach((client) => {
+    const key = normalizeClientKey(client?.name);
+    if (key) {
+      byName.set(key, client);
+    }
+  });
+
+  for (const importedClient of IMPORTED_PRO_CLIENTS) {
+    const key = normalizeClientKey(importedClient.name);
+    const existingClient = byName.get(key);
+
+    if (existingClient) {
+      existingClient.clientType = existingClient.clientType || importedClient.clientType;
+      existingClient.postalCode = existingClient.postalCode || importedClient.postalCode;
+      existingClient.city = existingClient.city || importedClient.city;
+      existingClient.createdAt = existingClient.createdAt || importedClient.createdAt;
+      existingClient.contacts = mergeClientContacts(existingClient.contacts, importedClient.contacts);
+      continue;
+    }
+
+    clients.push({
+      id: nextId(clients),
+      name: importedClient.name,
+      clientType: importedClient.clientType,
+      postalCode: importedClient.postalCode,
+      city: importedClient.city,
+      createdAt: importedClient.createdAt,
+      contacts: importedClient.contacts.map((contact, index) => ({
+        id: index + 1,
+        name: contact.name,
+        role: contact.role,
+        phone: contact.phone,
+        email: contact.email
+      }))
+    });
+  }
+
+  return clients;
+}
+
+function mergeClientContacts(existingContacts, importedContacts) {
+  const contacts = Array.isArray(existingContacts) ? existingContacts.slice() : [];
+  const seen = new Set(contacts.map((contact) => normalizeContactKey(contact)));
+
+  for (const contact of importedContacts) {
+    const key = normalizeContactKey(contact);
+    if (!key || seen.has(key)) {
+      continue;
+    }
+
+    contacts.push({
+      id: nextId(contacts),
+      name: contact.name,
+      role: contact.role,
+      phone: contact.phone,
+      email: contact.email
+    });
+    seen.add(key);
+  }
+
+  return contacts;
+}
+
+function normalizeClientKey(value) {
+  return normalizeSearchKey(value);
+}
+
+function normalizeContactKey(contact) {
+  return [
+    normalizeSearchKey(contact?.name),
+    normalizeSearchKey(contact?.role),
+    normalizeSearchKey(contact?.phone),
+    normalizeSearchKey(contact?.email)
+  ].filter(Boolean).join("|");
+}
+
+function normalizeSearchKey(value) {
+  return String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function getStoredDbCandidates() {
+  const candidates = [];
+  const primaryRaw = localStorage.getItem(STORAGE_KEY);
+  const mirrorRaw = localStorage.getItem(STORAGE_MIRROR_KEY);
+
+  if (primaryRaw) {
+    candidates.push({ source: "primary", raw: primaryRaw });
+  }
+
+  if (mirrorRaw) {
+    candidates.push({ source: "mirror", raw: mirrorRaw });
+  }
+
+  readStorageBackups()
+    .slice()
+    .reverse()
+    .forEach((entry) => {
+      if (entry?.payload) {
+        candidates.push({ source: "backup", raw: entry.payload });
+      }
+    });
+
+  return candidates;
+}
+
+function recoveryMessageForStorageSource(source) {
+  if (source === "mirror") {
+    return "Le stockage principal etait indisponible. La derniere copie locale miroir a ete restauree.";
+  }
+
+  if (source === "backup") {
+    return "Le stockage principal etait indisponible. Une sauvegarde locale recente a ete restauree.";
+  }
+
+  return "";
+}
+
+function normalizeTeamNotes(collection) {
+  const rows = Array.isArray(collection) ? collection : structuredClone(seed.teamNotes);
+
+  return TEAM_NOTE_MEMBERS.map((name, index) => {
+    const existing = rows.find((item) => String(item.name ?? "").trim().toLowerCase() === name.toLowerCase());
+    const items = Array.isArray(existing?.items)
+      ? existing.items
+      : String(existing?.body ?? "")
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((label, itemIndex) => ({
+          id: itemIndex + 1,
+          label,
+          checked: false
+        }));
+
+    const normalizedItems = items.map((item, itemIndex) => ({
+      id: Number(item.id) || itemIndex + 1,
+      label: String(item.label ?? "").trim(),
+      checked: Boolean(item.checked)
+    })).filter((item) => item.label);
+
+    const fallbackItems = normalizedItems.length
+      ? normalizedItems
+      : (TEAM_NOTE_DEFAULT_ITEMS[name] ?? []).map((label, itemIndex) => ({
+          id: itemIndex + 1,
+          label,
+          checked: false
+        }));
+
+    const mergedItems = name === "Loic"
+      ? mergeMissingTeamNoteItems(fallbackItems, TEAM_NOTE_DEFAULT_ITEMS.Loic ?? [])
+      : fallbackItems;
+
+    return {
+      id: index + 1,
+      name,
+      summary: String(existing?.summary ?? "").trim(),
+      items: mergedItems,
+      updatedAt: String(existing?.updatedAt ?? "") || (mergedItems.length ? isoToday() : "")
+    };
+  });
+}
+
+function mergeMissingTeamNoteItems(items, defaults) {
+  const existingLabels = new Set(items.map((item) => String(item.label ?? "").trim().toLowerCase()));
+  const merged = [...items];
+  let nextItemId = nextId(items);
+
+  defaults.forEach((label) => {
+    const normalizedLabel = String(label ?? "").trim();
+    if (!normalizedLabel || existingLabels.has(normalizedLabel.toLowerCase())) {
+      return;
+    }
+
+    merged.push({
+      id: nextItemId++,
+      label: normalizedLabel,
+      checked: false
+    });
+  });
+
+  return merged;
+}
+
+function teamNoteEditKey(noteId, itemId) {
+  return `${noteId}:${itemId}`;
+}
+
+function startEditingTeamNoteItem(noteId, itemId) {
+  state.activeTeamNoteEdit = teamNoteEditKey(noteId, itemId);
+  requestRender({ header: false, status: false, view: true });
+  requestAnimationFrame(() => {
+    const input = refs.viewRoot.querySelector(`.team-note-edit-input[data-note-id="${noteId}"][data-item-id="${itemId}"]`);
+    if (input) {
+      autosizeTextarea(input);
+      input.focus();
+      input.setSelectionRange(input.value.length, input.value.length);
+    }
+  });
+}
+
+function saveTeamNoteItem(noteId, itemId, nextLabel) {
+  const note = db.teamNotes.find((item) => item.id === noteId);
+  const entry = note?.items.find((item) => item.id === itemId);
+  if (!entry) {
+    state.activeTeamNoteEdit = null;
+    requestRender({ header: false, status: false, view: true });
+    return;
+  }
+
+  const label = String(nextLabel ?? "").trim();
+  state.activeTeamNoteEdit = null;
+
+  if (!label || label === entry.label) {
+    requestRender({ header: false, status: false, view: true });
+    return;
+  }
+
+  entry.label = label;
+  note.updatedAt = isoToday();
+  persistDb();
+  requestRender({ header: false, status: true, view: true });
+}
+
+function syncTeamNoteItemInput(noteId, itemId, nextLabel) {
+  const note = db.teamNotes.find((item) => item.id === noteId);
+  const entry = note?.items.find((item) => item.id === itemId);
+  const label = String(nextLabel ?? "");
+
+  if (!entry || !label.trim() || entry.label === label) {
+    return;
+  }
+
+  entry.label = label;
+  note.updatedAt = isoToday();
+  persistDb();
+}
+
+function syncTeamNoteSummary(noteId, nextSummary) {
+  const note = db.teamNotes.find((item) => item.id === noteId);
+  const summary = String(nextSummary ?? "");
+
+  if (!note || note.summary === summary) {
+    return;
+  }
+
+  note.summary = summary;
+  note.updatedAt = isoToday();
+  persistDb();
+}
+
+function autosizeTextarea(textarea) {
+  if (!(textarea instanceof HTMLTextAreaElement)) {
+    return;
+  }
+
+  textarea.style.height = "auto";
+  textarea.style.height = `${textarea.scrollHeight}px`;
+}
+
+function syncTeamNoteEditors() {
+  refs.viewRoot.querySelectorAll(".team-note-edit-input, .team-note-summary-input").forEach((node) => {
+    autosizeTextarea(node);
+  });
+}
+
+function normalizeDtfRequest(item) {
+  const legacyDimensions = String(item.dimensions ?? "").trim();
+  const legacyFront = String(item.dimensionFront ?? "").trim();
+  const legacyBack = String(item.dimensionBack ?? "").trim();
+  return {
+    id: Number(item.id),
+    sourceOrderId: Number(item.sourceOrderId) || null,
+    clientId: Number(item.clientId) || null,
+    clientName: String(item.clientName ?? "").trim(),
+    dimensions: legacyDimensions || legacyFront || legacyBack,
+    logoPlacement: normalizeLogoPlacement(item.logoPlacement || (legacyBack && !legacyFront ? "AR" : "AV")),
+    designName: String(item.designName ?? ""),
+    size: String(item.size ?? ""),
+    color: String(item.color ?? ""),
+    technicalNote: String(item.technicalNote ?? ""),
+    quantity: Math.max(1, Number(item.quantity) || 1),
+    needsMockup: Boolean(item.needsMockup),
+    mockupCompletedAt: String(item.mockupCompletedAt ?? ""),
+    status: String(item.status ?? "draft"),
+    archivedAt: String(item.archivedAt ?? ""),
+    createdAt: String(item.createdAt ?? isoToday())
+  };
+}
+
+function normalizeProductionItem(item) {
+  const quantity = Math.max(1, Number(item.quantity) || 1);
+  const rawPrints = Array.isArray(item.prints)
+    ? item.prints
+    : Array.from({ length: quantity }, (_, index) => ({
+        id: index + 1,
+        checked: false
+      }));
+
+  return {
+    id: Number(item.id),
+    label: String(item.label ?? item.name ?? "").trim(),
+    prints: rawPrints.map((print, index) => ({
+      id: Number(print.id) || index + 1,
+      checked: Boolean(print.checked)
+    })),
+    status: normalizeProductionStatus(item.status),
+    errorNote: String(item.errorNote ?? item.error ?? "").trim(),
+    createdAt: String(item.createdAt ?? isoNow()),
+    updatedAt: String(item.updatedAt ?? item.createdAt ?? isoNow())
+  };
+}
+
+function normalizeWorkshopTask(item, index = 0) {
+  return {
+    id: Number(item.id) || index + 1,
+    group: String(item.group ?? "standard"),
+    label: String(item.label ?? "").trim(),
+    checked: Boolean(item.checked),
+    recurring: Boolean(item.recurring),
+    createdAt: String(item.createdAt ?? isoToday())
+  };
+}
+
+function normalizeImprovementItem(item, index = 0) {
+  const type = String(item.type ?? "bug");
+  return {
+    id: Number(item.id) || index + 1,
+    type: IMPROVEMENT_TYPES.some((entry) => entry.key === type) ? type : "bug",
+    label: String(item.label ?? "").trim(),
+    createdAt: String(item.createdAt ?? isoToday())
+  };
+}
+
+function mergeWorkshopDefaults(collection) {
+  const tasks = (Array.isArray(collection) ? collection : [])
+    .map((item, index) => normalizeWorkshopTask(item, index))
+    .filter((item) => item.label);
+  const seen = new Set(tasks.map((item) => `${item.group}|${normalizeSearchKey(item.label)}`));
+  let nextTaskId = nextId(tasks);
+
+  DEFAULT_WORKSHOP_TASKS.forEach((task) => {
+    const key = `${task.group}|${normalizeSearchKey(task.label)}`;
+    if (seen.has(key)) {
+      return;
+    }
+
+    tasks.push({
+      id: nextTaskId++,
+      group: task.group,
+      label: task.label,
+      checked: false,
+      recurring: task.recurring,
+      createdAt: isoToday()
+    });
+    seen.add(key);
+  });
+
+  return tasks;
+}
+
+function normalizePurchaseItem(item, index = 0) {
+  return {
+    id: Number(item.id) || index + 1,
+    zone: String(item.zone ?? "SXM"),
+    label: String(item.label ?? "").trim(),
+    quantity: Math.max(1, Number(item.quantity) || 1),
+    checked: Boolean(item.checked),
+    createdAt: String(item.createdAt ?? isoToday())
+  };
+}
+
+function mergePurchaseDefaults(collection) {
+  const items = (Array.isArray(collection) ? collection : [])
+    .map((item, index) => normalizePurchaseItem(item, index))
+    .filter((item) => item.label);
+  const seen = new Set(items.map((item) => `${item.zone}|${normalizeSearchKey(item.label)}`));
+  let nextPurchaseId = nextId(items);
+
+  DEFAULT_PURCHASE_ITEMS.forEach((item) => {
+    const key = `${item.zone}|${normalizeSearchKey(item.label)}`;
+    if (seen.has(key)) {
+      return;
+    }
+
+    items.push({
+      id: nextPurchaseId++,
+      zone: item.zone,
+      label: item.label,
+      quantity: 1,
+      checked: item.checked,
+      createdAt: isoToday()
+    });
+    seen.add(key);
+  });
+
+  return items;
+}
+
+function backupCorruptedStorage() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) {
+      return;
+    }
+
+    const backupKey = `${STORAGE_KEY}.corrupt.${Date.now()}`;
+    localStorage.setItem(backupKey, raw);
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // Ignore storage failures and continue with the seed database.
+  }
+}
+
+function normalizeCustomerOrder(order) {
+  return {
+    id: Number(order.id),
+    clientId: Number(order.clientId) || null,
+    clientName: String(order.clientName ?? "").trim(),
+    orderType: normalizeOrderType(order.orderType, order.clientId),
+    product: order.product ?? order.title ?? "Commande",
+    urgency: order.urgency ?? "Moyenne",
+    contact: order.contact ?? "",
+    zone: normalizeOrderZone(order.zone ?? order.category ?? ""),
+    quantity: normalizeOrderQuantity(order.quantity),
+    note: order.note ?? "",
+    deliveryDate: order.deliveryDate ?? order.dueDate ?? isoToday(),
+    status: normalizeOrderStatus(order.status),
+    mockupCompletedAt: String(order.mockupCompletedAt ?? ""),
+    assignedTo: order.assignedTo ?? "",
+    createdAt: order.createdAt ?? isoToday(),
+    archivedAt: order.archivedAt ?? ""
+  };
+}
+
+function dedupeCustomerOrdersInPlace() {
+  const deduped = dedupeCustomerOrders(db.customerOrders);
+  if (deduped.length === db.customerOrders.length) {
+    return 0;
+  }
+
+  db.customerOrders = deduped;
+  return 1;
+}
+
+function dedupeCustomerOrders(collection) {
+  const seen = new Set();
+  const deduped = [];
+
+  (Array.isArray(collection) ? collection : []).forEach((order) => {
+    const signature = orderImportSignature(order);
+    if (seen.has(signature)) {
+      return;
+    }
+
+    seen.add(signature);
+    deduped.push(order);
+  });
+
+  return deduped;
+}
+
+function mergeImportedCustomerOrders() {
+  const existingSignatures = new Set(db.customerOrders.map(orderImportSignature));
+  const imports = IMPORTED_CUSTOMER_ORDERS
+    .map((item, index) => ({
+      id: nextId(db.customerOrders, db.customerOrders.length + index + 1) + index,
+      clientId: parseOrderClient(item.clientName).clientId,
+      clientName: item.clientName,
+      orderType: item.orderType,
+      product: inferImportedOrderProduct(item.zone, item.note),
+      urgency: item.urgency,
+      contact: "",
+      zone: normalizeOrderZone(item.zone),
+      quantity: normalizeOrderQuantity(item.quantity),
+      note: item.note,
+      deliveryDate: item.deliveryDate,
+      status: normalizeOrderStatus(item.status),
+      mockupCompletedAt: "",
+      assignedTo: normalizeImportedAssignee(item.assignedTo),
+      createdAt: isoNow(),
+      archivedAt: ""
+    }))
+    .filter((item) => {
+      const signature = orderImportSignature(item);
+      if (existingSignatures.has(signature)) {
+        return false;
+      }
+
+      existingSignatures.add(signature);
+      return true;
+    });
+
+  if (!imports.length) {
+    return 0;
+  }
+
+  db.customerOrders = [...db.customerOrders, ...imports];
+  return imports.length;
+}
+
+function orderImportSignature(order) {
+  return [
+    String(order.orderType ?? "").trim().toUpperCase(),
+    String(order.urgency ?? "").trim(),
+    String(order.clientName ?? "").trim().toLowerCase(),
+    String(order.zone ?? "").trim().toLowerCase(),
+    String(order.note ?? "").trim().toLowerCase(),
+    String(order.deliveryDate ?? "").trim(),
+    normalizeImportedAssignee(order.assignedTo),
+    String(normalizeOrderQuantity(order.quantity))
+  ].join("|");
+}
+
+function normalizeOrderQuantity(value) {
+  if (value === "" || value === null || value === undefined) {
+    return 0;
+  }
+
+  const quantity = Number(value);
+  if (!Number.isFinite(quantity) || quantity <= 0) {
+    return 0;
+  }
+
+  return Math.round(quantity);
+}
+
+function inferImportedOrderProduct(zone, note) {
+  const noteValue = String(note ?? "").toLowerCase();
+  const zoneValue = normalizeOrderZone(zone).toLowerCase();
+
+  if (noteValue.includes("casquette")) {
+    return "Casquette";
+  }
+  if (noteValue.includes("tote bag") || noteValue.includes("pochette")) {
+    return "Pochette";
+  }
+  if (noteValue.includes("tasses") || noteValue.includes("verre")) {
+    return "Tasses";
+  }
+  if (zoneValue === "goodies" || zoneValue === "gravure et découpe laser" || zoneValue === "impression uv") {
+    return "Goodies";
+  }
+
+  return "Tshirt";
+}
+
+function normalizeOrderZone(zone) {
+  const value = String(zone ?? "").trim().toLowerCase();
+
+  if (!value || value === "-" || value === "textile" || value === "textiles") {
+    return "Textiles";
+  }
+
+  if (["gravure", "gravure et decoupe laser", "gravure et découpe laser", "laser"].includes(value)) {
+    return "Gravure et découpe laser";
+  }
+
+  if (["uv", "impression", "impression uv", "dtf"].includes(value)) {
+    return "Impression UV";
+  }
+
+  if (value === "goodies") {
+    return "Goodies";
+  }
+
+  return "Textiles";
+}
+
+function normalizeImportedAssignee(value) {
+  const normalized = String(value ?? "").trim().toUpperCase();
+  return ORDER_ASSIGNEES.includes(normalized) ? normalized : "";
+}
+
+function createDtfFromTextileOrder(order) {
+  if (!order || normalizeOrderZone(order.zone) !== "Textiles") {
+    return;
+  }
+
+  const existing = db.dtfRequests.find((item) => Number(item.sourceOrderId) === Number(order.id));
+  if (existing) {
+    return;
+  }
+
+  db.dtfRequests.unshift({
+    id: nextId(db.dtfRequests),
+    sourceOrderId: order.id,
+    clientId: order.clientId ?? null,
+    clientName: order.clientName ?? "",
+    dimensions: "",
+    logoPlacement: "AV",
+    designName: "",
+    size: "",
+    color: "",
+    technicalNote: String(order.note ?? "").trim(),
+    quantity: Math.max(1, Number(order.quantity) || 1),
+    needsMockup: false,
+    mockupCompletedAt: isoNow(),
+    status: "draft",
+    archivedAt: "",
+    createdAt: isoToday()
+  });
+}
+
+function syncOrderMockupField() {
+  if (!refs.sheetForm || !["addOrder", "editOrder"].includes(state.activeSheetAction)) {
+    return;
+  }
+
+  const zoneField = refs.sheetForm.elements.namedItem("zone");
+  const mockupField = refs.sheetBody.querySelector("[data-order-mockup-field]");
+  const mockupInput = refs.sheetForm.elements.namedItem("markMockup");
+  if (!(zoneField instanceof HTMLSelectElement) || !(mockupField instanceof HTMLElement) || !(mockupInput instanceof HTMLInputElement)) {
+    return;
+  }
+
+  const shouldShow = canOrderUseMockup(zoneField.value);
+  mockupField.hidden = !shouldShow;
+  mockupInput.disabled = !shouldShow;
+  if (!shouldShow) {
+    mockupInput.checked = false;
+  }
+}
+
+function normalizeProductionStatus(value) {
+  const raw = String(value ?? "").trim().toLowerCase();
+
+  if (raw === "impression en cours" || raw === "en cours") {
+    return "Impression en cours";
+  }
+  if (raw === "erreur") {
+    return "Erreur";
+  }
+  if (raw === "termine" || raw === "terminé") {
+    return "Terminé";
+  }
+  return "A imprimer";
+}
+
+function persistDb() {
+  try {
+    const payload = JSON.stringify({
+      ...db,
+      _meta: {
+        version: DATA_VERSION
+      }
+    });
+
+    const primarySaved = safeSetStorageItem(STORAGE_KEY, payload);
+    const mirrorSaved = safeSetStorageItem(STORAGE_MIRROR_KEY, payload);
+    if (!primarySaved || !mirrorSaved) {
+      showToast("Sauvegarde locale partielle. Verifie l'espace de stockage du navigateur.");
+      return false;
+    }
+
+    writeStorageBackup(payload);
+    return true;
+  } catch (error) {
+    console.error(error);
+    showToast("Impossible de sauvegarder les donnees localement.");
+    return false;
+  }
+}
+
+function readStorageBackups() {
+  try {
+    const raw = localStorage.getItem(STORAGE_BACKUPS_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeStorageBackup(payload) {
+  const backups = readStorageBackups();
+  backups.push({
+    savedAt: isoNow(),
+    payload
+  });
+
+  safeSetStorageItem(
+    STORAGE_BACKUPS_KEY,
+    JSON.stringify(backups.slice(-MAX_STORAGE_BACKUPS))
+  );
+}
+
+function safeSetStorageItem(key, value) {
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch (error) {
+    console.error(error);
+    return false;
+  }
+}
+
+function readSheetDrafts() {
+  try {
+    const raw = localStorage.getItem(SHEET_DRAFTS_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function sheetDraftStorageKey(action, id = null) {
+  return `${action}:${id ?? "new"}`;
+}
+
+function activeSheetDraftStorageKey() {
+  if (!state.activeSheetAction) {
+    return "";
+  }
+
+  if (state.activeSheetAction === "editOrder") {
+    return sheetDraftStorageKey(state.activeSheetAction, state.activeOrderId);
+  }
+
+  if (state.activeSheetAction === "editDtf") {
+    return sheetDraftStorageKey(state.activeSheetAction, state.activeDtfId);
+  }
+
+  if (state.activeSheetAction === "editTextileOrder") {
+    return sheetDraftStorageKey(state.activeSheetAction, state.activeTextileId);
+  }
+
+  if (state.activeSheetAction === "editPurchaseItem") {
+    return sheetDraftStorageKey(state.activeSheetAction, state.activePurchaseId);
+  }
+
+  if (state.activeSheetAction === "editWorkshopTask") {
+    return sheetDraftStorageKey(state.activeSheetAction, state.activeWorkshopTaskId);
+  }
+
+  if (state.activeSheetAction === "editImprovementItem") {
+    return sheetDraftStorageKey(state.activeSheetAction, state.activeImprovementId);
+  }
+
+  return sheetDraftStorageKey(state.activeSheetAction);
+}
+
+function persistSheetDraft() {
+  const key = activeSheetDraftStorageKey();
+  if (!key) {
+    return;
+  }
+
+  const draft = serializeSheetForm(refs.sheetForm);
+  const drafts = readSheetDrafts();
+  drafts[key] = {
+    savedAt: isoNow(),
+    values: draft
+  };
+  safeSetStorageItem(SHEET_DRAFTS_KEY, JSON.stringify(drafts));
+}
+
+function restoreSheetDraft(action, options = {}) {
+  const key = sheetDraftStorageKey(action, options.id ?? null);
+  const draft = readSheetDrafts()[key];
+  if (!draft?.values) {
+    return;
+  }
+
+  applySheetDraft(refs.sheetForm, draft.values);
+}
+
+function clearSheetDraftByAction(action, id = null) {
+  const key = sheetDraftStorageKey(action, id);
+  const drafts = readSheetDrafts();
+  if (!drafts[key]) {
+    return;
+  }
+
+  delete drafts[key];
+  safeSetStorageItem(SHEET_DRAFTS_KEY, JSON.stringify(drafts));
+}
+
+function serializeSheetForm(form) {
+  const values = {};
+  [...form.elements].forEach((field) => {
+    if (!(field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement)) {
+      return;
+    }
+
+    if (!field.name || field.disabled || field.type === "hidden" || field.type === "submit" || field.type === "button") {
+      return;
+    }
+
+    if (field instanceof HTMLInputElement && field.type === "checkbox") {
+      values[field.name] = field.checked;
+      return;
+    }
+
+    if (field instanceof HTMLInputElement && field.type === "radio") {
+      if (field.checked) {
+        values[field.name] = field.value;
+      }
+      return;
+    }
+
+    values[field.name] = field.value;
+  });
+  return values;
+}
+
+function applySheetDraft(form, values) {
+  [...form.elements].forEach((field) => {
+    if (!(field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement)) {
+      return;
+    }
+
+    if (!field.name || !(field.name in values)) {
+      return;
+    }
+
+    if (field instanceof HTMLInputElement && field.type === "checkbox") {
+      field.checked = Boolean(values[field.name]);
+      return;
+    }
+
+    if (field instanceof HTMLInputElement && field.type === "radio") {
+      field.checked = field.value === String(values[field.name] ?? "");
+      return;
+    }
+
+    field.value = String(values[field.name] ?? "");
+  });
+}
+
+function nextId(collection, start = 1) {
+  return collection.reduce((max, item) => Math.max(max, Number(item.id) || 0), start - 1) + 1;
+}
+
+function clientName(clientId) {
+  return db.clients.find((client) => client.id === clientId)?.name ?? "Client inconnu";
+}
+
+function isSampleClient(client) {
+  return SAMPLE_CLIENT_NAMES.has(String(client?.name ?? "").trim());
+}
+
+function dtfClientLabel(item) {
+  if (item?.clientName) {
+    return item.clientName;
+  }
+
+  if (item?.clientId) {
+    return clientName(item.clientId);
+  }
+
+  return "Client inconnu";
+}
+
+function teamNoteTone(name) {
+  const tones = {
+    Loic: "cool-1",
+    Charlie: "cool-2",
+    Melina: "cool-3",
+    Amandine: "cool-4"
+  };
+
+  return tones[String(name ?? "").trim()] ?? "cool-1";
+}
+
+function orderClientLabel(order) {
+  if (order?.clientName) {
+    return order.clientName;
+  }
+
+  if (order?.clientId) {
+    return clientName(order.clientId);
+  }
+
+  return "Client inconnu";
+}
+
+function orderTypeLabel(order) {
+  return order?.orderType || "";
+}
+
+function orderTypeTone(order) {
+  if (order?.orderType === "PRO") {
+    return "pro";
+  }
+  if (order?.orderType === "PERSO") {
+    return "perso";
+  }
+  return "muted";
+}
+
+function urgencyTone(urgency) {
+  if (urgency === "Haute") {
+    return "high";
+  }
+  if (urgency === "Basse") {
+    return "low";
+  }
+  return "medium";
+}
+
+function orderDayOffset(value) {
+  if (!value) {
+    return null;
+  }
+
+  const current = new Date(`${isoToday()}T00:00:00`);
+  const target = new Date(`${value}T00:00:00`);
+  const diff = target.getTime() - current.getTime();
+  return Math.round(diff / 86400000);
+}
+
+function deadlineTone(offset) {
+  if (offset === null) {
+    return "muted";
+  }
+  if (offset < 0) {
+    return "late";
+  }
+  if (offset <= 2) {
+    return "soon";
+  }
+  return "safe";
+}
+
+function deadlineCopy(offset) {
+  if (offset === 0) {
+    return "Aujourd'hui";
+  }
+  if (offset > 0) {
+    return `+${offset}j`;
+  }
+  return `${offset}j`;
+}
+
+function normalizeLogoPlacement(value) {
+  return String(value ?? "").trim().toUpperCase() === "AR" ? "AR" : "AV";
+}
+
+function dtfLabel(status) {
+  if (status === "validated") {
+    return "Validee";
+  }
+  if (status === "archived") {
+    return "Archivee";
+  }
+  if (status === "done") {
+    return "Terminee";
+  }
+  return "Brouillon";
+}
+
+function dtfTone(status) {
+  if (status === "validated") {
+    return "progress";
+  }
+  if (status === "done") {
+    return "ready";
+  }
+  if (status === "archived") {
+    return "draft";
+  }
+  return "draft";
+}
+
+function deliveryTone(status) {
+  if (status === "received") {
+    return "received";
+  }
+  if (status === "maritime") {
+    return "transit";
+  }
+  return "pending";
+}
+
+function productionTone(status) {
+  if (status === "Terminé") {
+    return "ready";
+  }
+  if (status === "Erreur") {
+    return "urgent";
+  }
+  if (status === "Impression en cours") {
+    return "progress";
+  }
+  return "draft";
+}
+
+function orderTone(status) {
+  if (status === "Produit récupéré" || status === "Facture faite" || status === "Terminé") {
+    return "ready";
+  }
+  if (ORDER_STATUS_BUCKETS.production.includes(status) || ORDER_STATUS_BUCKETS.client.includes(status) || status === "À facturer") {
+    return "progress";
+  }
+  return "draft";
+}
+
+function countOrdersByStatuses(statuses, collection = db.customerOrders) {
+  return collection.filter((item) => statuses.includes(item.status)).length;
+}
+
+function renderOrderStatusOptions(selectedStatus = ORDER_STATUS_DEFAULT) {
+  return ORDER_STATUS_GROUPS.map((group) => `
+    <optgroup label="${escapeHtml(group.label)}">
+      ${group.options.map((status) => `
+        <option value="${escapeHtml(status)}" ${status === selectedStatus ? "selected" : ""}>${escapeHtml(status)}</option>
+      `).join("")}
+    </optgroup>
+  `).join("");
+}
+
+function renderProductionStatusOptions(selectedStatus = PRODUCTION_STATUS_DEFAULT) {
+  return PRODUCTION_STATUS_OPTIONS.map((status) => `
+    <option value="${escapeHtml(status)}" ${status === selectedStatus ? "selected" : ""}>${escapeHtml(status)}</option>
+  `).join("");
+}
+
+function renderSelectOptions(options, selectedValue) {
+  return options.map((option) => `
+    <option value="${escapeHtml(option)}" ${option === selectedValue ? "selected" : ""}>${escapeHtml(option)}</option>
+  `).join("");
+}
+
+function renderListOptions(options) {
+  return options
+    .filter(Boolean)
+    .map((option) => `<option value="${escapeHtml(String(option))}"></option>`)
+    .join("");
+}
+
+function improvementTypeLabel(type) {
+  return IMPROVEMENT_TYPES.find((item) => item.key === type)?.label ?? "Bug";
+}
+
+function renderLogoPresetOptions(selectedValue = "") {
+  const current = String(selectedValue ?? "").trim();
+  const knownValues = new Set([...FRONT_LOGO_OPTIONS, ...BACK_LOGO_OPTIONS]);
+  const customOption = current && !knownValues.has(current)
+    ? `<option value="${escapeHtml(current)}" selected>${escapeHtml(current)}</option>`
+    : `<option value="" ${current ? "" : "selected"}>Choisir</option>`;
+
+  return `
+    ${customOption}
+    <optgroup label="Avant">
+      ${FRONT_LOGO_OPTIONS.map((option) => `<option value="${escapeHtml(option)}" ${option === current ? "selected" : ""}>${escapeHtml(option)}</option>`).join("")}
+    </optgroup>
+    <optgroup label="Arriere">
+      ${BACK_LOGO_OPTIONS.map((option) => `<option value="${escapeHtml(option)}" ${option === current ? "selected" : ""}>${escapeHtml(option)}</option>`).join("")}
+    </optgroup>
+  `;
+}
+
+function inferLogoPlacement(designName, fallback = "AV") {
+  const current = String(designName ?? "").trim();
+  if (FRONT_LOGO_OPTIONS.includes(current)) {
+    return "AV";
+  }
+  if (BACK_LOGO_OPTIONS.includes(current)) {
+    return "AR";
+  }
+  return normalizeLogoPlacement(fallback);
+}
+
+function renderTextileValueOptions(key, baseOptions = []) {
+  const values = new Set(baseOptions.filter(Boolean).map((option) => String(option).trim()));
+
+  db.textileOrders.forEach((item) => {
+    const value = String(item?.[key] ?? "").trim();
+    if (value) {
+      values.add(value);
+    }
+  });
+
+  return [...values]
+    .sort((left, right) => left.localeCompare(right, "fr"))
+    .map((value) => `<option value="${escapeHtml(value)}"></option>`)
+    .join("");
+}
+
+function parseOrderClient(value) {
+  const raw = String(value ?? "").trim();
+  const matchedClient = db.clients.find((client) => client.name.toLowerCase() === raw.toLowerCase());
+
+  if (matchedClient) {
+    return {
+      clientId: matchedClient.id,
+      clientName: matchedClient.name
+    };
+  }
+
+  return {
+    clientId: null,
+    clientName: raw
+  };
+}
+
+function normalizeOrderStatus(status) {
+  const value = String(status ?? "").trim();
+
+  if (value === "A valider") {
+    return "Attente validation";
+  }
+  if (value === "En cours") {
+    return "En production";
+  }
+  if (value === "Pret") {
+    return "Produit récupéré";
+  }
+  if (ORDER_STATUS_SET.has(value)) {
+    return value;
+  }
+
+  return ORDER_STATUS_DEFAULT;
+}
+
+function normalizeOrderType(type, clientId) {
+  const value = String(type ?? "").trim().toUpperCase();
+
+  if (value === "PRO" || value === "PERSO") {
+    return value;
+  }
+
+  if (Number(clientId)) {
+    return "PRO";
+  }
+
+  return "";
+}
+
+function primaryLabel(action) {
+  const labels = {
+    addClient: "+ Ajouter un client",
+    addOrder: "+ Ajouter une commande",
+    editOrder: "Modifier la commande",
+    addDtf: "+ Ajouter une demande",
+    editDtf: "Modifier la demande",
+    addTextileOrder: "+ Ajouter une commande",
+    editTextileOrder: "Modifier la commande",
+    addProductionItem: "+ Ajouter un PRT",
+    addPurchaseItem: "+ Ajouter un article",
+    editPurchaseItem: "Modifier l'article",
+    addWorkshopTask: "+ Ajouter une tache",
+    editWorkshopTask: "Modifier la tache",
+    editImprovementItem: "Modifier la remontee"
+  };
+  return labels[action] ?? "+ Ajouter";
+}
+
+function submitLabel(action) {
+  const labels = {
+    addClient: "Creer le client",
+    addOrder: "Creer la commande",
+    editOrder: "Enregistrer",
+    addDtf: "Creer la demande",
+    editDtf: "Enregistrer",
+    addTextileOrder: "Creer la commande",
+    editTextileOrder: "Enregistrer",
+    addProductionItem: "Ajouter le PRT",
+    addPurchaseItem: "Ajouter l'article",
+    editPurchaseItem: "Enregistrer",
+    addWorkshopTask: "Ajouter la tache",
+    editWorkshopTask: "Enregistrer",
+    editImprovementItem: "Enregistrer"
+  };
+  return labels[action] ?? "Enregistrer";
+}
+
+function sheetEyebrow(action) {
+  const labels = {
+    addClient: "Clients Pro",
+    addOrder: "Commande",
+    editOrder: "Commande",
+    addDtf: "Demande de DTF",
+    editDtf: "Demande de DTF",
+    addTextileOrder: "Achat Textile",
+    editTextileOrder: "Achat Textile",
+    addProductionItem: "Production",
+    addPurchaseItem: "Achat",
+    editPurchaseItem: "Achat",
+    addWorkshopTask: "Gestion d'atelier",
+    editWorkshopTask: "Gestion d'atelier",
+    editImprovementItem: "Ameliorations"
+  };
+  return labels[action] ?? "Creation";
+}
+
+function showToast(message) {
+  refs.toast.textContent = message;
+  refs.toast.hidden = false;
+
+  if (state.toastTimer) {
+    clearTimeout(state.toastTimer);
+  }
+
+  state.toastTimer = setTimeout(() => {
+    refs.toast.hidden = true;
+    state.toastTimer = null;
+  }, 1800);
+}
+
+function formatDate(value) {
+  if (!value) {
+    return "—";
+  }
+  return new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short" }).format(new Date(`${value}T00:00:00`));
+}
+
+function formatOrderCreatedAt(value) {
+  if (!value) {
+    return "";
+  }
+
+  const raw = String(value).trim();
+  const hasTime = raw.includes("T");
+  const normalized = hasTime && raw.length === 16 ? `${raw}:00` : raw;
+  const date = hasTime ? new Date(normalized) : new Date(`${raw}T00:00:00`);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  const dateCopy = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short" }).format(date);
+  if (!hasTime) {
+    return `Ajoute le ${dateCopy}`;
+  }
+
+  const timeCopy = new Intl.DateTimeFormat("fr-FR", { hour: "2-digit", minute: "2-digit" }).format(date);
+  return `Ajoute le ${dateCopy} a ${timeCopy}`;
+}
+
+function isoToday() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function isoNow() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  const hours = String(now.getHours()).padStart(2, "0");
+  const minutes = String(now.getMinutes()).padStart(2, "0");
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
+function isoMonthPrefix() {
+  return isoToday().slice(0, 7);
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
