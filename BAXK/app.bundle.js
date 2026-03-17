@@ -160,6 +160,7 @@
     "vert pastel",
     "menthe",
     "jaune",
+    "marron",
     "beige",
     "blanc"
   ];
