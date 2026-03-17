@@ -4,6 +4,9 @@ const STORAGE_BACKUPS_KEY = `${STORAGE_KEY}.backups`;
 const SHEET_DRAFTS_KEY = `${STORAGE_KEY}.sheetDrafts`;
 const MAX_STORAGE_BACKUPS = 20;
 const DATA_VERSION = 3;
+const SERVER_DB_ENDPOINT = "/api/db";
+const REMOTE_SYNC_INTERVAL_MS = 3000;
+const REMOTE_SAVE_DEBOUNCE_MS = 500;
 
 const views = {
   tasks: {
@@ -668,6 +671,13 @@ let pendingRender = {
   view: true,
   transition: false
 };
+let remoteRevision = 0;
+let remoteSyncReady = false;
+let remotePollingTimer = null;
+let remoteSaveTimer = null;
+let remoteSaveInFlight = false;
+let pendingRemoteSnapshot = null;
+let lastRemoteErrorAt = 0;
 
 init();
 
@@ -675,9 +685,130 @@ function init() {
   bindGlobalErrorHandlers();
   bindEvents();
   requestRender();
+  void startRemoteSync();
 
   if (state.storageRecoveryMessage) {
     showToast(state.storageRecoveryMessage);
+  }
+}
+
+async function startRemoteSync() {
+  try {
+    const response = await fetchRemoteDb();
+
+    if (response.status === 404) {
+      remoteSyncReady = true;
+      startRemotePolling();
+
+      if (loadResult.source !== "seed") {
+        scheduleRemoteSave({ immediate: true });
+      }
+      return;
+    }
+
+    if (!response.ok) {
+      throw new Error(`Remote sync failed with status ${response.status}`);
+    }
+
+    const record = await response.json();
+    applyRemoteDbRecord(record);
+    remoteSyncReady = true;
+    startRemotePolling();
+  } catch (error) {
+    console.error(error);
+    notifyRemoteSyncIssue();
+    window.setTimeout(() => {
+      void startRemoteSync();
+    }, REMOTE_SYNC_INTERVAL_MS);
+  }
+}
+
+function startRemotePolling() {
+  if (remotePollingTimer) {
+    clearInterval(remotePollingTimer);
+  }
+
+  remotePollingTimer = window.setInterval(() => {
+    void pollRemoteDb();
+  }, REMOTE_SYNC_INTERVAL_MS);
+
+  document.removeEventListener("visibilitychange", handleRemoteVisibilityChange);
+  document.addEventListener("visibilitychange", handleRemoteVisibilityChange);
+}
+
+function handleRemoteVisibilityChange() {
+  if (!document.hidden) {
+    void pollRemoteDb();
+  }
+}
+
+async function pollRemoteDb() {
+  if (!remoteSyncReady || remoteSaveInFlight) {
+    return;
+  }
+
+  try {
+    const response = await fetchRemoteDb(remoteRevision);
+    if (response.status === 204 || response.status === 404) {
+      return;
+    }
+
+    if (!response.ok) {
+      throw new Error(`Remote poll failed with status ${response.status}`);
+    }
+
+    const record = await response.json();
+    applyRemoteDbRecord(record, { announce: true });
+  } catch (error) {
+    console.error(error);
+    notifyRemoteSyncIssue();
+  }
+}
+
+function notifyRemoteSyncIssue() {
+  const now = Date.now();
+  if (now - lastRemoteErrorAt < 15000) {
+    return;
+  }
+
+  lastRemoteErrorAt = now;
+  showToast("Synchronisation serveur indisponible. Verifie la connexion.");
+}
+
+function fetchRemoteDb(revision = null) {
+  const url = revision
+    ? `${SERVER_DB_ENDPOINT}?revision=${encodeURIComponent(revision)}`
+    : SERVER_DB_ENDPOINT;
+
+  return fetch(url, {
+    credentials: "same-origin",
+    cache: "no-store",
+    headers: {
+      Accept: "application/json"
+    }
+  });
+}
+
+function applyRemoteDbRecord(record, options = {}) {
+  if (!record?.data || typeof record.data !== "object") {
+    return;
+  }
+
+  remoteRevision = Math.max(0, Number(record.revision) || 0);
+  db = normalizeDb(record.data);
+  db.teamNotes = normalizeTeamNotes(db.teamNotes);
+
+  const importedOrdersAdded = mergeImportedCustomerOrders();
+  const duplicateOrdersRemoved = dedupeCustomerOrdersInPlace();
+  persistDb({ skipRemote: true });
+
+  requestRender();
+
+  if (options.announce) {
+    const message = importedOrdersAdded || duplicateOrdersRemoved
+      ? "Nouvelles donnees synchronisees et normalisees."
+      : "Le site a ete mis a jour depuis un autre poste.";
+    showToast(message);
   }
 }
 
@@ -3814,7 +3945,8 @@ function loadDb() {
     if (!candidates.length) {
       return {
         data: buildSeedDb(),
-        recoveryMessage: ""
+        recoveryMessage: "",
+        source: "seed"
       };
     }
 
@@ -3823,7 +3955,8 @@ function loadDb() {
         const parsed = JSON.parse(candidate.raw);
         return {
           data: normalizeDb(parsed),
-          recoveryMessage: recoveryMessageForStorageSource(candidate.source)
+          recoveryMessage: recoveryMessageForStorageSource(candidate.source),
+          source: candidate.source
         };
       } catch {
         continue;
@@ -3833,13 +3966,15 @@ function loadDb() {
     backupCorruptedStorage();
     return {
       data: buildSeedDb(),
-      recoveryMessage: "Donnees locales invalides detectees. Une sauvegarde brute a ete preservee."
+      recoveryMessage: "Donnees locales invalides detectees. Une sauvegarde brute a ete preservee.",
+      source: "seed"
     };
   } catch {
     backupCorruptedStorage();
     return {
       data: buildSeedDb(),
-      recoveryMessage: "Donnees locales invalides detectees. Une sauvegarde brute a ete preservee."
+      recoveryMessage: "Donnees locales invalides detectees. Une sauvegarde brute a ete preservee.",
+      source: "seed"
     };
   }
 }
@@ -4527,28 +4662,104 @@ function normalizeProductionStatus(value) {
   return "A imprimer";
 }
 
-function persistDb() {
+function buildDbSnapshot() {
+  return {
+    ...db,
+    _meta: {
+      version: DATA_VERSION
+    }
+  };
+}
+
+function persistDb(options = {}) {
   try {
-    const payload = JSON.stringify({
-      ...db,
-      _meta: {
-        version: DATA_VERSION
-      }
-    });
+    const payload = JSON.stringify(buildDbSnapshot());
 
     const primarySaved = safeSetStorageItem(STORAGE_KEY, payload);
     const mirrorSaved = safeSetStorageItem(STORAGE_MIRROR_KEY, payload);
     if (!primarySaved || !mirrorSaved) {
       showToast("Sauvegarde locale partielle. Verifie l'espace de stockage du navigateur.");
+      if (!options.skipRemote) {
+        scheduleRemoteSave();
+      }
       return false;
     }
 
     writeStorageBackup(payload);
+    if (!options.skipRemote) {
+      scheduleRemoteSave();
+    }
     return true;
   } catch (error) {
     console.error(error);
     showToast("Impossible de sauvegarder les donnees localement.");
     return false;
+  }
+}
+
+function scheduleRemoteSave(options = {}) {
+  if (!remoteSyncReady) {
+    return;
+  }
+
+  pendingRemoteSnapshot = buildDbSnapshot();
+
+  if (remoteSaveTimer) {
+    clearTimeout(remoteSaveTimer);
+  }
+
+  const delay = options.immediate ? 0 : REMOTE_SAVE_DEBOUNCE_MS;
+  remoteSaveTimer = window.setTimeout(() => {
+    void flushRemoteSave();
+  }, delay);
+}
+
+async function flushRemoteSave() {
+  if (!remoteSyncReady || remoteSaveInFlight || !pendingRemoteSnapshot) {
+    return;
+  }
+
+  const snapshot = pendingRemoteSnapshot;
+  pendingRemoteSnapshot = null;
+  remoteSaveInFlight = true;
+
+  try {
+    const response = await fetch(SERVER_DB_ENDPOINT, {
+      method: "PUT",
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json"
+      },
+      body: JSON.stringify({
+        revision: remoteRevision,
+        data: snapshot
+      })
+    });
+
+    if (response.status === 409) {
+      const record = await response.json();
+      applyRemoteDbRecord(record, { announce: true });
+      showToast("Une autre modification a ete enregistree avant la tienne. Les donnees ont ete rechargees.");
+      return;
+    }
+
+    if (!response.ok) {
+      throw new Error(`Remote save failed with status ${response.status}`);
+    }
+
+    const record = await response.json();
+    remoteRevision = Math.max(0, Number(record.revision) || remoteRevision);
+  } catch (error) {
+    console.error(error);
+    pendingRemoteSnapshot = snapshot;
+    notifyRemoteSyncIssue();
+  } finally {
+    remoteSaveInFlight = false;
+
+    if (pendingRemoteSnapshot) {
+      scheduleRemoteSave({ immediate: true });
+    }
   }
 }
 

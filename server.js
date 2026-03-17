@@ -13,6 +13,10 @@ const HOST = process.env.HOST || "0.0.0.0";
 const APP_PASSWORD = String(process.env.APP_PASSWORD || "").trim();
 const SESSION_SECRET = String(process.env.SESSION_SECRET || "").trim();
 const APP_DIR = path.join(__dirname, "BAXK");
+const DATA_DIR = process.env.DATA_DIR
+  ? path.resolve(process.env.DATA_DIR)
+  : path.join(__dirname, "data");
+const DATA_FILE = path.join(DATA_DIR, "app-db.json");
 const COOKIE_NAME = "dasholda_session";
 const SESSION_TTL_MS = 1000 * 60 * 60 * 12;
 const STATIC_TYPES = {
@@ -75,6 +79,14 @@ const server = http.createServer(async (req, res) => {
     if (!isAuthenticated(req)) {
       redirect(res, "/login");
       return;
+    }
+
+    if (pathname === "/api/db" && req.method === "GET") {
+      return handleGetDb(req, res);
+    }
+
+    if (pathname === "/api/db" && req.method === "PUT") {
+      return handlePutDb(req, res);
     }
 
     if (pathname === "/") {
@@ -271,18 +283,18 @@ function redirect(res, location) {
 }
 
 async function readFormBody(req) {
-  const body = await readRequestBody(req);
+  const body = await readRequestBody(req, 16 * 1024);
   return new URLSearchParams(body);
 }
 
-function readRequestBody(req) {
+function readRequestBody(req, maxBytes = 16 * 1024) {
   return new Promise((resolve, reject) => {
     const chunks = [];
     let size = 0;
 
     req.on("data", (chunk) => {
       size += chunk.length;
-      if (size > 16 * 1024) {
+      if (size > maxBytes) {
         reject(new Error("Request body too large"));
         req.destroy();
         return;
@@ -330,6 +342,103 @@ function sendHtml(res, statusCode, html) {
 function sendText(res, statusCode, body) {
   res.writeHead(statusCode, { "Content-Type": "text/plain; charset=utf-8" });
   res.end(body);
+}
+
+function sendJson(res, statusCode, payload) {
+  res.writeHead(statusCode, {
+    "Content-Type": "application/json; charset=utf-8",
+    "Cache-Control": "no-store"
+  });
+  res.end(JSON.stringify(payload));
+}
+
+async function readJsonBody(req, maxBytes = 2 * 1024 * 1024) {
+  const raw = await readRequestBody(req, maxBytes);
+  return raw ? JSON.parse(raw) : {};
+}
+
+function handleGetDb(req, res) {
+  const record = readDatabaseRecord();
+  if (!record) {
+    return sendJson(res, 404, { error: "not_found" });
+  }
+
+  const requestUrl = new URL(req.url || "/api/db", `http://${req.headers.host || "localhost"}`);
+  const requestedRevision = Number(requestUrl.searchParams.get("revision") || 0);
+  if (requestedRevision && requestedRevision === record.revision) {
+    res.writeHead(204, { "Cache-Control": "no-store" });
+    res.end();
+    return;
+  }
+
+  return sendJson(res, 200, record);
+}
+
+async function handlePutDb(req, res) {
+  try {
+    const body = await readJsonBody(req);
+    const nextData = body?.data;
+    const expectedRevision = Number(body?.revision || 0);
+
+    if (!nextData || typeof nextData !== "object" || Array.isArray(nextData)) {
+      return sendJson(res, 400, { error: "invalid_payload" });
+    }
+
+    const current = readDatabaseRecord();
+    if (current && expectedRevision !== current.revision) {
+      return sendJson(res, 409, current);
+    }
+
+    const nextRecord = {
+      revision: (current?.revision || 0) + 1,
+      updatedAt: new Date().toISOString(),
+      data: nextData
+    };
+
+    writeDatabaseRecord(nextRecord);
+    return sendJson(res, 200, nextRecord);
+  } catch (error) {
+    console.error(error);
+    return sendJson(res, 400, { error: "invalid_json" });
+  }
+}
+
+function readDatabaseRecord() {
+  try {
+    if (!fs.existsSync(DATA_FILE)) {
+      return null;
+    }
+
+    const raw = fs.readFileSync(DATA_FILE, "utf8");
+    if (!raw.trim()) {
+      return null;
+    }
+
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return null;
+    }
+
+    if (!parsed.data || typeof parsed.data !== "object" || Array.isArray(parsed.data)) {
+      return null;
+    }
+
+    return {
+      revision: Math.max(1, Number(parsed.revision) || 1),
+      updatedAt: String(parsed.updatedAt || ""),
+      data: parsed.data
+    };
+  } catch (error) {
+    console.error("Unable to read shared database", error);
+    return null;
+  }
+}
+
+function writeDatabaseRecord(record) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+  const tempFile = `${DATA_FILE}.tmp`;
+  fs.writeFileSync(tempFile, JSON.stringify(record), "utf8");
+  fs.renameSync(tempFile, DATA_FILE);
 }
 
 function renderLoginPage(errorMessage = "") {
