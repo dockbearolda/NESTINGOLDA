@@ -105,7 +105,9 @@
     }
   ];
   var ORDER_STATUS_DEFAULT = "\xC0 deviser";
-  var ORDER_STATUS_SET = new Set(ORDER_STATUS_GROUPS.flatMap((group) => group.options));
+  var ORDER_STATUS_SET = new Set(
+    ORDER_STATUS_GROUPS.reduce((options, group) => options.concat(group.options), [])
+  );
   var ORDER_STATUS_BUCKETS = {
     validation: ORDER_STATUS_GROUPS[0].options,
     logistique: ORDER_STATUS_GROUPS[1].options,

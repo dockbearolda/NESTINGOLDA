@@ -108,7 +108,9 @@ const ORDER_STATUS_GROUPS = [
 ];
 
 const ORDER_STATUS_DEFAULT = "À deviser";
-const ORDER_STATUS_SET = new Set(ORDER_STATUS_GROUPS.flatMap((group) => group.options));
+const ORDER_STATUS_SET = new Set(
+  ORDER_STATUS_GROUPS.reduce((options, group) => options.concat(group.options), [])
+);
 const ORDER_STATUS_BUCKETS = {
   validation: ORDER_STATUS_GROUPS[0].options,
   logistique: ORDER_STATUS_GROUPS[1].options,
