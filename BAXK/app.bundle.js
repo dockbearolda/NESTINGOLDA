@@ -9,7 +9,7 @@
   var SERVER_DB_ENDPOINT = "/api/db";
   var REMOTE_SYNC_INTERVAL_MS = 3e3;
   var REMOTE_SAVE_DEBOUNCE_MS = 500;
-  var deepClone = typeof structuredClone === "function" ? (value) => deepClone(value) : (value) => JSON.parse(JSON.stringify(value));
+  var deepClone = typeof structuredClone === "function" ? (value) => structuredClone(value) : (value) => JSON.parse(JSON.stringify(value));
   var views = {
     tasks: {
       label: "Taches",

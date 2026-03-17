@@ -8,7 +8,7 @@ const SERVER_DB_ENDPOINT = "/api/db";
 const REMOTE_SYNC_INTERVAL_MS = 3000;
 const REMOTE_SAVE_DEBOUNCE_MS = 500;
 const deepClone = typeof structuredClone === "function"
-  ? (value) => deepClone(value)
+  ? (value) => structuredClone(value)
   : (value) => JSON.parse(JSON.stringify(value));
 
 const views = {
