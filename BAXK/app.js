@@ -678,6 +678,7 @@ let remoteSaveTimer = null;
 let remoteSaveInFlight = false;
 let pendingRemoteSnapshot = null;
 let lastRemoteErrorAt = 0;
+let remoteBootstrapComplete = false;
 
 init();
 
@@ -699,10 +700,8 @@ async function startRemoteSync() {
     if (response.status === 404) {
       remoteSyncReady = true;
       startRemotePolling();
-
-      if (loadResult.source !== "seed") {
-        scheduleRemoteSave({ immediate: true });
-      }
+      remoteBootstrapComplete = true;
+      scheduleRemoteSave({ immediate: true });
       return;
     }
 
@@ -711,9 +710,19 @@ async function startRemoteSync() {
     }
 
     const record = await response.json();
+    if (shouldBootstrapServerFromLocal(record)) {
+      remoteSyncReady = true;
+      startRemotePolling();
+      remoteBootstrapComplete = true;
+      scheduleRemoteSave({ immediate: true });
+      showToast("La base locale a ete reappliquee sur le serveur.");
+      return;
+    }
+
     applyRemoteDbRecord(record);
     remoteSyncReady = true;
     startRemotePolling();
+    remoteBootstrapComplete = true;
   } catch (error) {
     console.error(error);
     notifyRemoteSyncIssue();
@@ -721,6 +730,47 @@ async function startRemoteSync() {
       void startRemoteSync();
     }, REMOTE_SYNC_INTERVAL_MS);
   }
+}
+
+function shouldBootstrapServerFromLocal(record) {
+  if (remoteBootstrapComplete) {
+    return false;
+  }
+
+  if (loadResult.source === "seed") {
+    return false;
+  }
+
+  if (Number(record?.revision) > 1) {
+    return false;
+  }
+
+  const remoteData = record?.data;
+  if (!remoteData || typeof remoteData !== "object") {
+    return false;
+  }
+
+  return dbContentScore(db) > dbContentScore(normalizeDb(remoteData));
+}
+
+function dbContentScore(sourceDb) {
+  if (!sourceDb || typeof sourceDb !== "object") {
+    return 0;
+  }
+
+  let score = 0;
+  score += Array.isArray(sourceDb.clients) ? sourceDb.clients.length * 3 : 0;
+  score += Array.isArray(sourceDb.customerOrders) ? sourceDb.customerOrders.length * 5 : 0;
+  score += Array.isArray(sourceDb.dtfRequests) ? sourceDb.dtfRequests.length * 4 : 0;
+  score += Array.isArray(sourceDb.textileOrders) ? sourceDb.textileOrders.length * 4 : 0;
+  score += Array.isArray(sourceDb.purchaseItems) ? sourceDb.purchaseItems.length : 0;
+  score += Array.isArray(sourceDb.productionItems) ? sourceDb.productionItems.length * 2 : 0;
+  score += Array.isArray(sourceDb.workshopTasks) ? sourceDb.workshopTasks.length : 0;
+  score += Array.isArray(sourceDb.improvementItems) ? sourceDb.improvementItems.length : 0;
+  score += Array.isArray(sourceDb.teamNotes)
+    ? sourceDb.teamNotes.reduce((total, note) => total + (Array.isArray(note?.items) ? note.items.length : 0), 0)
+    : 0;
+  return score;
 }
 
 function startRemotePolling() {
@@ -800,7 +850,14 @@ function applyRemoteDbRecord(record, options = {}) {
 
   const importedOrdersAdded = mergeImportedCustomerOrders();
   const duplicateOrdersRemoved = dedupeCustomerOrdersInPlace();
-  persistDb({ skipRemote: true });
+  const normalizedPayload = JSON.stringify(buildDbSnapshot());
+  const incomingPayload = JSON.stringify({
+    ...record.data,
+    _meta: {
+      version: DATA_VERSION
+    }
+  });
+  persistDb({ skipRemote: normalizedPayload === incomingPayload });
 
   requestRender();
 
