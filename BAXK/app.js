@@ -13,15 +13,15 @@ const deepClone = typeof structuredClone === "function"
 
 const views = {
   tasks: {
-    label: "Taches",
-    eyebrow: "Taches",
+    label: "Tâches",
+    eyebrow: "Tâches",
     intro: "",
     primaryAction: null,
     searchPlaceholder: "Rechercher dans les notes..."
   },
   planning: {
-    label: "Commande",
-    eyebrow: "Commande",
+    label: "Commandes générales",
+    eyebrow: "Commandes générales",
     intro: "",
     primaryAction: "addOrder",
     searchPlaceholder: "Rechercher..."
@@ -34,14 +34,14 @@ const views = {
     searchPlaceholder: "Rechercher..."
   },
   dtf: {
-    label: "Demande de DTF",
+    label: "Demande DTF",
     eyebrow: "DTF",
     intro: "",
     primaryAction: "addDtf",
     searchPlaceholder: "Rechercher..."
   },
   dtfMockups: {
-    label: "Maquette a faire",
+    label: "Maquette à faire",
     eyebrow: "DTF",
     intro: "",
     primaryAction: null,
@@ -76,8 +76,8 @@ const views = {
     searchPlaceholder: "Rechercher..."
   },
   improvements: {
-    label: "Ameliorations",
-    eyebrow: "Ameliorations",
+    label: "Améliorations",
+    eyebrow: "Améliorations",
     intro: "",
     primaryAction: null,
     searchPlaceholder: "Rechercher..."
@@ -685,12 +685,30 @@ let remoteSaveInFlight = false;
 let pendingRemoteSnapshot = null;
 let lastRemoteErrorAt = 0;
 let remoteBootstrapComplete = false;
+const SPELLCHECK_SENTENCE_FIELDS = new Set([
+  "label",
+  "note",
+  "technicalNote",
+  "team-note-summary",
+  "team-note-edit-label",
+  "search"
+]);
+const SPELLCHECK_WORD_FIELDS = new Set([
+  "name",
+  "city",
+  "contact",
+  "contactName",
+  "contactRole",
+  "designation",
+  "sessionLabel"
+]);
 
 init();
 
 function init() {
   bindGlobalErrorHandlers();
   bindEvents();
+  syncProofingFields(document);
   requestRender();
   void startRemoteSync();
 
@@ -1204,6 +1222,10 @@ function handleRootClick(event) {
       const assignee = String(actionNode.dataset.assignee ?? "");
       order.assignedTo = assignee;
       persistDb();
+      syncOrderAssigneeBubbles(id, assignee);
+      if (actionNode instanceof HTMLElement) {
+        actionNode.blur();
+      }
       requestRender({ header: false, status: false, view: true });
       return;
     }
@@ -1812,7 +1834,7 @@ function handleSheetSubmit(event) {
       zone: normalizeOrderZone(formData.get("zone")),
       quantity: Math.max(1, Number(formData.get("quantity") ?? 1) || 1),
       note: String(formData.get("note") ?? "").trim(),
-      deliveryDate: String(formData.get("deliveryDate") ?? isoToday()),
+      deliveryDate: String(formData.get("deliveryDate") ?? "").trim(),
       status,
       mockupCompletedAt: "",
       assignedTo: String(formData.get("assignedTo") ?? "").trim(),
@@ -1850,7 +1872,7 @@ function handleSheetSubmit(event) {
     order.zone = normalizeOrderZone(formData.get("zone"));
     order.quantity = Math.max(1, Number(formData.get("quantity") ?? 1) || 1);
     order.note = String(formData.get("note") ?? "").trim();
-    order.deliveryDate = String(formData.get("deliveryDate") ?? isoToday());
+    order.deliveryDate = String(formData.get("deliveryDate") ?? "").trim();
     order.status = status;
     order.mockupCompletedAt = order.status === "Maquette à faire" ? "" : String(order.mockupCompletedAt ?? "");
     order.assignedTo = String(formData.get("assignedTo") ?? "").trim();
@@ -2214,6 +2236,8 @@ function renderView() {
       refs.viewRoot.innerHTML = renderPlaceholderView();
       break;
   }
+
+  syncProofingFields(refs.viewRoot);
 }
 
 function renderPlaceholderView() {
@@ -2943,10 +2967,60 @@ function openSheet(action, options = {}) {
   refs.sheetBody.innerHTML = renderSheetBody(action);
   restoreSheetDraft(action, options);
   syncOrderMockupField();
+  syncProofingFields(refs.sheetBody);
   refs.sheetEyebrow.textContent = sheetEyebrow(action);
   refs.sheetTitle.textContent = primaryLabel(action);
   refs.submitSheetButton.textContent = submitLabel(action);
   refs.sheetDialog.showModal();
+}
+
+function syncProofingFields(root) {
+  if (!(root instanceof Element || root instanceof Document)) {
+    return;
+  }
+
+  root.querySelectorAll("input, textarea").forEach((field) => {
+    if (!(field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement)) {
+      return;
+    }
+
+    const mode = spellcheckModeForField(field);
+    if (!mode) {
+      return;
+    }
+
+    field.setAttribute("spellcheck", "true");
+    field.setAttribute("lang", "fr");
+    field.setAttribute("autocorrect", "on");
+    field.setAttribute("autocomplete", field.getAttribute("autocomplete") || "on");
+    field.setAttribute("autocapitalize", mode);
+  });
+}
+
+function spellcheckModeForField(field) {
+  if (field instanceof HTMLTextAreaElement) {
+    return "sentences";
+  }
+
+  if (!(field instanceof HTMLInputElement)) {
+    return "";
+  }
+
+  const type = String(field.type || "text").toLowerCase();
+  if (!["text", "search"].includes(type)) {
+    return "";
+  }
+
+  const name = String(field.name || "").trim();
+  if (SPELLCHECK_SENTENCE_FIELDS.has(name)) {
+    return "sentences";
+  }
+
+  if (SPELLCHECK_WORD_FIELDS.has(name)) {
+    return "words";
+  }
+
+  return "";
 }
 
 function closeSheet() {
@@ -3022,11 +3096,11 @@ function renderSheetBody(action) {
       <div class="field-grid production-form-grid">
         <label class="field-span">
           <span class="field-label">Nom du PRT</span>
-          <input class="field-input" name="label" type="text" placeholder="Ex: Logo dos noir" required>
+          <input class="field-input" name="label" type="text" placeholder="Ex: Logo dos noir">
         </label>
         <label>
           <span class="field-label">Combien de fois</span>
-          <input class="field-input" name="quantity" type="number" min="1" value="1" required>
+          <input class="field-input" name="quantity" type="number" min="1" value="1">
         </label>
       </div>
     `;
@@ -3083,11 +3157,11 @@ function renderPurchaseItemForm(item = null) {
       </label>
       <label>
         <span class="field-label">Quantite</span>
-        <input class="field-input" name="quantity" type="number" min="1" value="${Math.max(1, Number(item?.quantity) || 1)}" required>
+        <input class="field-input" name="quantity" type="number" min="1" value="${Math.max(1, Number(item?.quantity) || 1)}">
       </label>
       <label class="field-span">
         <span class="field-label">Article</span>
-        <input class="field-input" name="label" type="text" value="${escapeHtml(item?.label ?? "")}" required>
+        <input class="field-input" name="label" type="text" value="${escapeHtml(item?.label ?? "")}">
       </label>
     </div>
   `;
@@ -3106,7 +3180,7 @@ function renderWorkshopTaskForm(task = null) {
       </label>
       <label class="field-span">
         <span class="field-label">Tache</span>
-        <input class="field-input" name="label" type="text" value="${escapeHtml(task?.label ?? "")}" required>
+        <input class="field-input" name="label" type="text" value="${escapeHtml(task?.label ?? "")}">
       </label>
       <label>
         <span class="field-label">Recurrente</span>
@@ -3127,7 +3201,7 @@ function renderImprovementForm(item = null) {
       </label>
       <label class="field-span">
         <span class="field-label">Remontee</span>
-        <input class="field-input" name="label" type="text" value="${escapeHtml(item?.label ?? "")}" required>
+        <input class="field-input" name="label" type="text" value="${escapeHtml(item?.label ?? "")}">
       </label>
     </div>
   `;
@@ -3145,36 +3219,38 @@ function renderDtfForm(dtf = null) {
     <div class="field-grid dtf-form-grid">
       <label class="dtf-form-wide">
         <span class="field-label">Client</span>
-        <input class="field-input" name="clientName" type="text" list="clientSuggestions" value="${escapeHtml(dtfClientLabel(dtf))}" required>
+        <input class="field-input" name="clientName" type="text" list="clientSuggestions" value="${escapeHtml(dtfClientLabel(dtf))}">
       </label>
       <label>
         <span class="field-label">Dimension</span>
-        <input class="field-input" name="dimensions" type="text" value="${escapeHtml(dtf?.dimensions ?? "")}" required>
+        <input class="field-input" name="dimensions" type="text" value="${escapeHtml(dtf?.dimensions ?? "")}">
       </label>
       <label class="dtf-logo-field">
         <span class="field-label">Nom du logo</span>
-        <input type="hidden" name="designName" value="${escapeHtml(dtf?.designName ?? "")}">
-        <select class="field-select" name="designPreset" required>
-          ${renderLogoPresetOptions(dtf?.designName)}
-        </select>
+        <div class="field-stack">
+          <input class="field-input" name="designName" type="text" value="${escapeHtml(dtf?.designName ?? "")}" placeholder="Design perso ou logo existant">
+          <select class="field-select" name="designPreset">
+            ${renderLogoPresetOptions(dtf?.designName)}
+          </select>
+        </div>
       </label>
       <label>
         <span class="field-label">Taille</span>
-        <input class="field-input" name="size" type="text" value="${escapeHtml(dtf?.size ?? "")}" required>
+        <input class="field-input" name="size" type="text" value="${escapeHtml(dtf?.size ?? "")}">
       </label>
       <label>
         <span class="field-label">Couleur</span>
-        <input class="field-input" name="color" type="text" list="dtfColorOptions" value="${escapeHtml(dtf?.color ?? "")}" required>
+        <input class="field-input" name="color" type="text" list="dtfColorOptions" value="${escapeHtml(dtf?.color ?? "")}">
       </label>
       <label>
         <span class="field-label">Quantite</span>
-        <input class="field-input" name="quantity" type="number" min="1" value="${Math.max(1, Number(dtf?.quantity) || 1)}" required>
+        <input class="field-input" name="quantity" type="number" min="1" value="${Math.max(1, Number(dtf?.quantity) || 1)}">
       </label>
       <label class="field-checkbox">
         <span class="field-label">Type de demande</span>
         <span class="checkbox-row">
           <input name="needsMockup" type="checkbox" ${dtf?.needsMockup ? "checked" : ""}>
-          <span>Maquette a faire</span>
+          <span>Maquette à faire</span>
         </span>
       </label>
       <label class="dtf-form-note">
@@ -3192,51 +3268,51 @@ function renderTextileOrderForm(order = null) {
     <div class="field-grid textile-form-grid">
       <label>
         <span class="field-label">Client</span>
-        <input class="field-input" name="clientName" type="text" list="clientSuggestions" value="${escapeHtml(textileClientLabel(order))}" required>
+        <input class="field-input" name="clientName" type="text" list="clientSuggestions" value="${escapeHtml(textileClientLabel(order))}">
       </label>
       <label>
         <span class="field-label">Fournisseur</span>
-        <input class="field-input" name="supplier" type="text" list="textileSupplierOptions" value="${escapeHtml(order?.supplier ?? "Toptex")}" required>
+        <input class="field-input" name="supplier" type="text" list="textileSupplierOptions" value="${escapeHtml(order?.supplier ?? "Toptex")}">
       </label>
       <label>
         <span class="field-label">Marque</span>
-        <input class="field-input" name="brand" type="text" list="textileBrandOptions" value="${escapeHtml(order?.brand ?? "")}" required>
+        <input class="field-input" name="brand" type="text" list="textileBrandOptions" value="${escapeHtml(order?.brand ?? "")}">
       </label>
       <label>
         <span class="field-label">Genre</span>
-        <input class="field-input" name="gender" type="text" list="textileGenderOptions" value="${escapeHtml(order?.gender ?? "-")}" required>
+        <input class="field-input" name="gender" type="text" list="textileGenderOptions" value="${escapeHtml(order?.gender ?? "-")}">
       </label>
       <label>
         <span class="field-label">Designation</span>
-        <input class="field-input" name="designation" type="text" list="textileDesignationOptions" value="${escapeHtml(order?.designation ?? "")}" required>
+        <input class="field-input" name="designation" type="text" list="textileDesignationOptions" value="${escapeHtml(order?.designation ?? "")}">
       </label>
       <label>
         <span class="field-label">Référence</span>
-        <input class="field-input" name="catalogReference" type="text" list="textileReferenceOptions" value="${escapeHtml(order?.catalogReference ?? "")}" required>
+        <input class="field-input" name="catalogReference" type="text" list="textileReferenceOptions" value="${escapeHtml(order?.catalogReference ?? "")}">
       </label>
       <label>
         <span class="field-label">Couleur</span>
-        <input class="field-input" name="color" type="text" list="textileColorOptions" value="${escapeHtml(order?.color ?? "")}" required>
+        <input class="field-input" name="color" type="text" list="textileColorOptions" value="${escapeHtml(order?.color ?? "")}">
       </label>
       <label>
         <span class="field-label">Taille</span>
-        <input class="field-input" name="size" type="text" list="textileSizeOptions" value="${escapeHtml(order?.size ?? "")}" required>
+        <input class="field-input" name="size" type="text" list="textileSizeOptions" value="${escapeHtml(order?.size ?? "")}">
       </label>
       <label>
         <span class="field-label">Quantite</span>
-        <input class="field-input" name="quantity" type="number" min="1" value="${Math.max(1, Number(order?.quantity) || 1)}" required>
+        <input class="field-input" name="quantity" type="number" min="1" value="${Math.max(1, Number(order?.quantity) || 1)}">
       </label>
       <label>
         <span class="field-label">Livraison</span>
-        <input class="field-input" name="deliveryStatus" type="text" list="textileDeliveryOptions" value="${escapeHtml(order?.deliveryStatus ?? "pending")}" required>
+        <input class="field-input" name="deliveryStatus" type="text" list="textileDeliveryOptions" value="${escapeHtml(order?.deliveryStatus ?? "pending")}">
       </label>
       <label>
         <span class="field-label">Session</span>
-        <input class="field-input" name="sessionLabel" type="text" value="${escapeHtml(order?.sessionLabel ?? "")}" required>
+        <input class="field-input" name="sessionLabel" type="text" value="${escapeHtml(order?.sessionLabel ?? "")}">
       </label>
       <label>
         <span class="field-label">Date</span>
-        <input class="field-input" name="expectedDate" type="date" value="${escapeHtml(order?.expectedDate ?? isoToday())}" required>
+        <input class="field-input" name="expectedDate" type="date" value="${escapeHtml(order?.expectedDate ?? "")}">
       </label>
     </div>
     <datalist id="clientSuggestions">${renderClientSuggestionOptions()}</datalist>
@@ -3268,11 +3344,11 @@ function renderClientForm(client = null) {
     <div class="field-grid client-form-grid">
       <label>
         <span class="field-label">Société</span>
-        <input class="field-input" name="name" type="text" value="${escapeHtml(client?.name ?? "")}" required>
+        <input class="field-input" name="name" type="text" value="${escapeHtml(client?.name ?? "")}">
       </label>
       <label>
         <span class="field-label">Ville</span>
-        <input class="field-input" name="city" type="text" value="${escapeHtml(client?.city ?? "")}" required>
+        <input class="field-input" name="city" type="text" value="${escapeHtml(client?.city ?? "")}">
       </label>
       <label>
         <span class="field-label">Code postal</span>
@@ -3324,7 +3400,7 @@ function renderOrderForm(order = null) {
     <div class="field-grid order-form-grid">
       <label>
         <span class="field-label">Produit</span>
-        <select class="field-select" name="product" required>
+        <select class="field-select" name="product">
           ${renderOrderProductOptions(order?.product)}
         </select>
       </label>
@@ -3336,7 +3412,7 @@ function renderOrderForm(order = null) {
       </label>
       <label>
         <span class="field-label">Client</span>
-        <input class="field-input" name="clientName" type="text" list="clientSuggestions" value="${escapeHtml(orderClientLabel(order))}" required>
+        <input class="field-input" name="clientName" type="text" list="clientSuggestions" value="${escapeHtml(orderClientLabel(order))}">
       </label>
       <label>
         <span class="field-label">Contact</span>
@@ -3350,11 +3426,11 @@ function renderOrderForm(order = null) {
       </label>
       <label>
         <span class="field-label">Quantite</span>
-        <input class="field-input" name="quantity" type="number" min="1" value="${Math.max(1, Number(order?.quantity) || 1)}" required>
+        <input class="field-input" name="quantity" type="number" min="1" value="${Math.max(1, Number(order?.quantity) || 1)}">
       </label>
       <label>
         <span class="field-label">Livraison</span>
-        <input class="field-input" name="deliveryDate" type="date" value="${escapeHtml(order?.deliveryDate ?? isoToday())}" required>
+        <input class="field-input" name="deliveryDate" type="date" value="${escapeHtml(order?.deliveryDate ?? "")}">
       </label>
       <label>
         <span class="field-label">Statut</span>
@@ -3364,11 +3440,11 @@ function renderOrderForm(order = null) {
         <span class="field-label">Maquette</span>
         <span class="checkbox-row">
           <input name="markMockup" type="checkbox" ${order?.status === "Maquette à faire" ? "checked" : ""} ${showMockupField ? "" : "disabled"}>
-          <span>Maquette a faire</span>
+          <span>Maquette à faire</span>
         </span>
       </label>
       <label class="field-choice-group">
-        <span class="field-label">Assigne</span>
+        <span class="field-label">Assigné</span>
         <span class="team-bubble-group" aria-label="Assignation commande">
           ${renderOrderAssigneeChoices(order?.assignedTo)}
         </span>
@@ -3620,7 +3696,7 @@ function renderOrderDeadline(order) {
   if (!order.deliveryDate) {
     return `
       <div class="order-deadline">
-        <strong>—</strong>
+        <strong>Sans date</strong>
       </div>
     `;
   }
@@ -4512,7 +4588,7 @@ function normalizeCustomerOrder(order) {
     zone: normalizeOrderZone(order.zone ?? order.category ?? ""),
     quantity: normalizeOrderQuantity(order.quantity),
     note: order.note ?? "",
-    deliveryDate: order.deliveryDate ?? order.dueDate ?? isoToday(),
+    deliveryDate: String(order.deliveryDate ?? order.dueDate ?? "").trim(),
     status: normalizeOrderStatus(order.status),
     mockupCompletedAt: String(order.mockupCompletedAt ?? ""),
     assignedTo: order.assignedTo ?? "",
@@ -5305,26 +5381,26 @@ function primaryLabel(action) {
     addProductionItem: "+ Ajouter un PRT",
     addPurchaseItem: "+ Ajouter un article",
     editPurchaseItem: "Modifier l'article",
-    addWorkshopTask: "+ Ajouter une tache",
-    editWorkshopTask: "Modifier la tache",
-    editImprovementItem: "Modifier la remontee"
+    addWorkshopTask: "+ Ajouter une tâche",
+    editWorkshopTask: "Modifier la tâche",
+    editImprovementItem: "Modifier la remontée"
   };
   return labels[action] ?? "+ Ajouter";
 }
 
 function submitLabel(action) {
   const labels = {
-    addClient: "Creer le client",
-    addOrder: "Creer la commande",
+    addClient: "Créer le client",
+    addOrder: "Créer la commande",
     editOrder: "Enregistrer",
-    addDtf: "Creer la demande",
+    addDtf: "Créer la demande",
     editDtf: "Enregistrer",
-    addTextileOrder: "Creer la commande",
+    addTextileOrder: "Créer la commande",
     editTextileOrder: "Enregistrer",
     addProductionItem: "Ajouter le PRT",
     addPurchaseItem: "Ajouter l'article",
     editPurchaseItem: "Enregistrer",
-    addWorkshopTask: "Ajouter la tache",
+    addWorkshopTask: "Ajouter la tâche",
     editWorkshopTask: "Enregistrer",
     editImprovementItem: "Enregistrer"
   };
@@ -5334,10 +5410,10 @@ function submitLabel(action) {
 function sheetEyebrow(action) {
   const labels = {
     addClient: "Clients Pro",
-    addOrder: "Commande",
-    editOrder: "Commande",
-    addDtf: "Demande de DTF",
-    editDtf: "Demande de DTF",
+    addOrder: "Commandes générales",
+    editOrder: "Commandes générales",
+    addDtf: "Demande DTF",
+    editDtf: "Demande DTF",
     addTextileOrder: "Achat Textile",
     editTextileOrder: "Achat Textile",
     addProductionItem: "Production",
@@ -5345,9 +5421,9 @@ function sheetEyebrow(action) {
     editPurchaseItem: "Achat",
     addWorkshopTask: "Gestion d'atelier",
     editWorkshopTask: "Gestion d'atelier",
-    editImprovementItem: "Ameliorations"
+    editImprovementItem: "Améliorations"
   };
-  return labels[action] ?? "Creation";
+  return labels[action] ?? "Création";
 }
 
 function showToast(message) {

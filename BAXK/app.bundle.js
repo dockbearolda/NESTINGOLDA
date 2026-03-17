@@ -12,15 +12,15 @@
   var deepClone = typeof structuredClone === "function" ? (value) => structuredClone(value) : (value) => JSON.parse(JSON.stringify(value));
   var views = {
     tasks: {
-      label: "Taches",
-      eyebrow: "Taches",
+      label: "T\xE2ches",
+      eyebrow: "T\xE2ches",
       intro: "",
       primaryAction: null,
       searchPlaceholder: "Rechercher dans les notes..."
     },
     planning: {
-      label: "Commande",
-      eyebrow: "Commande",
+      label: "Commandes g\xE9n\xE9rales",
+      eyebrow: "Commandes g\xE9n\xE9rales",
       intro: "",
       primaryAction: "addOrder",
       searchPlaceholder: "Rechercher..."
@@ -33,14 +33,14 @@
       searchPlaceholder: "Rechercher..."
     },
     dtf: {
-      label: "Demande de DTF",
+      label: "Demande DTF",
       eyebrow: "DTF",
       intro: "",
       primaryAction: "addDtf",
       searchPlaceholder: "Rechercher..."
     },
     dtfMockups: {
-      label: "Maquette a faire",
+      label: "Maquette \xE0 faire",
       eyebrow: "DTF",
       intro: "",
       primaryAction: null,
@@ -75,8 +75,8 @@
       searchPlaceholder: "Rechercher..."
     },
     improvements: {
-      label: "Ameliorations",
-      eyebrow: "Ameliorations",
+      label: "Am\xE9liorations",
+      eyebrow: "Am\xE9liorations",
       intro: "",
       primaryAction: null,
       searchPlaceholder: "Rechercher..."
@@ -677,10 +677,28 @@
   var pendingRemoteSnapshot = null;
   var lastRemoteErrorAt = 0;
   var remoteBootstrapComplete = false;
+  var SPELLCHECK_SENTENCE_FIELDS = /* @__PURE__ */ new Set([
+    "label",
+    "note",
+    "technicalNote",
+    "team-note-summary",
+    "team-note-edit-label",
+    "search"
+  ]);
+  var SPELLCHECK_WORD_FIELDS = /* @__PURE__ */ new Set([
+    "name",
+    "city",
+    "contact",
+    "contactName",
+    "contactRole",
+    "designation",
+    "sessionLabel"
+  ]);
   init();
   function init() {
     bindGlobalErrorHandlers();
     bindEvents();
+    syncProofingFields(document);
     requestRender();
     void startRemoteSync();
     if (state.storageRecoveryMessage) {
@@ -1102,6 +1120,10 @@
         const assignee = String((_c = actionNode.dataset.assignee) != null ? _c : "");
         order.assignedTo = assignee;
         persistDb();
+        syncOrderAssigneeBubbles(id, assignee);
+        if (actionNode instanceof HTMLElement) {
+          actionNode.blur();
+        }
         requestRender({ header: false, status: false, view: true });
         return;
       }
@@ -1619,7 +1641,7 @@
         zone: normalizeOrderZone(formData.get("zone")),
         quantity: Math.max(1, Number((_r = formData.get("quantity")) != null ? _r : 1) || 1),
         note: String((_s = formData.get("note")) != null ? _s : "").trim(),
-        deliveryDate: String((_t = formData.get("deliveryDate")) != null ? _t : isoToday()),
+        deliveryDate: String((_t = formData.get("deliveryDate")) != null ? _t : "").trim(),
         status,
         mockupCompletedAt: "",
         assignedTo: String((_u = formData.get("assignedTo")) != null ? _u : "").trim(),
@@ -1651,7 +1673,7 @@
       order.zone = normalizeOrderZone(formData.get("zone"));
       order.quantity = Math.max(1, Number((_y = formData.get("quantity")) != null ? _y : 1) || 1);
       order.note = String((_z = formData.get("note")) != null ? _z : "").trim();
-      order.deliveryDate = String((_A = formData.get("deliveryDate")) != null ? _A : isoToday());
+      order.deliveryDate = String((_A = formData.get("deliveryDate")) != null ? _A : "").trim();
       order.status = status;
       order.mockupCompletedAt = order.status === "Maquette \xE0 faire" ? "" : String((_B = order.mockupCompletedAt) != null ? _B : "");
       order.assignedTo = String((_C = formData.get("assignedTo")) != null ? _C : "").trim();
@@ -1982,6 +2004,7 @@
         refs.viewRoot.innerHTML = renderPlaceholderView();
         break;
     }
+    syncProofingFields(refs.viewRoot);
   }
   function renderPlaceholderView() {
     return '\n    <section class="module-layout">\n      <article class="placeholder-card">\n        <p class="module-kicker">'.concat(escapeHtml(views[state.view].label), "</p>\n        <strong>Module en attente de construction</strong>\n      </article>\n    </section>\n  ");
@@ -2123,10 +2146,50 @@
     refs.sheetBody.innerHTML = renderSheetBody(action);
     restoreSheetDraft(action, options);
     syncOrderMockupField();
+    syncProofingFields(refs.sheetBody);
     refs.sheetEyebrow.textContent = sheetEyebrow(action);
     refs.sheetTitle.textContent = primaryLabel(action);
     refs.submitSheetButton.textContent = submitLabel(action);
     refs.sheetDialog.showModal();
+  }
+  function syncProofingFields(root) {
+    if (!(root instanceof Element || root instanceof Document)) {
+      return;
+    }
+    root.querySelectorAll("input, textarea").forEach((field) => {
+      if (!(field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement)) {
+        return;
+      }
+      const mode = spellcheckModeForField(field);
+      if (!mode) {
+        return;
+      }
+      field.setAttribute("spellcheck", "true");
+      field.setAttribute("lang", "fr");
+      field.setAttribute("autocorrect", "on");
+      field.setAttribute("autocomplete", field.getAttribute("autocomplete") || "on");
+      field.setAttribute("autocapitalize", mode);
+    });
+  }
+  function spellcheckModeForField(field) {
+    if (field instanceof HTMLTextAreaElement) {
+      return "sentences";
+    }
+    if (!(field instanceof HTMLInputElement)) {
+      return "";
+    }
+    const type = String(field.type || "text").toLowerCase();
+    if (!["text", "search"].includes(type)) {
+      return "";
+    }
+    const name = String(field.name || "").trim();
+    if (SPELLCHECK_SENTENCE_FIELDS.has(name)) {
+      return "sentences";
+    }
+    if (SPELLCHECK_WORD_FIELDS.has(name)) {
+      return "words";
+    }
+    return "";
   }
   function closeSheet() {
     if (refs.sheetDialog.open) {
@@ -2184,7 +2247,7 @@
       return renderTextileOrderForm(textileOrder);
     }
     if (action === "addProductionItem") {
-      return '\n      <div class="field-grid production-form-grid">\n        <label class="field-span">\n          <span class="field-label">Nom du PRT</span>\n          <input class="field-input" name="label" type="text" placeholder="Ex: Logo dos noir" required>\n        </label>\n        <label>\n          <span class="field-label">Combien de fois</span>\n          <input class="field-input" name="quantity" type="number" min="1" value="1" required>\n        </label>\n      </div>\n    ';
+      return '\n      <div class="field-grid production-form-grid">\n        <label class="field-span">\n          <span class="field-label">Nom du PRT</span>\n          <input class="field-input" name="label" type="text" placeholder="Ex: Logo dos noir">\n        </label>\n        <label>\n          <span class="field-label">Combien de fois</span>\n          <input class="field-input" name="quantity" type="number" min="1" value="1">\n        </label>\n      </div>\n    ';
     }
     if (action === "addPurchaseItem") {
       return renderPurchaseItemForm();
@@ -2217,23 +2280,23 @@
   }
   function renderPurchaseItemForm(item = null) {
     var _a;
-    return '\n    <div class="field-grid">\n      <label>\n        <span class="field-label">Zone</span>\n        <select class="field-select" name="zone">\n          <option value="SXM" '.concat((item == null ? void 0 : item.zone) === "SXM" ? "selected" : "", '>SXM</option>\n          <option value="Europe" ').concat((item == null ? void 0 : item.zone) === "Europe" ? "selected" : "", '>Europe</option>\n          <option value="USA" ').concat((item == null ? void 0 : item.zone) === "USA" ? "selected" : "", '>USA</option>\n        </select>\n      </label>\n      <label>\n        <span class="field-label">Quantite</span>\n        <input class="field-input" name="quantity" type="number" min="1" value="').concat(Math.max(1, Number(item == null ? void 0 : item.quantity) || 1), '" required>\n      </label>\n      <label class="field-span">\n        <span class="field-label">Article</span>\n        <input class="field-input" name="label" type="text" value="').concat(escapeHtml((_a = item == null ? void 0 : item.label) != null ? _a : ""), '" required>\n      </label>\n    </div>\n  ');
+    return '\n    <div class="field-grid">\n      <label>\n        <span class="field-label">Zone</span>\n        <select class="field-select" name="zone">\n          <option value="SXM" '.concat((item == null ? void 0 : item.zone) === "SXM" ? "selected" : "", '>SXM</option>\n          <option value="Europe" ').concat((item == null ? void 0 : item.zone) === "Europe" ? "selected" : "", '>Europe</option>\n          <option value="USA" ').concat((item == null ? void 0 : item.zone) === "USA" ? "selected" : "", '>USA</option>\n        </select>\n      </label>\n      <label>\n        <span class="field-label">Quantite</span>\n        <input class="field-input" name="quantity" type="number" min="1" value="').concat(Math.max(1, Number(item == null ? void 0 : item.quantity) || 1), '">\n      </label>\n      <label class="field-span">\n        <span class="field-label">Article</span>\n        <input class="field-input" name="label" type="text" value="').concat(escapeHtml((_a = item == null ? void 0 : item.label) != null ? _a : ""), '">\n      </label>\n    </div>\n  ');
   }
   function renderWorkshopTaskForm(task = null) {
     var _a;
-    return '\n    <div class="field-grid">\n      <label>\n        <span class="field-label">Categorie</span>\n        <select class="field-select" name="group">\n          <option value="standard" '.concat((task == null ? void 0 : task.group) === "standard" ? "selected" : "", '>Standard</option>\n          <option value="atelier" ').concat((task == null ? void 0 : task.group) === "atelier" ? "selected" : "", '>Atelier</option>\n          <option value="dtf" ').concat((task == null ? void 0 : task.group) === "dtf" ? "selected" : "", '>DTF</option>\n        </select>\n      </label>\n      <label class="field-span">\n        <span class="field-label">Tache</span>\n        <input class="field-input" name="label" type="text" value="').concat(escapeHtml((_a = task == null ? void 0 : task.label) != null ? _a : ""), '" required>\n      </label>\n      <label>\n        <span class="field-label">Recurrente</span>\n        <input name="recurring" type="checkbox" ').concat((task == null ? void 0 : task.recurring) ? "checked" : "", ">\n      </label>\n    </div>\n  ");
+    return '\n    <div class="field-grid">\n      <label>\n        <span class="field-label">Categorie</span>\n        <select class="field-select" name="group">\n          <option value="standard" '.concat((task == null ? void 0 : task.group) === "standard" ? "selected" : "", '>Standard</option>\n          <option value="atelier" ').concat((task == null ? void 0 : task.group) === "atelier" ? "selected" : "", '>Atelier</option>\n          <option value="dtf" ').concat((task == null ? void 0 : task.group) === "dtf" ? "selected" : "", '>DTF</option>\n        </select>\n      </label>\n      <label class="field-span">\n        <span class="field-label">Tache</span>\n        <input class="field-input" name="label" type="text" value="').concat(escapeHtml((_a = task == null ? void 0 : task.label) != null ? _a : ""), '">\n      </label>\n      <label>\n        <span class="field-label">Recurrente</span>\n        <input name="recurring" type="checkbox" ').concat((task == null ? void 0 : task.recurring) ? "checked" : "", ">\n      </label>\n    </div>\n  ");
   }
   function renderImprovementForm(item = null) {
     var _a;
-    return '\n    <div class="field-grid">\n      <label>\n        <span class="field-label">Categorie</span>\n        <select class="field-select" name="type">\n          '.concat(IMPROVEMENT_TYPES.map((type) => '<option value="'.concat(type.key, '" ').concat((item == null ? void 0 : item.type) === type.key ? "selected" : "", ">").concat(escapeHtml(type.label), "</option>")).join(""), '\n        </select>\n      </label>\n      <label class="field-span">\n        <span class="field-label">Remontee</span>\n        <input class="field-input" name="label" type="text" value="').concat(escapeHtml((_a = item == null ? void 0 : item.label) != null ? _a : ""), '" required>\n      </label>\n    </div>\n  ');
+    return '\n    <div class="field-grid">\n      <label>\n        <span class="field-label">Categorie</span>\n        <select class="field-select" name="type">\n          '.concat(IMPROVEMENT_TYPES.map((type) => '<option value="'.concat(type.key, '" ').concat((item == null ? void 0 : item.type) === type.key ? "selected" : "", ">").concat(escapeHtml(type.label), "</option>")).join(""), '\n        </select>\n      </label>\n      <label class="field-span">\n        <span class="field-label">Remontee</span>\n        <input class="field-input" name="label" type="text" value="').concat(escapeHtml((_a = item == null ? void 0 : item.label) != null ? _a : ""), '">\n      </label>\n    </div>\n  ');
   }
   function renderDtfForm(dtf = null) {
     var _a, _b, _c, _d, _e;
-    return '\n    <div class="field-grid dtf-form-grid">\n      <label class="dtf-form-wide">\n        <span class="field-label">Client</span>\n        <input class="field-input" name="clientName" type="text" list="clientSuggestions" value="'.concat(escapeHtml(dtfClientLabel(dtf)), '" required>\n      </label>\n      <label>\n        <span class="field-label">Dimension</span>\n        <input class="field-input" name="dimensions" type="text" value="').concat(escapeHtml((_a = dtf == null ? void 0 : dtf.dimensions) != null ? _a : ""), '" required>\n      </label>\n      <label class="dtf-logo-field">\n        <span class="field-label">Nom du logo</span>\n        <input type="hidden" name="designName" value="').concat(escapeHtml((_b = dtf == null ? void 0 : dtf.designName) != null ? _b : ""), '">\n        <select class="field-select" name="designPreset" required>\n          ').concat(renderLogoPresetOptions(dtf == null ? void 0 : dtf.designName), '\n        </select>\n      </label>\n      <label>\n        <span class="field-label">Taille</span>\n        <input class="field-input" name="size" type="text" value="').concat(escapeHtml((_c = dtf == null ? void 0 : dtf.size) != null ? _c : ""), '" required>\n      </label>\n      <label>\n        <span class="field-label">Couleur</span>\n        <input class="field-input" name="color" type="text" list="dtfColorOptions" value="').concat(escapeHtml((_d = dtf == null ? void 0 : dtf.color) != null ? _d : ""), '" required>\n      </label>\n      <label>\n        <span class="field-label">Quantite</span>\n        <input class="field-input" name="quantity" type="number" min="1" value="').concat(Math.max(1, Number(dtf == null ? void 0 : dtf.quantity) || 1), '" required>\n      </label>\n      <label class="field-checkbox">\n        <span class="field-label">Type de demande</span>\n        <span class="checkbox-row">\n          <input name="needsMockup" type="checkbox" ').concat((dtf == null ? void 0 : dtf.needsMockup) ? "checked" : "", '>\n          <span>Maquette a faire</span>\n        </span>\n      </label>\n      <label class="dtf-form-note">\n        <span class="field-label">Note technique</span>\n        <input class="field-input" name="technicalNote" type="text" value="').concat(escapeHtml((_e = dtf == null ? void 0 : dtf.technicalNote) != null ? _e : ""), '">\n      </label>\n    </div>\n    <datalist id="clientSuggestions">').concat(renderClientSuggestionOptions(), '</datalist>\n    <datalist id="dtfColorOptions">').concat(renderListOptions(TEXTILE_COLOR_OPTIONS), "</datalist>\n  ");
+    return '\n    <div class="field-grid dtf-form-grid">\n      <label class="dtf-form-wide">\n        <span class="field-label">Client</span>\n        <input class="field-input" name="clientName" type="text" list="clientSuggestions" value="'.concat(escapeHtml(dtfClientLabel(dtf)), '">\n      </label>\n      <label>\n        <span class="field-label">Dimension</span>\n        <input class="field-input" name="dimensions" type="text" value="').concat(escapeHtml((_a = dtf == null ? void 0 : dtf.dimensions) != null ? _a : ""), '">\n      </label>\n      <label class="dtf-logo-field">\n        <span class="field-label">Nom du logo</span>\n        <div class="field-stack">\n          <input class="field-input" name="designName" type="text" value="').concat(escapeHtml((_b = dtf == null ? void 0 : dtf.designName) != null ? _b : ""), '" placeholder="Design perso ou logo existant">\n          <select class="field-select" name="designPreset">\n            ').concat(renderLogoPresetOptions(dtf == null ? void 0 : dtf.designName), '\n          </select>\n        </div>\n      </label>\n      <label>\n        <span class="field-label">Taille</span>\n        <input class="field-input" name="size" type="text" value="').concat(escapeHtml((_c = dtf == null ? void 0 : dtf.size) != null ? _c : ""), '">\n      </label>\n      <label>\n        <span class="field-label">Couleur</span>\n        <input class="field-input" name="color" type="text" list="dtfColorOptions" value="').concat(escapeHtml((_d = dtf == null ? void 0 : dtf.color) != null ? _d : ""), '">\n      </label>\n      <label>\n        <span class="field-label">Quantite</span>\n        <input class="field-input" name="quantity" type="number" min="1" value="').concat(Math.max(1, Number(dtf == null ? void 0 : dtf.quantity) || 1), '">\n      </label>\n      <label class="field-checkbox">\n        <span class="field-label">Type de demande</span>\n        <span class="checkbox-row">\n          <input name="needsMockup" type="checkbox" ').concat((dtf == null ? void 0 : dtf.needsMockup) ? "checked" : "", '>\n          <span>Maquette \xE0 faire</span>\n        </span>\n      </label>\n      <label class="dtf-form-note">\n        <span class="field-label">Note technique</span>\n        <input class="field-input" name="technicalNote" type="text" value="').concat(escapeHtml((_e = dtf == null ? void 0 : dtf.technicalNote) != null ? _e : ""), '">\n      </label>\n    </div>\n    <datalist id="clientSuggestions">').concat(renderClientSuggestionOptions(), '</datalist>\n    <datalist id="dtfColorOptions">').concat(renderListOptions(TEXTILE_COLOR_OPTIONS), "</datalist>\n  ");
   }
   function renderTextileOrderForm(order = null) {
     var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j;
-    return '\n    <div class="field-grid textile-form-grid">\n      <label>\n        <span class="field-label">Client</span>\n        <input class="field-input" name="clientName" type="text" list="clientSuggestions" value="'.concat(escapeHtml(textileClientLabel(order)), '" required>\n      </label>\n      <label>\n        <span class="field-label">Fournisseur</span>\n        <input class="field-input" name="supplier" type="text" list="textileSupplierOptions" value="').concat(escapeHtml((_a = order == null ? void 0 : order.supplier) != null ? _a : "Toptex"), '" required>\n      </label>\n      <label>\n        <span class="field-label">Marque</span>\n        <input class="field-input" name="brand" type="text" list="textileBrandOptions" value="').concat(escapeHtml((_b = order == null ? void 0 : order.brand) != null ? _b : ""), '" required>\n      </label>\n      <label>\n        <span class="field-label">Genre</span>\n        <input class="field-input" name="gender" type="text" list="textileGenderOptions" value="').concat(escapeHtml((_c = order == null ? void 0 : order.gender) != null ? _c : "-"), '" required>\n      </label>\n      <label>\n        <span class="field-label">Designation</span>\n        <input class="field-input" name="designation" type="text" list="textileDesignationOptions" value="').concat(escapeHtml((_d = order == null ? void 0 : order.designation) != null ? _d : ""), '" required>\n      </label>\n      <label>\n        <span class="field-label">R\xE9f\xE9rence</span>\n        <input class="field-input" name="catalogReference" type="text" list="textileReferenceOptions" value="').concat(escapeHtml((_e = order == null ? void 0 : order.catalogReference) != null ? _e : ""), '" required>\n      </label>\n      <label>\n        <span class="field-label">Couleur</span>\n        <input class="field-input" name="color" type="text" list="textileColorOptions" value="').concat(escapeHtml((_f = order == null ? void 0 : order.color) != null ? _f : ""), '" required>\n      </label>\n      <label>\n        <span class="field-label">Taille</span>\n        <input class="field-input" name="size" type="text" list="textileSizeOptions" value="').concat(escapeHtml((_g = order == null ? void 0 : order.size) != null ? _g : ""), '" required>\n      </label>\n      <label>\n        <span class="field-label">Quantite</span>\n        <input class="field-input" name="quantity" type="number" min="1" value="').concat(Math.max(1, Number(order == null ? void 0 : order.quantity) || 1), '" required>\n      </label>\n      <label>\n        <span class="field-label">Livraison</span>\n        <input class="field-input" name="deliveryStatus" type="text" list="textileDeliveryOptions" value="').concat(escapeHtml((_h = order == null ? void 0 : order.deliveryStatus) != null ? _h : "pending"), '" required>\n      </label>\n      <label>\n        <span class="field-label">Session</span>\n        <input class="field-input" name="sessionLabel" type="text" value="').concat(escapeHtml((_i = order == null ? void 0 : order.sessionLabel) != null ? _i : ""), '" required>\n      </label>\n      <label>\n        <span class="field-label">Date</span>\n        <input class="field-input" name="expectedDate" type="date" value="').concat(escapeHtml((_j = order == null ? void 0 : order.expectedDate) != null ? _j : isoToday()), '" required>\n      </label>\n    </div>\n    <datalist id="clientSuggestions">').concat(renderClientSuggestionOptions(), '</datalist>\n    <datalist id="textileSupplierOptions">').concat(renderListOptions(TEXTILE_SUPPLIER_OPTIONS), '</datalist>\n    <datalist id="textileBrandOptions">').concat(renderTextileValueOptions("brand", TEXTILE_BRAND_OPTIONS), '</datalist>\n    <datalist id="textileGenderOptions">').concat(renderListOptions(TEXTILE_GENDER_OPTIONS), '</datalist>\n    <datalist id="textileDesignationOptions">').concat(renderTextileValueOptions("designation"), '</datalist>\n    <datalist id="textileReferenceOptions">').concat(renderTextileValueOptions("catalogReference"), '</datalist>\n    <datalist id="textileColorOptions">').concat(renderTextileValueOptions("color", TEXTILE_COLOR_OPTIONS), '</datalist>\n    <datalist id="textileSizeOptions">').concat(renderTextileValueOptions("size"), '</datalist>\n    <datalist id="textileDeliveryOptions">').concat(renderListOptions(TEXTILE_DELIVERY_OPTIONS), "</datalist>\n  ");
+    return '\n    <div class="field-grid textile-form-grid">\n      <label>\n        <span class="field-label">Client</span>\n        <input class="field-input" name="clientName" type="text" list="clientSuggestions" value="'.concat(escapeHtml(textileClientLabel(order)), '">\n      </label>\n      <label>\n        <span class="field-label">Fournisseur</span>\n        <input class="field-input" name="supplier" type="text" list="textileSupplierOptions" value="').concat(escapeHtml((_a = order == null ? void 0 : order.supplier) != null ? _a : "Toptex"), '">\n      </label>\n      <label>\n        <span class="field-label">Marque</span>\n        <input class="field-input" name="brand" type="text" list="textileBrandOptions" value="').concat(escapeHtml((_b = order == null ? void 0 : order.brand) != null ? _b : ""), '">\n      </label>\n      <label>\n        <span class="field-label">Genre</span>\n        <input class="field-input" name="gender" type="text" list="textileGenderOptions" value="').concat(escapeHtml((_c = order == null ? void 0 : order.gender) != null ? _c : "-"), '">\n      </label>\n      <label>\n        <span class="field-label">Designation</span>\n        <input class="field-input" name="designation" type="text" list="textileDesignationOptions" value="').concat(escapeHtml((_d = order == null ? void 0 : order.designation) != null ? _d : ""), '">\n      </label>\n      <label>\n        <span class="field-label">R\xE9f\xE9rence</span>\n        <input class="field-input" name="catalogReference" type="text" list="textileReferenceOptions" value="').concat(escapeHtml((_e = order == null ? void 0 : order.catalogReference) != null ? _e : ""), '">\n      </label>\n      <label>\n        <span class="field-label">Couleur</span>\n        <input class="field-input" name="color" type="text" list="textileColorOptions" value="').concat(escapeHtml((_f = order == null ? void 0 : order.color) != null ? _f : ""), '">\n      </label>\n      <label>\n        <span class="field-label">Taille</span>\n        <input class="field-input" name="size" type="text" list="textileSizeOptions" value="').concat(escapeHtml((_g = order == null ? void 0 : order.size) != null ? _g : ""), '">\n      </label>\n      <label>\n        <span class="field-label">Quantite</span>\n        <input class="field-input" name="quantity" type="number" min="1" value="').concat(Math.max(1, Number(order == null ? void 0 : order.quantity) || 1), '">\n      </label>\n      <label>\n        <span class="field-label">Livraison</span>\n        <input class="field-input" name="deliveryStatus" type="text" list="textileDeliveryOptions" value="').concat(escapeHtml((_h = order == null ? void 0 : order.deliveryStatus) != null ? _h : "pending"), '">\n      </label>\n      <label>\n        <span class="field-label">Session</span>\n        <input class="field-input" name="sessionLabel" type="text" value="').concat(escapeHtml((_i = order == null ? void 0 : order.sessionLabel) != null ? _i : ""), '">\n      </label>\n      <label>\n        <span class="field-label">Date</span>\n        <input class="field-input" name="expectedDate" type="date" value="').concat(escapeHtml((_j = order == null ? void 0 : order.expectedDate) != null ? _j : ""), '">\n      </label>\n    </div>\n    <datalist id="clientSuggestions">').concat(renderClientSuggestionOptions(), '</datalist>\n    <datalist id="textileSupplierOptions">').concat(renderListOptions(TEXTILE_SUPPLIER_OPTIONS), '</datalist>\n    <datalist id="textileBrandOptions">').concat(renderTextileValueOptions("brand", TEXTILE_BRAND_OPTIONS), '</datalist>\n    <datalist id="textileGenderOptions">').concat(renderListOptions(TEXTILE_GENDER_OPTIONS), '</datalist>\n    <datalist id="textileDesignationOptions">').concat(renderTextileValueOptions("designation"), '</datalist>\n    <datalist id="textileReferenceOptions">').concat(renderTextileValueOptions("catalogReference"), '</datalist>\n    <datalist id="textileColorOptions">').concat(renderTextileValueOptions("color", TEXTILE_COLOR_OPTIONS), '</datalist>\n    <datalist id="textileSizeOptions">').concat(renderTextileValueOptions("size"), '</datalist>\n    <datalist id="textileDeliveryOptions">').concat(renderListOptions(TEXTILE_DELIVERY_OPTIONS), "</datalist>\n  ");
   }
   function renderClientSuggestionOptions() {
     return db.clients.filter((client) => !isSampleClient(client)).map((client) => '<option value="'.concat(escapeHtml(client.name), '"></option>')).join("");
@@ -2245,7 +2308,7 @@
   function renderClientForm(client = null) {
     var _a, _b, _c, _d, _e, _f;
     const contact = primaryClientContact(client);
-    return '\n    <div class="field-grid client-form-grid">\n      <label>\n        <span class="field-label">Soci\xE9t\xE9</span>\n        <input class="field-input" name="name" type="text" value="'.concat(escapeHtml((_a = client == null ? void 0 : client.name) != null ? _a : ""), '" required>\n      </label>\n      <label>\n        <span class="field-label">Ville</span>\n        <input class="field-input" name="city" type="text" value="').concat(escapeHtml((_b = client == null ? void 0 : client.city) != null ? _b : ""), '" required>\n      </label>\n      <label>\n        <span class="field-label">Code postal</span>\n        <input class="field-input" name="postalCode" type="text" value="').concat(escapeHtml((_c = client == null ? void 0 : client.postalCode) != null ? _c : ""), '">\n      </label>\n      <label>\n        <span class="field-label">Contact</span>\n        <input class="field-input" name="contactName" type="text" value="').concat(escapeHtml((_d = contact.name) != null ? _d : ""), '">\n      </label>\n      <label>\n        <span class="field-label">T\xE9l\xE9phone</span>\n        <input class="field-input" name="contactPhone" type="tel" value="').concat(escapeHtml((_e = contact.phone) != null ? _e : ""), '">\n      </label>\n      <label class="client-form-wide">\n        <span class="field-label">Email</span>\n        <input class="field-input" name="contactEmail" type="email" value="').concat(escapeHtml((_f = contact.email) != null ? _f : ""), '">\n      </label>\n    </div>\n  ');
+    return '\n    <div class="field-grid client-form-grid">\n      <label>\n        <span class="field-label">Soci\xE9t\xE9</span>\n        <input class="field-input" name="name" type="text" value="'.concat(escapeHtml((_a = client == null ? void 0 : client.name) != null ? _a : ""), '">\n      </label>\n      <label>\n        <span class="field-label">Ville</span>\n        <input class="field-input" name="city" type="text" value="').concat(escapeHtml((_b = client == null ? void 0 : client.city) != null ? _b : ""), '">\n      </label>\n      <label>\n        <span class="field-label">Code postal</span>\n        <input class="field-input" name="postalCode" type="text" value="').concat(escapeHtml((_c = client == null ? void 0 : client.postalCode) != null ? _c : ""), '">\n      </label>\n      <label>\n        <span class="field-label">Contact</span>\n        <input class="field-input" name="contactName" type="text" value="').concat(escapeHtml((_d = contact.name) != null ? _d : ""), '">\n      </label>\n      <label>\n        <span class="field-label">T\xE9l\xE9phone</span>\n        <input class="field-input" name="contactPhone" type="tel" value="').concat(escapeHtml((_e = contact.phone) != null ? _e : ""), '">\n      </label>\n      <label class="client-form-wide">\n        <span class="field-label">Email</span>\n        <input class="field-input" name="contactEmail" type="email" value="').concat(escapeHtml((_f = contact.email) != null ? _f : ""), '">\n      </label>\n    </div>\n  ');
   }
   function renderOrderProductOptions(selectedProduct = "") {
     const current = String(selectedProduct != null ? selectedProduct : "").trim();
@@ -2263,7 +2326,7 @@
     var _a, _b, _c, _d;
     const zone = normalizeOrderZone(order == null ? void 0 : order.zone);
     const showMockupField = canOrderUseMockup(zone);
-    return '\n    <div class="field-grid order-form-grid">\n      <label>\n        <span class="field-label">Produit</span>\n        <select class="field-select" name="product" required>\n          '.concat(renderOrderProductOptions(order == null ? void 0 : order.product), '\n        </select>\n      </label>\n      <label>\n        <span class="field-label">Urgence</span>\n        <select class="field-select" name="urgency">\n          ').concat(renderSelectOptions(["Haute", "Moyenne", "Basse"], (_a = order == null ? void 0 : order.urgency) != null ? _a : "Moyenne"), '\n        </select>\n      </label>\n      <label>\n        <span class="field-label">Client</span>\n        <input class="field-input" name="clientName" type="text" list="clientSuggestions" value="').concat(escapeHtml(orderClientLabel(order)), '" required>\n      </label>\n      <label>\n        <span class="field-label">Contact</span>\n        <input class="field-input" name="contact" type="text" value="').concat(escapeHtml((_b = order == null ? void 0 : order.contact) != null ? _b : ""), '">\n      </label>\n      <label>\n        <span class="field-label">Zone</span>\n        <select class="field-select" name="zone">\n          ').concat(renderSelectOptions(ORDER_ZONE_OPTIONS, normalizeOrderZone(order == null ? void 0 : order.zone)), '\n        </select>\n      </label>\n      <label>\n        <span class="field-label">Quantite</span>\n        <input class="field-input" name="quantity" type="number" min="1" value="').concat(Math.max(1, Number(order == null ? void 0 : order.quantity) || 1), '" required>\n      </label>\n      <label>\n        <span class="field-label">Livraison</span>\n        <input class="field-input" name="deliveryDate" type="date" value="').concat(escapeHtml((_c = order == null ? void 0 : order.deliveryDate) != null ? _c : isoToday()), '" required>\n      </label>\n      <label>\n        <span class="field-label">Statut</span>\n        <select class="field-select" name="status">').concat(renderOrderStatusOptions(order == null ? void 0 : order.status), '</select>\n      </label>\n      <label class="field-checkbox" data-order-mockup-field ').concat(showMockupField ? "" : "hidden", '>\n        <span class="field-label">Maquette</span>\n        <span class="checkbox-row">\n          <input name="markMockup" type="checkbox" ').concat((order == null ? void 0 : order.status) === "Maquette \xE0 faire" ? "checked" : "", " ").concat(showMockupField ? "" : "disabled", '>\n          <span>Maquette a faire</span>\n        </span>\n      </label>\n      <label class="field-choice-group">\n        <span class="field-label">Assigne</span>\n        <span class="team-bubble-group" aria-label="Assignation commande">\n          ').concat(renderOrderAssigneeChoices(order == null ? void 0 : order.assignedTo), '\n        </span>\n      </label>\n      <label class="order-form-note">\n        <span class="field-label">Note</span>\n        <input class="field-input" name="note" type="text" value="').concat(escapeHtml((_d = order == null ? void 0 : order.note) != null ? _d : ""), '">\n      </label>\n    </div>\n    <datalist id="clientSuggestions">').concat(renderClientSuggestionOptions(), "</datalist>\n  ");
+    return '\n    <div class="field-grid order-form-grid">\n      <label>\n        <span class="field-label">Produit</span>\n        <select class="field-select" name="product">\n          '.concat(renderOrderProductOptions(order == null ? void 0 : order.product), '\n        </select>\n      </label>\n      <label>\n        <span class="field-label">Urgence</span>\n        <select class="field-select" name="urgency">\n          ').concat(renderSelectOptions(["Haute", "Moyenne", "Basse"], (_a = order == null ? void 0 : order.urgency) != null ? _a : "Moyenne"), '\n        </select>\n      </label>\n      <label>\n        <span class="field-label">Client</span>\n        <input class="field-input" name="clientName" type="text" list="clientSuggestions" value="').concat(escapeHtml(orderClientLabel(order)), '">\n      </label>\n      <label>\n        <span class="field-label">Contact</span>\n        <input class="field-input" name="contact" type="text" value="').concat(escapeHtml((_b = order == null ? void 0 : order.contact) != null ? _b : ""), '">\n      </label>\n      <label>\n        <span class="field-label">Zone</span>\n        <select class="field-select" name="zone">\n          ').concat(renderSelectOptions(ORDER_ZONE_OPTIONS, normalizeOrderZone(order == null ? void 0 : order.zone)), '\n        </select>\n      </label>\n      <label>\n        <span class="field-label">Quantite</span>\n        <input class="field-input" name="quantity" type="number" min="1" value="').concat(Math.max(1, Number(order == null ? void 0 : order.quantity) || 1), '">\n      </label>\n      <label>\n        <span class="field-label">Livraison</span>\n        <input class="field-input" name="deliveryDate" type="date" value="').concat(escapeHtml((_c = order == null ? void 0 : order.deliveryDate) != null ? _c : ""), '">\n      </label>\n      <label>\n        <span class="field-label">Statut</span>\n        <select class="field-select" name="status">').concat(renderOrderStatusOptions(order == null ? void 0 : order.status), '</select>\n      </label>\n      <label class="field-checkbox" data-order-mockup-field ').concat(showMockupField ? "" : "hidden", '>\n        <span class="field-label">Maquette</span>\n        <span class="checkbox-row">\n          <input name="markMockup" type="checkbox" ').concat((order == null ? void 0 : order.status) === "Maquette \xE0 faire" ? "checked" : "", " ").concat(showMockupField ? "" : "disabled", '>\n          <span>Maquette \xE0 faire</span>\n        </span>\n      </label>\n      <label class="field-choice-group">\n        <span class="field-label">Assign\xE9</span>\n        <span class="team-bubble-group" aria-label="Assignation commande">\n          ').concat(renderOrderAssigneeChoices(order == null ? void 0 : order.assignedTo), '\n        </span>\n      </label>\n      <label class="order-form-note">\n        <span class="field-label">Note</span>\n        <input class="field-input" name="note" type="text" value="').concat(escapeHtml((_d = order == null ? void 0 : order.note) != null ? _d : ""), '">\n      </label>\n    </div>\n    <datalist id="clientSuggestions">').concat(renderClientSuggestionOptions(), "</datalist>\n  ");
   }
   function getVisibleClientRows() {
     const query = state.search;
@@ -2379,6 +2442,15 @@
     }
     requestRender({ header: false, status: false, view: true });
   }
+  function syncOrderAssigneeBubbles(orderId, assignee) {
+    const row = refs.viewRoot.querySelector('[data-order-id="'.concat(orderId, '"]'));
+    if (!row) {
+      return;
+    }
+    row.querySelectorAll('[data-action="assign-order"]').forEach((button) => {
+      button.classList.toggle("is-active", button.dataset.assignee === assignee);
+    });
+  }
   function buildOrderPlanningSections(rows) {
     const sections = [
       { key: "late", kicker: "Priorit\xE9", title: "En retard", rows: [] },
@@ -2436,7 +2508,7 @@
   }
   function renderOrderDeadline(order) {
     if (!order.deliveryDate) {
-      return '\n      <div class="order-deadline">\n        <strong>\u2014</strong>\n      </div>\n    ';
+      return '\n      <div class="order-deadline">\n        <strong>Sans date</strong>\n      </div>\n    ';
     }
     const offset = orderDayOffset(order.deliveryDate);
     const tone = deadlineTone(offset);
@@ -3164,7 +3236,7 @@
       zone: normalizeOrderZone((_g = (_f = order.zone) != null ? _f : order.category) != null ? _g : ""),
       quantity: normalizeOrderQuantity(order.quantity),
       note: (_h = order.note) != null ? _h : "",
-      deliveryDate: (_j = (_i = order.deliveryDate) != null ? _i : order.dueDate) != null ? _j : isoToday(),
+      deliveryDate: String((_j = (_i = order.deliveryDate) != null ? _i : order.dueDate) != null ? _j : "").trim(),
       status: normalizeOrderStatus(order.status),
       mockupCompletedAt: String((_k = order.mockupCompletedAt) != null ? _k : ""),
       assignedTo: (_l = order.assignedTo) != null ? _l : "",
@@ -3779,26 +3851,26 @@
       addProductionItem: "+ Ajouter un PRT",
       addPurchaseItem: "+ Ajouter un article",
       editPurchaseItem: "Modifier l'article",
-      addWorkshopTask: "+ Ajouter une tache",
-      editWorkshopTask: "Modifier la tache",
-      editImprovementItem: "Modifier la remontee"
+      addWorkshopTask: "+ Ajouter une t\xE2che",
+      editWorkshopTask: "Modifier la t\xE2che",
+      editImprovementItem: "Modifier la remont\xE9e"
     };
     return (_a = labels[action]) != null ? _a : "+ Ajouter";
   }
   function submitLabel(action) {
     var _a;
     const labels = {
-      addClient: "Creer le client",
-      addOrder: "Creer la commande",
+      addClient: "Cr\xE9er le client",
+      addOrder: "Cr\xE9er la commande",
       editOrder: "Enregistrer",
-      addDtf: "Creer la demande",
+      addDtf: "Cr\xE9er la demande",
       editDtf: "Enregistrer",
-      addTextileOrder: "Creer la commande",
+      addTextileOrder: "Cr\xE9er la commande",
       editTextileOrder: "Enregistrer",
       addProductionItem: "Ajouter le PRT",
       addPurchaseItem: "Ajouter l'article",
       editPurchaseItem: "Enregistrer",
-      addWorkshopTask: "Ajouter la tache",
+      addWorkshopTask: "Ajouter la t\xE2che",
       editWorkshopTask: "Enregistrer",
       editImprovementItem: "Enregistrer"
     };
@@ -3808,10 +3880,10 @@
     var _a;
     const labels = {
       addClient: "Clients Pro",
-      addOrder: "Commande",
-      editOrder: "Commande",
-      addDtf: "Demande de DTF",
-      editDtf: "Demande de DTF",
+      addOrder: "Commandes g\xE9n\xE9rales",
+      editOrder: "Commandes g\xE9n\xE9rales",
+      addDtf: "Demande DTF",
+      editDtf: "Demande DTF",
       addTextileOrder: "Achat Textile",
       editTextileOrder: "Achat Textile",
       addProductionItem: "Production",
@@ -3819,9 +3891,9 @@
       editPurchaseItem: "Achat",
       addWorkshopTask: "Gestion d'atelier",
       editWorkshopTask: "Gestion d'atelier",
-      editImprovementItem: "Ameliorations"
+      editImprovementItem: "Am\xE9liorations"
     };
-    return (_a = labels[action]) != null ? _a : "Creation";
+    return (_a = labels[action]) != null ? _a : "Cr\xE9ation";
   }
   function showToast(message) {
     refs.toast.textContent = message;
