@@ -7,6 +7,9 @@ const DATA_VERSION = 3;
 const SERVER_DB_ENDPOINT = "/api/db";
 const REMOTE_SYNC_INTERVAL_MS = 3000;
 const REMOTE_SAVE_DEBOUNCE_MS = 500;
+const deepClone = typeof structuredClone === "function"
+  ? (value) => deepClone(value)
+  : (value) => JSON.parse(JSON.stringify(value));
 
 const views = {
   tasks: {
@@ -3946,7 +3949,7 @@ function injectImportedTextileOrders(collection, clients, parsedVersion) {
     return collection;
   }
 
-  const orders = structuredClone(Array.isArray(collection) ? collection : []);
+  const orders = deepClone(Array.isArray(collection) ? collection : []);
   const clientByName = new Map(
     (Array.isArray(clients) ? clients : []).map((client) => [normalizeClientKey(client?.name), client.id])
   );
@@ -4037,13 +4040,13 @@ function loadDb() {
 }
 
 function buildSeedDb() {
-  const clients = mergeImportedClients(structuredClone(seed.clients));
+  const clients = mergeImportedClients(deepClone(seed.clients));
   return {
-    ...structuredClone(seed),
+    ...deepClone(seed),
     clients,
-    textileOrders: injectImportedTextileOrders(structuredClone(seed.textileOrders), clients, 0),
-    purchaseItems: mergePurchaseDefaults(structuredClone(seed.purchaseItems)),
-    workshopTasks: mergeWorkshopDefaults(structuredClone(seed.workshopTasks)),
+    textileOrders: injectImportedTextileOrders(deepClone(seed.textileOrders), clients, 0),
+    purchaseItems: mergePurchaseDefaults(deepClone(seed.purchaseItems)),
+    workshopTasks: mergeWorkshopDefaults(deepClone(seed.workshopTasks)),
     improvementItems: []
   };
 }
@@ -4051,29 +4054,29 @@ function buildSeedDb() {
 function normalizeDb(parsed) {
   const parsedVersion = Number(parsed?._meta?.version) || 0;
   const shouldResetCustomerOrders = parsedVersion > 0 && parsedVersion < 2;
-  const clients = mergeImportedClients(Array.isArray(parsed.clients) ? parsed.clients : structuredClone(seed.clients));
+  const clients = mergeImportedClients(Array.isArray(parsed.clients) ? parsed.clients : deepClone(seed.clients));
   const textileOrders = Array.isArray(parsed.textileOrders)
     ? parsed.textileOrders.map(normalizeTextileOrder)
-    : structuredClone(seed.textileOrders);
+    : deepClone(seed.textileOrders);
   return {
     teamNotes: normalizeTeamNotes(parsed.teamNotes),
     clients,
-    dtfRequests: Array.isArray(parsed.dtfRequests) ? parsed.dtfRequests.map(normalizeDtfRequest) : structuredClone(seed.dtfRequests),
+    dtfRequests: Array.isArray(parsed.dtfRequests) ? parsed.dtfRequests.map(normalizeDtfRequest) : deepClone(seed.dtfRequests),
     customerOrders: dedupeCustomerOrders(
       shouldResetCustomerOrders ? [] : (
-        Array.isArray(parsed.customerOrders) ? parsed.customerOrders.map(normalizeCustomerOrder) : structuredClone(seed.customerOrders)
+        Array.isArray(parsed.customerOrders) ? parsed.customerOrders.map(normalizeCustomerOrder) : deepClone(seed.customerOrders)
       )
     ),
     textileOrders: injectImportedTextileOrders(textileOrders, clients, parsedVersion),
-    purchaseItems: mergePurchaseDefaults(Array.isArray(parsed.purchaseItems) ? parsed.purchaseItems : structuredClone(seed.purchaseItems)),
-    productionItems: Array.isArray(parsed.productionItems) ? parsed.productionItems.map(normalizeProductionItem) : structuredClone(seed.productionItems),
-    workshopTasks: mergeWorkshopDefaults(Array.isArray(parsed.workshopTasks) ? parsed.workshopTasks : structuredClone(seed.workshopTasks)),
+    purchaseItems: mergePurchaseDefaults(Array.isArray(parsed.purchaseItems) ? parsed.purchaseItems : deepClone(seed.purchaseItems)),
+    productionItems: Array.isArray(parsed.productionItems) ? parsed.productionItems.map(normalizeProductionItem) : deepClone(seed.productionItems),
+    workshopTasks: mergeWorkshopDefaults(Array.isArray(parsed.workshopTasks) ? parsed.workshopTasks : deepClone(seed.workshopTasks)),
     improvementItems: Array.isArray(parsed.improvementItems) ? parsed.improvementItems.map(normalizeImprovementItem).filter((item) => item.label) : []
   };
 }
 
 function mergeImportedClients(collection) {
-  const clients = structuredClone(Array.isArray(collection) ? collection : []);
+  const clients = deepClone(Array.isArray(collection) ? collection : []);
   const byName = new Map();
 
   clients.forEach((client) => {
@@ -4199,7 +4202,7 @@ function recoveryMessageForStorageSource(source) {
 }
 
 function normalizeTeamNotes(collection) {
-  const rows = Array.isArray(collection) ? collection : structuredClone(seed.teamNotes);
+  const rows = Array.isArray(collection) ? collection : deepClone(seed.teamNotes);
 
   return TEAM_NOTE_MEMBERS.map((name, index) => {
     const existing = rows.find((item) => String(item.name ?? "").trim().toLowerCase() === name.toLowerCase());
@@ -5412,9 +5415,9 @@ function isoMonthPrefix() {
 
 function escapeHtml(value) {
   return String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
