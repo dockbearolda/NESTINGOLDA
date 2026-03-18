@@ -25,6 +25,13 @@
       primaryAction: "addOrder",
       searchPlaceholder: "Rechercher..."
     },
+    testPlanning: {
+      label: "Test planning",
+      eyebrow: "Test planning",
+      intro: "",
+      primaryAction: "addTestPlanningOrder",
+      searchPlaceholder: "Rechercher..."
+    },
     clients: {
       label: "Clients Pro",
       eyebrow: "Clients",
@@ -118,6 +125,62 @@
   var ORDER_ZONE_OPTIONS = ["Textiles", "Gravure et d\xE9coupe laser", "Impression UV", "Goodies"];
   var ORDER_ASSIGNEES = ["L", "M", "C", "A", "R"];
   var ORDER_PRODUCT_OPTIONS = ["Tshirt", "Pochette", "Sac", "Casquette", "Tasses", "Goodies"];
+  var TEST_PLANNING_STAGES = [
+    {
+      key: "demande",
+      label: "1. Demande",
+      shortLabel: "Demande",
+      accent: "blue",
+      statuses: ["Devis \xE0 faire", "Pas urgent", "Manque information", "Pas de Stock"]
+    },
+    {
+      key: "devis",
+      label: "2. Devis en cours",
+      shortLabel: "Devis",
+      accent: "violet",
+      statuses: ["Devis en attente validation", "Modification devis", "Manque information", "Maquette \xE0 faire"]
+    },
+    {
+      key: "accepted",
+      label: "3. Devis accept\xE9",
+      shortLabel: "Accept\xE9",
+      accent: "orange",
+      statuses: ["Pr\xE9paration du produit", "Attente Marchandise", "Maquette en cours de validation"]
+    },
+    {
+      key: "production",
+      label: "4. Production",
+      shortLabel: "Production",
+      accent: "green",
+      statuses: ["PRT \xE0 faire", "A produire", "En cours", "Manque information"]
+    },
+    {
+      key: "facture",
+      label: "5. Factur\xE9",
+      shortLabel: "Factur\xE9",
+      accent: "rose",
+      statuses: ["Commande Termin\xE9", "Client pr\xE9venu", "Commande r\xE9cup\xE9r\xE9"]
+    },
+    {
+      key: "paye",
+      label: "6. Pay\xE9",
+      shortLabel: "Pay\xE9",
+      accent: "cyan",
+      statuses: ["Pay\xE9 en boutique", "Pay\xE9 par virement prochainement", "Manque information"]
+    },
+    {
+      key: "archived",
+      label: "7. Archiv\xE9",
+      shortLabel: "Archiv\xE9",
+      accent: "slate",
+      statuses: ["Pay\xE9 + Livr\xE9 = Termin\xE9"]
+    }
+  ];
+  var TEST_PLANNING_STAGE_KEYS = TEST_PLANNING_STAGES.map((stage) => stage.key);
+  var TEST_PLANNING_DEFAULT_STAGE = TEST_PLANNING_STAGES[0].key;
+  var TEST_PLANNING_FAMILY_OPTIONS = ["", "TEXTILES", "TROTEC", "UV", "GOODIES", "AUTRES"];
+  var TEST_PLANNING_PRODUCT_OPTIONS = ["", "TSHIRT", "TSHIRT PRO", "SAC", "POCHETTE", "CASQUETTE"];
+  var TEST_PLANNING_STATUS_OPTIONS = TEST_PLANNING_STAGES.flatMap((stage) => stage.statuses);
   var PRODUCTION_STATUS_OPTIONS = ["A imprimer", "Impression en cours", "Erreur", "Termin\xE9"];
   var PRODUCTION_STATUS_DEFAULT = "A imprimer";
   var TEAM_NOTE_MEMBERS = ["Loic", "Charlie", "Melina", "Amandine"];
@@ -608,7 +671,8 @@
       recurring: task.recurring,
       createdAt: "2026-03-17"
     })),
-    improvementItems: []
+    improvementItems: [],
+    testPlanningItems: []
   };
   var state = {
     view: "planning",
@@ -629,6 +693,8 @@
     activePurchaseId: null,
     activeWorkshopTaskId: null,
     activeImprovementId: null,
+    activeTestPlanningId: null,
+    activeTestStage: null,
     activeClientId: null,
     activeTeamNoteEdit: null,
     toastTimer: null,
@@ -768,6 +834,7 @@
     score += Array.isArray(sourceDb.productionItems) ? sourceDb.productionItems.length * 2 : 0;
     score += Array.isArray(sourceDb.workshopTasks) ? sourceDb.workshopTasks.length : 0;
     score += Array.isArray(sourceDb.improvementItems) ? sourceDb.improvementItems.length : 0;
+    score += Array.isArray(sourceDb.testPlanningItems) ? sourceDb.testPlanningItems.length * 4 : 0;
     score += Array.isArray(sourceDb.teamNotes) ? sourceDb.teamNotes.reduce((total, note) => total + (Array.isArray(note == null ? void 0 : note.items) ? note.items.length : 0), 0) : 0;
     return score;
   }
@@ -891,12 +958,40 @@
     refs.sheetForm.addEventListener("submit", handleSheetSubmit);
     refs.sheetForm.addEventListener("input", handleSheetDraftInput);
     refs.sheetForm.addEventListener("change", handleSheetDraftInput);
+    refs.sheetForm.addEventListener("click", function(event) {
+      var target = event.target;
+      var actionNode = target.closest("[data-action]");
+      if (!actionNode) return;
+      var action = actionNode.dataset.action;
+      if (action === "test-planning-form-next-stage" || action === "test-planning-form-prev-stage") {
+        var direction = action === "test-planning-form-next-stage" ? 1 : -1;
+        var item = db.testPlanningItems.find(function(e) {
+          return e.id === state.activeTestPlanningId;
+        });
+        if (!item) return;
+        var currentIndex = TEST_PLANNING_STAGE_KEYS.indexOf(item.stage);
+        if (currentIndex === -1) return;
+        var nextIndex = currentIndex + direction;
+        if (nextIndex < 0 || nextIndex >= TEST_PLANNING_STAGE_KEYS.length) return;
+        item.stage = TEST_PLANNING_STAGE_KEYS[nextIndex];
+        item.status = testPlanningDefaultStatus(item.stage);
+        item.updatedAt = isoNow();
+        persistDb();
+        shiftTestPlanningSheetStage(direction);
+        requestRender({ header: false, status: false, view: true });
+      }
+    });
     refs.viewRoot.addEventListener("click", handleRootClick);
     refs.viewRoot.addEventListener("input", handleRootInput);
     refs.viewRoot.addEventListener("dblclick", handleRootDoubleClick);
     refs.viewRoot.addEventListener("keydown", handleRootKeyDown);
     refs.viewRoot.addEventListener("change", handleRootChange);
     refs.viewRoot.addEventListener("submit", handleRootSubmit);
+    refs.viewRoot.addEventListener("focusout", function(e) {
+      if (e.target && e.target.dataset && e.target.dataset.inlineStatusSel) {
+        handleInlineStatusEvent(e.target);
+      }
+    });
   }
   function handleRootClick(event) {
     var _a, _b, _c;
@@ -1066,6 +1161,40 @@
         showToast("Remontee supprimee.");
         return;
       }
+      if (action === "delete-test-planning") {
+        db.testPlanningItems = db.testPlanningItems.filter((item) => item.id !== id);
+        persistDb();
+        requestRender({ header: false, status: false, view: true });
+        showToast("Ligne test planning supprim\xE9e.");
+        return;
+      }
+      if (action === "test-planning-next-stage" || action === "test-planning-prev-stage") {
+        const item = db.testPlanningItems.find((entry) => entry.id === id);
+        if (!item) {
+          return;
+        }
+        const currentIndex = TEST_PLANNING_STAGE_KEYS.indexOf(item.stage);
+        if (currentIndex === -1) {
+          return;
+        }
+        const nextIndex = action === "test-planning-next-stage" ? currentIndex + 1 : currentIndex - 1;
+        if (nextIndex < 0 || nextIndex >= TEST_PLANNING_STAGE_KEYS.length) {
+          return;
+        }
+        item.stage = TEST_PLANNING_STAGE_KEYS[nextIndex];
+        item.status = testPlanningDefaultStatus(item.stage);
+        persistDb();
+        requestRender({ header: false, status: false, view: true });
+        return;
+      }
+      if (action === "test-planning-form-prev-stage") {
+        shiftTestPlanningSheetStage(-1);
+        return;
+      }
+      if (action === "test-planning-form-next-stage") {
+        shiftTestPlanningSheetStage(1);
+        return;
+      }
       if (action === "increase-production-quantity") {
         const item = db.productionItems.find((entry) => entry.id === id);
         if (!item) {
@@ -1155,7 +1284,29 @@
         return;
       }
     }
-    if (!["planning", "clients", "dtf", "textile", "purchase", "workshop", "improvements"].includes(state.view)) {
+    const stageJumpNode = target.closest("[data-test-stage-jump]");
+    if (stageJumpNode) {
+      var stageJump = stageJumpNode.dataset.testStageJump;
+      if (stageJump === "__recent__") {
+        state.activeTestStage = null;
+      } else {
+        state.activeTestStage = state.activeTestStage === stageJump ? null : stageJump;
+      }
+      requestRender({ header: false, status: false, view: true });
+      return;
+    }
+    var inlineStatusNode = target.closest("[data-inline-status]");
+    if (inlineStatusNode && inlineStatusNode.tagName === "SPAN") {
+      var selId = inlineStatusNode.dataset.inlineStatus;
+      var selEl = document.querySelector('[data-inline-status-sel="' + selId + '"]');
+      if (selEl) {
+        inlineStatusNode.classList.add("is-hidden");
+        selEl.classList.remove("is-hidden");
+        selEl.focus();
+      }
+      return;
+    }
+    if (!["planning", "testPlanning", "clients", "dtf", "textile", "purchase", "workshop", "improvements"].includes(state.view)) {
       return;
     }
     const interactiveNode = target.closest("button, input, select, textarea, a, label");
@@ -1178,6 +1329,15 @@
         return;
       }
       openSheet("editClient", { id: Number(row2.dataset.clientId) });
+      return;
+    }
+    if (state.view === "testPlanning") {
+      if (target.closest("[data-inline-status]")) return;
+      const row2 = target.closest("[data-test-planning-id]");
+      if (!row2) {
+        return;
+      }
+      openSheet("editTestPlanningOrder", { id: Number(row2.dataset.testPlanningId) });
       return;
     }
     if (state.view === "textile") {
@@ -1219,9 +1379,10 @@
     openSheet("editDtf", { id: Number(row.dataset.dtfId) });
   }
   function handleRootDoubleClick(event) {
-    if (!["planning", "clients", "dtf", "textile", "purchase", "workshop", "improvements"].includes(state.view)) {
+    if (!["planning", "testPlanning", "clients", "dtf", "textile", "purchase", "workshop", "improvements"].includes(state.view)) {
       return;
     }
+    if (event.target.closest("[data-inline-status]")) return;
     const interactiveNode = event.target.closest("button, input, select, textarea, a, label");
     if (interactiveNode) {
       return;
@@ -1242,6 +1403,14 @@
         return;
       }
       openSheet("editClient", { id: Number(row2.dataset.clientId) });
+      return;
+    }
+    if (state.view === "testPlanning") {
+      const row2 = event.target.closest("[data-test-planning-id]");
+      if (!row2) {
+        return;
+      }
+      openSheet("editTestPlanningOrder", { id: Number(row2.dataset.testPlanningId) });
       return;
     }
     if (state.view === "textile") {
@@ -1283,7 +1452,7 @@
     openSheet("editDtf", { id: Number(row.dataset.dtfId) });
   }
   function handleRootKeyDown(event) {
-    if (event.key !== "Enter" || !["planning", "clients", "textile", "purchase", "workshop", "improvements"].includes(state.view)) {
+    if (event.key !== "Enter" || !["planning", "testPlanning", "clients", "textile", "purchase", "workshop", "improvements"].includes(state.view)) {
       return;
     }
     event.preventDefault();
@@ -1303,6 +1472,14 @@
         return;
       }
       openSheet("editClient", { id: Number(row2.dataset.clientId) });
+      return;
+    }
+    if (state.view === "testPlanning") {
+      const row2 = event.target.closest("[data-test-planning-id]");
+      if (!row2) {
+        return;
+      }
+      openSheet("editTestPlanningOrder", { id: Number(row2.dataset.testPlanningId) });
       return;
     }
     if (state.view === "textile") {
@@ -1355,7 +1532,7 @@
     }
   }
   function handleSheetDraftInput(event) {
-    var _a;
+    var _a, _b;
     const target = event == null ? void 0 : event.target;
     if ((target == null ? void 0 : target.name) === "designPreset") {
       const presetValue = String((_a = target.value) != null ? _a : "").trim();
@@ -1367,11 +1544,42 @@
     if ((target == null ? void 0 : target.name) === "zone") {
       syncOrderMockupField();
     }
+    if ((target == null ? void 0 : target.name) === "stage") {
+      syncTestPlanningStageField();
+    }
+    if ((target == null ? void 0 : target.name) === "status" && target instanceof HTMLSelectElement && state.activeSheetAction === "editTestPlanningOrder") {
+      var newStatus = target.value;
+      var targetStage = testPlanningStageForStatus(newStatus);
+      if (targetStage) {
+        var stageField = (_b = refs.sheetForm) == null ? void 0 : _b.elements.namedItem("stage");
+        if (stageField instanceof HTMLSelectElement && stageField.value !== targetStage) {
+          stageField.value = targetStage;
+          var item = db.testPlanningItems.find(function(e) {
+            return e.id === state.activeTestPlanningId;
+          });
+          if (item) {
+            item.stage = targetStage;
+            item.status = newStatus;
+            item.updatedAt = isoNow();
+            persistDb();
+            requestRender({ header: false, status: false, view: true });
+          }
+          syncTestPlanningStageField();
+        }
+      }
+    }
+    if ((target == null ? void 0 : target.name) === "needsMockup") {
+      syncTestPlanningMockupField();
+    }
     persistSheetDraft();
   }
   function handleRootChange(event) {
     var _a, _b, _c, _d;
     const target = event.target;
+    if (target.dataset && target.dataset.inlineStatusSel) {
+      handleInlineStatusEvent(target);
+      return;
+    }
     if (target.name === "team-note-edit-label") {
       saveTeamNoteItem(
         Number(target.dataset.noteId),
@@ -1573,7 +1781,7 @@
     }
   }
   function handleSheetSubmit(event) {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p, _q, _r, _s, _t, _u, _v, _w, _x, _y, _z, _A, _B, _C, _D, _E, _F, _G, _H, _I, _J, _K, _L, _M, _N, _O, _P, _Q, _R, _S, _T, _U, _V, _W, _X, _Y, _Z, __, _$, _aa, _ba, _ca, _da, _ea, _fa, _ga, _ha, _ia, _ja, _ka, _la, _ma, _na, _oa, _pa, _qa, _ra, _sa, _ta, _ua, _va, _wa, _xa;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p, _q, _r, _s, _t, _u, _v, _w, _x, _y, _z, _A, _B, _C, _D, _E, _F, _G, _H, _I, _J, _K, _L, _M, _N, _O, _P, _Q, _R, _S, _T, _U, _V, _W, _X, _Y, _Z, __, _$, _aa, _ba, _ca, _da, _ea, _fa, _ga, _ha, _ia, _ja, _ka, _la, _ma, _na, _oa, _pa, _qa, _ra, _sa, _ta, _ua, _va, _wa, _xa, _ya, _za, _Aa, _Ba, _Ca, _Da, _Ea, _Fa, _Ga, _Ha, _Ia, _Ja, _Ka, _La, _Ma, _Na, _Oa, _Pa;
     event.preventDefault();
     const formData = new FormData(refs.sheetForm);
     if (state.activeSheetAction === "addClient") {
@@ -1630,21 +1838,23 @@
     }
     if (state.activeSheetAction === "addOrder") {
       const client = parseOrderClient(formData.get("clientName"));
-      const status = formData.get("markMockup") === "on" ? "Maquette \xE0 faire" : normalizeOrderStatus(formData.get("status"));
+      const rawZone = String((_o = formData.get("zone")) != null ? _o : "").trim();
+      const rawStatus = String((_p = formData.get("status")) != null ? _p : "").trim();
+      const status = formData.get("markMockup") === "on" ? "Maquette \xE0 faire" : rawStatus ? normalizeOrderStatus(rawStatus) : "";
       db.customerOrders.unshift({
         id: nextId(db.customerOrders),
         clientId: client.clientId,
         clientName: client.clientName,
-        product: String((_o = formData.get("product")) != null ? _o : "").trim(),
-        urgency: String((_p = formData.get("urgency")) != null ? _p : "Moyenne"),
-        contact: String((_q = formData.get("contact")) != null ? _q : "").trim(),
-        zone: normalizeOrderZone(formData.get("zone")),
-        quantity: Math.max(1, Number((_r = formData.get("quantity")) != null ? _r : 1) || 1),
-        note: String((_s = formData.get("note")) != null ? _s : "").trim(),
-        deliveryDate: String((_t = formData.get("deliveryDate")) != null ? _t : "").trim(),
+        product: String((_q = formData.get("product")) != null ? _q : "").trim(),
+        urgency: String((_r = formData.get("urgency")) != null ? _r : "").trim(),
+        contact: String((_s = formData.get("contact")) != null ? _s : "").trim(),
+        zone: rawZone ? normalizeOrderZone(rawZone) : "",
+        quantity: normalizeOrderQuantity(formData.get("quantity")),
+        note: String((_t = formData.get("note")) != null ? _t : "").trim(),
+        deliveryDate: String((_u = formData.get("deliveryDate")) != null ? _u : "").trim(),
         status,
         mockupCompletedAt: "",
-        assignedTo: String((_u = formData.get("assignedTo")) != null ? _u : "").trim(),
+        assignedTo: String((_v = formData.get("assignedTo")) != null ? _v : "").trim(),
         createdAt: isoNow(),
         archivedAt: ""
       });
@@ -1664,19 +1874,21 @@
         return;
       }
       const client = parseOrderClient(formData.get("clientName"));
-      const status = formData.get("markMockup") === "on" ? "Maquette \xE0 faire" : normalizeOrderStatus(formData.get("status"));
+      const rawZone = String((_w = formData.get("zone")) != null ? _w : "").trim();
+      const rawStatus = String((_x = formData.get("status")) != null ? _x : "").trim();
+      const status = formData.get("markMockup") === "on" ? "Maquette \xE0 faire" : rawStatus ? normalizeOrderStatus(rawStatus) : "";
       order.clientId = client.clientId;
       order.clientName = client.clientName;
-      order.product = String((_v = formData.get("product")) != null ? _v : "").trim();
-      order.urgency = String((_w = formData.get("urgency")) != null ? _w : "Moyenne");
-      order.contact = String((_x = formData.get("contact")) != null ? _x : "").trim();
-      order.zone = normalizeOrderZone(formData.get("zone"));
-      order.quantity = Math.max(1, Number((_y = formData.get("quantity")) != null ? _y : 1) || 1);
-      order.note = String((_z = formData.get("note")) != null ? _z : "").trim();
-      order.deliveryDate = String((_A = formData.get("deliveryDate")) != null ? _A : "").trim();
+      order.product = String((_y = formData.get("product")) != null ? _y : "").trim();
+      order.urgency = String((_z = formData.get("urgency")) != null ? _z : "").trim();
+      order.contact = String((_A = formData.get("contact")) != null ? _A : "").trim();
+      order.zone = rawZone ? normalizeOrderZone(rawZone) : "";
+      order.quantity = normalizeOrderQuantity(formData.get("quantity"));
+      order.note = String((_B = formData.get("note")) != null ? _B : "").trim();
+      order.deliveryDate = String((_C = formData.get("deliveryDate")) != null ? _C : "").trim();
       order.status = status;
-      order.mockupCompletedAt = order.status === "Maquette \xE0 faire" ? "" : String((_B = order.mockupCompletedAt) != null ? _B : "");
-      order.assignedTo = String((_C = formData.get("assignedTo")) != null ? _C : "").trim();
+      order.mockupCompletedAt = order.status === "Maquette \xE0 faire" ? "" : String((_D = order.mockupCompletedAt) != null ? _D : "");
+      order.assignedTo = String((_E = formData.get("assignedTo")) != null ? _E : "").trim();
       persistDb();
       clearSheetDraftByAction("editOrder", orderId);
       closeSheet();
@@ -1690,13 +1902,13 @@
         id: nextId(db.dtfRequests),
         clientId: client.clientId,
         clientName: client.clientName,
-        dimensions: String((_D = formData.get("dimensions")) != null ? _D : "").trim(),
+        dimensions: String((_F = formData.get("dimensions")) != null ? _F : "").trim(),
         logoPlacement: inferLogoPlacement(formData.get("designName")),
-        designName: String((_E = formData.get("designName")) != null ? _E : "").trim(),
-        size: String((_F = formData.get("size")) != null ? _F : "").trim(),
-        color: String((_G = formData.get("color")) != null ? _G : "").trim(),
-        technicalNote: String((_H = formData.get("technicalNote")) != null ? _H : "").trim(),
-        quantity: Math.max(1, Number((_I = formData.get("quantity")) != null ? _I : 1) || 1),
+        designName: String((_G = formData.get("designName")) != null ? _G : "").trim(),
+        size: String((_H = formData.get("size")) != null ? _H : "").trim(),
+        color: String((_I = formData.get("color")) != null ? _I : "").trim(),
+        technicalNote: String((_J = formData.get("technicalNote")) != null ? _J : "").trim(),
+        quantity: Math.max(1, Number((_K = formData.get("quantity")) != null ? _K : 1) || 1),
         needsMockup: formData.get("needsMockup") === "on",
         mockupCompletedAt: "",
         status: "draft",
@@ -1718,15 +1930,15 @@
       const client = parseOrderClient(formData.get("clientName"));
       dtf.clientId = client.clientId;
       dtf.clientName = client.clientName;
-      dtf.dimensions = String((_J = formData.get("dimensions")) != null ? _J : "").trim();
+      dtf.dimensions = String((_L = formData.get("dimensions")) != null ? _L : "").trim();
       dtf.logoPlacement = inferLogoPlacement(formData.get("designName"), dtf.logoPlacement);
-      dtf.designName = String((_K = formData.get("designName")) != null ? _K : "").trim();
-      dtf.size = String((_L = formData.get("size")) != null ? _L : "").trim();
-      dtf.color = String((_M = formData.get("color")) != null ? _M : "").trim();
-      dtf.technicalNote = String((_N = formData.get("technicalNote")) != null ? _N : "").trim();
-      dtf.quantity = Math.max(1, Number((_O = formData.get("quantity")) != null ? _O : 1) || 1);
+      dtf.designName = String((_M = formData.get("designName")) != null ? _M : "").trim();
+      dtf.size = String((_N = formData.get("size")) != null ? _N : "").trim();
+      dtf.color = String((_O = formData.get("color")) != null ? _O : "").trim();
+      dtf.technicalNote = String((_P = formData.get("technicalNote")) != null ? _P : "").trim();
+      dtf.quantity = Math.max(1, Number((_Q = formData.get("quantity")) != null ? _Q : 1) || 1);
       dtf.needsMockup = formData.get("needsMockup") === "on";
-      dtf.mockupCompletedAt = dtf.needsMockup ? "" : String((_P = dtf.mockupCompletedAt) != null ? _P : "");
+      dtf.mockupCompletedAt = dtf.needsMockup ? "" : String((_R = dtf.mockupCompletedAt) != null ? _R : "");
       persistDb();
       clearSheetDraftByAction("editDtf", dtf.id);
       closeSheet();
@@ -1740,17 +1952,17 @@
         id: nextId(db.textileOrders),
         clientId: client.clientId,
         clientName: client.clientName,
-        supplier: String((_Q = formData.get("supplier")) != null ? _Q : "").trim(),
-        brand: String((_R = formData.get("brand")) != null ? _R : "").trim(),
-        gender: String((_S = formData.get("gender")) != null ? _S : "").trim(),
-        designation: String((_T = formData.get("designation")) != null ? _T : "").trim(),
-        catalogReference: String((_U = formData.get("catalogReference")) != null ? _U : "").trim(),
-        color: String((_V = formData.get("color")) != null ? _V : "").trim(),
-        size: String((_W = formData.get("size")) != null ? _W : "").trim(),
-        quantity: Math.max(1, Number((_X = formData.get("quantity")) != null ? _X : 1) || 1),
-        deliveryStatus: String((_Y = formData.get("deliveryStatus")) != null ? _Y : "pending"),
-        sessionLabel: String((_Z = formData.get("sessionLabel")) != null ? _Z : "").trim(),
-        expectedDate: String((__ = formData.get("expectedDate")) != null ? __ : isoToday()),
+        supplier: String((_S = formData.get("supplier")) != null ? _S : "").trim(),
+        brand: String((_T = formData.get("brand")) != null ? _T : "").trim(),
+        gender: String((_U = formData.get("gender")) != null ? _U : "").trim(),
+        designation: String((_V = formData.get("designation")) != null ? _V : "").trim(),
+        catalogReference: String((_W = formData.get("catalogReference")) != null ? _W : "").trim(),
+        color: String((_X = formData.get("color")) != null ? _X : "").trim(),
+        size: String((_Y = formData.get("size")) != null ? _Y : "").trim(),
+        quantity: Math.max(1, Number((_Z = formData.get("quantity")) != null ? _Z : 1) || 1),
+        deliveryStatus: String((__ = formData.get("deliveryStatus")) != null ? __ : "pending"),
+        sessionLabel: String((_$ = formData.get("sessionLabel")) != null ? _$ : "").trim(),
+        expectedDate: String((_aa = formData.get("expectedDate")) != null ? _aa : isoToday()),
         archivedAt: "",
         createdAt: isoToday()
       });
@@ -1771,17 +1983,17 @@
       const client = parseOrderClient(formData.get("clientName"));
       textileOrder.clientId = client.clientId;
       textileOrder.clientName = client.clientName;
-      textileOrder.supplier = String((_$ = formData.get("supplier")) != null ? _$ : "").trim();
-      textileOrder.brand = String((_aa = formData.get("brand")) != null ? _aa : "").trim();
-      textileOrder.gender = String((_ba = formData.get("gender")) != null ? _ba : "").trim();
-      textileOrder.designation = String((_ca = formData.get("designation")) != null ? _ca : "").trim();
-      textileOrder.catalogReference = String((_da = formData.get("catalogReference")) != null ? _da : "").trim();
-      textileOrder.color = String((_ea = formData.get("color")) != null ? _ea : "").trim();
-      textileOrder.size = String((_fa = formData.get("size")) != null ? _fa : "").trim();
-      textileOrder.quantity = Math.max(1, Number((_ga = formData.get("quantity")) != null ? _ga : 1) || 1);
-      textileOrder.deliveryStatus = String((_ha = formData.get("deliveryStatus")) != null ? _ha : "pending");
-      textileOrder.sessionLabel = String((_ia = formData.get("sessionLabel")) != null ? _ia : "").trim();
-      textileOrder.expectedDate = String((_ja = formData.get("expectedDate")) != null ? _ja : isoToday());
+      textileOrder.supplier = String((_ba = formData.get("supplier")) != null ? _ba : "").trim();
+      textileOrder.brand = String((_ca = formData.get("brand")) != null ? _ca : "").trim();
+      textileOrder.gender = String((_da = formData.get("gender")) != null ? _da : "").trim();
+      textileOrder.designation = String((_ea = formData.get("designation")) != null ? _ea : "").trim();
+      textileOrder.catalogReference = String((_fa = formData.get("catalogReference")) != null ? _fa : "").trim();
+      textileOrder.color = String((_ga = formData.get("color")) != null ? _ga : "").trim();
+      textileOrder.size = String((_ha = formData.get("size")) != null ? _ha : "").trim();
+      textileOrder.quantity = Math.max(1, Number((_ia = formData.get("quantity")) != null ? _ia : 1) || 1);
+      textileOrder.deliveryStatus = String((_ja = formData.get("deliveryStatus")) != null ? _ja : "pending");
+      textileOrder.sessionLabel = String((_ka = formData.get("sessionLabel")) != null ? _ka : "").trim();
+      textileOrder.expectedDate = String((_la = formData.get("expectedDate")) != null ? _la : isoToday());
       persistDb();
       clearSheetDraftByAction("editTextileOrder", textileOrder.id);
       closeSheet();
@@ -1796,9 +2008,9 @@
         showToast("Article introuvable.");
         return;
       }
-      purchaseItem.zone = String((_ka = formData.get("zone")) != null ? _ka : "SXM");
-      purchaseItem.label = String((_la = formData.get("label")) != null ? _la : "").trim();
-      purchaseItem.quantity = Math.max(1, Number((_ma = formData.get("quantity")) != null ? _ma : 1) || 1);
+      purchaseItem.zone = String((_ma = formData.get("zone")) != null ? _ma : "SXM");
+      purchaseItem.label = String((_na = formData.get("label")) != null ? _na : "").trim();
+      purchaseItem.quantity = Math.max(1, Number((_oa = formData.get("quantity")) != null ? _oa : 1) || 1);
       persistDb();
       clearSheetDraftByAction("editPurchaseItem", purchaseItem.id);
       closeSheet();
@@ -1813,8 +2025,8 @@
         showToast("Tache introuvable.");
         return;
       }
-      workshopTask.group = String((_na = formData.get("group")) != null ? _na : "standard");
-      workshopTask.label = String((_oa = formData.get("label")) != null ? _oa : "").trim();
+      workshopTask.group = String((_pa = formData.get("group")) != null ? _pa : "standard");
+      workshopTask.label = String((_qa = formData.get("label")) != null ? _qa : "").trim();
       workshopTask.recurring = formData.get("recurring") === "on";
       persistDb();
       clearSheetDraftByAction("editWorkshopTask", workshopTask.id);
@@ -1824,10 +2036,10 @@
       return;
     }
     if (state.activeSheetAction === "addProductionItem") {
-      const quantity = Math.max(1, Number((_pa = formData.get("quantity")) != null ? _pa : 1) || 1);
+      const quantity = Math.max(1, Number((_ra = formData.get("quantity")) != null ? _ra : 1) || 1);
       db.productionItems.unshift({
         id: nextId(db.productionItems),
-        label: String((_qa = formData.get("label")) != null ? _qa : "").trim(),
+        label: String((_sa = formData.get("label")) != null ? _sa : "").trim(),
         prints: Array.from({ length: quantity }, (_, index) => ({
           id: index + 1,
           checked: false
@@ -1847,9 +2059,9 @@
     if (state.activeSheetAction === "addPurchaseItem") {
       db.purchaseItems.unshift({
         id: nextId(db.purchaseItems),
-        zone: String((_ra = formData.get("zone")) != null ? _ra : "SXM"),
-        label: String((_sa = formData.get("label")) != null ? _sa : "").trim(),
-        quantity: Math.max(1, Number((_ta = formData.get("quantity")) != null ? _ta : 1) || 1),
+        zone: String((_ta = formData.get("zone")) != null ? _ta : "SXM"),
+        label: String((_ua = formData.get("label")) != null ? _ua : "").trim(),
+        quantity: Math.max(1, Number((_va = formData.get("quantity")) != null ? _va : 1) || 1),
         checked: false,
         createdAt: isoToday()
       });
@@ -1863,8 +2075,8 @@
     if (state.activeSheetAction === "addWorkshopTask") {
       db.workshopTasks.unshift({
         id: nextId(db.workshopTasks),
-        group: String((_ua = formData.get("group")) != null ? _ua : "standard"),
-        label: String((_va = formData.get("label")) != null ? _va : "").trim(),
+        group: String((_wa = formData.get("group")) != null ? _wa : "standard"),
+        label: String((_xa = formData.get("label")) != null ? _xa : "").trim(),
         checked: false,
         recurring: formData.get("recurring") === "on",
         createdAt: isoToday()
@@ -1883,13 +2095,67 @@
         showToast("Remontee introuvable.");
         return;
       }
-      improvementItem.type = String((_wa = formData.get("type")) != null ? _wa : "bug");
-      improvementItem.label = String((_xa = formData.get("label")) != null ? _xa : "").trim();
+      improvementItem.type = String((_ya = formData.get("type")) != null ? _ya : "bug");
+      improvementItem.label = String((_za = formData.get("label")) != null ? _za : "").trim();
       persistDb();
       clearSheetDraftByAction("editImprovementItem", improvementItem.id);
       closeSheet();
       requestRender({ transition: true });
       showToast("Remontee mise a jour.");
+      return;
+    }
+    if (state.activeSheetAction === "addTestPlanningOrder") {
+      const client = parseTestPlanningClient(formData.get("clientName"));
+      db.testPlanningItems.unshift({
+        id: nextId(db.testPlanningItems),
+        clientType: String((_Aa = formData.get("clientType")) != null ? _Aa : "").trim().toUpperCase(),
+        clientId: client.clientId,
+        clientName: client.clientName,
+        family: String((_Ba = formData.get("family")) != null ? _Ba : "").trim().toUpperCase(),
+        product: String((_Ca = formData.get("product")) != null ? _Ca : "").trim().toUpperCase(),
+        quantity: String((_Da = formData.get("quantity")) != null ? _Da : "").trim(),
+        note: String((_Ea = formData.get("note")) != null ? _Ea : "").trim(),
+        deliveryDate: String((_Fa = formData.get("deliveryDate")) != null ? _Fa : "").trim(),
+        needsMockup: formData.get("needsMockup") === "on",
+        mockupStatus: String((_Ga = formData.get("mockupStatus")) != null ? _Ga : "").trim(),
+        status: String((_Ha = formData.get("status")) != null ? _Ha : "").trim(),
+        stage: normalizeTestPlanningStage(formData.get("stage")),
+        assignedTo: normalizeImportedAssignee(formData.get("assignedTo")),
+        createdAt: isoNow()
+      });
+      persistDb();
+      clearSheetDraftByAction("addTestPlanningOrder");
+      closeSheet();
+      requestRender({ transition: true });
+      showToast("Ligne test planning ajout\xE9e.");
+      return;
+    }
+    if (state.activeSheetAction === "editTestPlanningOrder") {
+      const item = db.testPlanningItems.find((entry) => entry.id === state.activeTestPlanningId);
+      if (!item) {
+        closeSheet();
+        showToast("Ligne test planning introuvable.");
+        return;
+      }
+      const client = parseTestPlanningClient(formData.get("clientName"));
+      item.clientType = String((_Ia = formData.get("clientType")) != null ? _Ia : "").trim().toUpperCase();
+      item.clientId = client.clientId;
+      item.clientName = client.clientName;
+      item.family = String((_Ja = formData.get("family")) != null ? _Ja : "").trim().toUpperCase();
+      item.product = String((_Ka = formData.get("product")) != null ? _Ka : "").trim().toUpperCase();
+      item.quantity = String((_La = formData.get("quantity")) != null ? _La : "").trim();
+      item.note = String((_Ma = formData.get("note")) != null ? _Ma : "").trim();
+      item.deliveryDate = String((_Na = formData.get("deliveryDate")) != null ? _Na : "").trim();
+      item.needsMockup = formData.get("needsMockup") === "on";
+      item.mockupStatus = String((_Oa = formData.get("mockupStatus")) != null ? _Oa : "").trim();
+      item.status = String((_Pa = formData.get("status")) != null ? _Pa : "").trim();
+      item.stage = normalizeTestPlanningStage(formData.get("stage"));
+      item.assignedTo = normalizeImportedAssignee(formData.get("assignedTo"));
+      persistDb();
+      clearSheetDraftByAction("editTestPlanningOrder", item.id);
+      closeSheet();
+      requestRender({ transition: true });
+      showToast("Ligne test planning mise \xE0 jour.");
     }
   }
   function requestRender(options = {}) {
@@ -1976,6 +2242,9 @@
       case "planning":
         refs.viewRoot.innerHTML = renderOrdersView();
         break;
+      case "testPlanning":
+        refs.viewRoot.innerHTML = renderTestPlanningView();
+        break;
       case "clients":
         refs.viewRoot.innerHTML = renderClientsView();
         break;
@@ -2008,6 +2277,49 @@
   }
   function renderPlaceholderView() {
     return '\n    <section class="module-layout">\n      <article class="placeholder-card">\n        <p class="module-kicker">'.concat(escapeHtml(views[state.view].label), "</p>\n        <strong>Module en attente de construction</strong>\n      </article>\n    </section>\n  ");
+  }
+  function renderTestPlanningView() {
+    const sections = TEST_PLANNING_STAGES.map((stage) => ({
+      ...stage,
+      rows: getVisibleTestPlanningItems(stage.key)
+    }));
+    const activeStage = state.activeTestStage;
+    let bodyHtml;
+    if (activeStage) {
+      const filteredItems = db.testPlanningItems.filter((item) => {
+        if (item.stage !== activeStage) return false;
+        if (!state.search) return true;
+        return [item.clientName, item.family, item.product, item.quantity, item.note, item.status, item.mockupStatus].join(" ").toLowerCase().includes(state.search);
+      }).slice().sort((a, b) => (b.id || 0) - (a.id || 0));
+      bodyHtml = filteredItems.length ? '<section class="test-planning-board">'.concat(filteredItems.map(renderTestPlanningCard).join(""), "</section>") : '<div class="empty-state">Aucune commande pour cette s\xE9lection.</div>';
+    } else {
+      const allItems = db.testPlanningItems.filter((item) => {
+        if (!state.search) return true;
+        return [item.clientName, item.family, item.product, item.quantity, item.note, item.status, item.mockupStatus].join(" ").toLowerCase().includes(state.search);
+      }).slice().sort((a, b) => (b.id || 0) - (a.id || 0));
+      bodyHtml = allItems.length ? '<section class="test-planning-board">'.concat(allItems.map(renderTestPlanningCard).join(""), "</section>") : '<div class="empty-state">Aucune commande.</div>';
+    }
+    return '\n    <section class="module-layout">\n      <section class="test-planning-steps">\n        <button class="test-step-chip '.concat(!activeStage ? "is-active" : "", '" type="button" data-test-stage-jump="__recent__" data-accent="blue">\n          <span>Toutes</span>\n          <strong>').concat(db.testPlanningItems.length, "</strong>\n        </button>\n        ").concat(sections.map(renderTestPlanningStepSummary).join(""), "\n      </section>\n      ").concat(bodyHtml, "\n    </section>\n  ");
+  }
+  function renderTestPlanningStepSummary(stage) {
+    const isActive = state.activeTestStage === stage.key;
+    return '\n    <button class="test-step-chip '.concat(isActive ? "is-active" : "", '" type="button" data-test-stage-jump="').concat(escapeHtml(stage.key), '" data-accent="').concat(escapeHtml(stage.accent), '">\n      <span>').concat(escapeHtml(stage.shortLabel), "</span>\n      <strong>").concat(stage.rows.length, "</strong>\n    </button>\n  ");
+  }
+  function renderTestPlanningCard(item) {
+    var _a, _b, _c, _d;
+    const stageIndex = TEST_PLANNING_STAGE_KEYS.indexOf(item.stage);
+    const canGoPrev = stageIndex > 0;
+    const canGoNext = stageIndex < TEST_PLANNING_STAGE_KEYS.length - 1;
+    const stageLabel = (_b = (_a = TEST_PLANNING_STAGES[stageIndex]) == null ? void 0 : _a.label) != null ? _b : "";
+    const stageAccent = (_d = (_c = TEST_PLANNING_STAGES[stageIndex]) == null ? void 0 : _c.accent) != null ? _d : "blue";
+    var createdLabel = "";
+    if (item.createdAt) {
+      var d = new Date(item.createdAt);
+      if (!isNaN(d.getTime())) {
+        createdLabel = String(d.getDate()).padStart(2, "0") + "/" + String(d.getMonth() + 1).padStart(2, "0") + " " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+      }
+    }
+    return '\n    <article class="tp-line" data-test-planning-id="'.concat(item.id, '" data-accent="').concat(escapeHtml(stageAccent), '" tabindex="0">\n      <span class="tp-accent" data-accent="').concat(escapeHtml(stageAccent), '"></span>\n      <div class="tp-grid">\n        <span class="tp-badge" data-accent="').concat(escapeHtml(stageAccent), '">').concat(escapeHtml(stageLabel), '</span>\n        <span class="tp-type">').concat(escapeHtml(item.clientType || "\u2014"), '</span>\n        <strong class="tp-client">').concat(escapeHtml(item.clientName || "Client"), '</strong>\n        <span class="tp-family">').concat(escapeHtml(item.family || "\u2014"), '</span>\n        <span class="tp-product">').concat(escapeHtml(item.product || "\u2014"), '</span>\n        <span class="tp-qty">').concat(escapeHtml(item.quantity ? "\xD7" + item.quantity : "\u2014"), '</span>\n        <span class="tp-date">').concat(escapeHtml(item.deliveryDate ? formatDate(item.deliveryDate) : "\u2014"), '</span>\n        <span class="tp-status" data-inline-status="').concat(item.id, '" title="Cliquer pour changer">').concat(escapeHtml(item.status || stageLabel), '</span>\n        <select class="inline-status-select is-hidden" data-inline-status-sel="').concat(item.id, '"><option value="">\u2014 \xC9tat \u2014</option>').concat(renderTestPlanningStatusOptgroups(item.status), '</select>\n        <span class="tp-actions">\n          <button class="pill-button" type="button" data-action="test-planning-prev-stage" data-id="').concat(item.id, '" title="\xC9tape pr\xE9c\xE9dente" ').concat(canGoPrev ? "" : "disabled", '>\u2190</button>\n          <button class="pill-button" type="button" data-action="test-planning-next-stage" data-id="').concat(item.id, '" title="\xC9tape suivante" ').concat(canGoNext ? "" : "disabled", '>\u2192</button>\n          <button class="row-action row-action-subtle is-danger" type="button" data-action="delete-test-planning" data-id="').concat(item.id, '" aria-label="Supprimer">\xD7</button>\n        </span>\n      </div>\n      ').concat(item.note ? '<div class="tp-sub"><span class="tp-note">' + escapeHtml(item.note) + "</span></div>" : "", "\n      ").concat(createdLabel ? '<time class="tp-time">'.concat(createdLabel, "</time>") : "", "\n    </article>\n  ");
   }
   function renderTasksView() {
     const notes = getVisibleTeamNotes();
@@ -2133,7 +2445,7 @@
     return '\n    <article class="task-row" data-improvement-id="'.concat(item.id, '" tabindex="0">\n      <div class="stack-meta">\n        <strong>').concat(escapeHtml(item.label), "</strong>\n        <span>").concat(escapeHtml(improvementTypeLabel(item.type)), '</span>\n      </div>\n      <button class="row-action is-danger" type="button" data-action="delete-improvement" data-id="').concat(item.id, '">\xD7</button>\n    </article>\n  ');
   }
   function openSheet(action, options = {}) {
-    var _a, _b, _c, _d, _e, _f, _g;
+    var _a, _b, _c, _d, _e, _f, _g, _h;
     state.activeSheetAction = action;
     state.activeOrderId = action === "editOrder" ? (_a = options.id) != null ? _a : null : null;
     state.activeDtfId = action === "editDtf" ? (_b = options.id) != null ? _b : null : null;
@@ -2141,13 +2453,22 @@
     state.activePurchaseId = action === "editPurchaseItem" ? (_d = options.id) != null ? _d : null : null;
     state.activeWorkshopTaskId = action === "editWorkshopTask" ? (_e = options.id) != null ? _e : null : null;
     state.activeImprovementId = action === "editImprovementItem" ? (_f = options.id) != null ? _f : null : null;
-    state.activeClientId = action === "editClient" ? (_g = options.id) != null ? _g : null : null;
-    refs.sheetDialog.dataset.layout = action === "addDtf" || action === "editDtf" ? "dtf-inline" : action === "addOrder" || action === "editOrder" ? "order-inline" : action === "addTextileOrder" || action === "editTextileOrder" ? "textile-inline" : action === "addClient" || action === "editClient" ? "client-inline" : "";
+    state.activeTestPlanningId = action === "editTestPlanningOrder" ? (_g = options.id) != null ? _g : null : null;
+    state.activeClientId = action === "editClient" ? (_h = options.id) != null ? _h : null : null;
+    refs.sheetDialog.dataset.layout = action === "addDtf" || action === "editDtf" ? "dtf-inline" : action === "addOrder" || action === "editOrder" ? "order-inline" : action === "addTextileOrder" || action === "editTextileOrder" ? "textile-inline" : action === "addClient" || action === "editClient" ? "client-inline" : action === "addTestPlanningOrder" || action === "editTestPlanningOrder" ? "test-planning-inline" : "";
     refs.sheetBody.innerHTML = renderSheetBody(action);
-    restoreSheetDraft(action, options);
+    if (action === "addOrder" || action === "addTestPlanningOrder") {
+      clearSheetDraftByAction(action);
+    } else {
+      restoreSheetDraft(action, options);
+    }
     syncOrderMockupField();
+    syncTestPlanningStageField();
+    syncTestPlanningMockupField();
     syncProofingFields(refs.sheetBody);
-    refs.sheetEyebrow.textContent = sheetEyebrow(action);
+    const eyebrowLabel = sheetEyebrow(action);
+    refs.sheetEyebrow.textContent = eyebrowLabel;
+    refs.sheetEyebrow.hidden = !eyebrowLabel;
     refs.sheetTitle.textContent = primaryLabel(action);
     refs.submitSheetButton.textContent = submitLabel(action);
     refs.sheetDialog.showModal();
@@ -2203,6 +2524,7 @@
     state.activePurchaseId = null;
     state.activeWorkshopTaskId = null;
     state.activeImprovementId = null;
+    state.activeTestPlanningId = null;
     state.activeClientId = null;
   }
   function renderSheetBody(action) {
@@ -2225,6 +2547,16 @@
         return "";
       }
       return renderOrderForm(order);
+    }
+    if (action === "addTestPlanningOrder") {
+      return renderTestPlanningForm();
+    }
+    if (action === "editTestPlanningOrder") {
+      const item = db.testPlanningItems.find((entry) => entry.id === state.activeTestPlanningId);
+      if (!item) {
+        return "";
+      }
+      return renderTestPlanningForm(item);
     }
     if (action === "addDtf") {
       return renderDtfForm();
@@ -2301,6 +2633,12 @@
   function renderClientSuggestionOptions() {
     return db.clients.filter((client) => !isSampleClient(client)).map((client) => '<option value="'.concat(escapeHtml(client.name), '"></option>')).join("");
   }
+  function renderTestPlanningClientSuggestionOptions() {
+    return db.clients.filter((client) => !isSampleClient(client)).map((client) => {
+      var _a;
+      return '<option value="'.concat(escapeHtml(String((_a = client.name) != null ? _a : "").toUpperCase()), '"></option>');
+    }).join("");
+  }
   function primaryClientContact(client) {
     var _a, _b;
     return (_b = (_a = client == null ? void 0 : client.contacts) == null ? void 0 : _a[0]) != null ? _b : { name: "", role: "", phone: "", email: "" };
@@ -2313,20 +2651,33 @@
   function renderOrderProductOptions(selectedProduct = "") {
     const current = String(selectedProduct != null ? selectedProduct : "").trim();
     const options = current && !ORDER_PRODUCT_OPTIONS.includes(current) ? [current, ...ORDER_PRODUCT_OPTIONS] : ORDER_PRODUCT_OPTIONS;
-    return renderSelectOptions(options, current || ORDER_PRODUCT_OPTIONS[0]);
+    return renderSelectOptions(["", ...options], current);
   }
   function renderOrderAssigneeChoices(selectedAssignee = "") {
     const current = normalizeImportedAssignee(selectedAssignee);
     return ORDER_ASSIGNEES.map((assignee) => '\n    <label class="team-bubble-choice" aria-label="Assigner a '.concat(assignee, '">\n      <input class="team-bubble-choice-input" type="radio" name="assignedTo" value="').concat(assignee, '" ').concat(current === assignee ? "checked" : "", '>\n      <span class="team-bubble ').concat(current === assignee ? "is-active" : "", '">').concat(assignee, "</span>\n    </label>\n  ")).join("");
   }
+  function renderTestPlanningClientTypeChoices(selectedType = "") {
+    const current = String(selectedType != null ? selectedType : "").trim().toUpperCase();
+    return ["PRO", "PERSO"].map((type) => '\n    <label class="team-bubble-choice" aria-label="Client '.concat(type, '">\n      <input class="team-bubble-choice-input" type="radio" name="clientType" value="').concat(type, '" ').concat(current === type ? "checked" : "", '>\n      <span class="team-bubble ').concat(current === type ? "is-active" : "", '">').concat(type, "</span>\n    </label>\n  ")).join("");
+  }
   function canOrderUseMockup(zone) {
-    return Boolean(normalizeOrderZone(zone));
+    return Boolean(String(zone != null ? zone : "").trim());
   }
   function renderOrderForm(order = null) {
-    var _a, _b, _c, _d;
-    const zone = normalizeOrderZone(order == null ? void 0 : order.zone);
+    var _a, _b, _c, _d, _e;
+    const zone = String((_a = order == null ? void 0 : order.zone) != null ? _a : "").trim();
     const showMockupField = canOrderUseMockup(zone);
-    return '\n    <div class="field-grid order-form-grid">\n      <label>\n        <span class="field-label">Produit</span>\n        <select class="field-select" name="product">\n          '.concat(renderOrderProductOptions(order == null ? void 0 : order.product), '\n        </select>\n      </label>\n      <label>\n        <span class="field-label">Urgence</span>\n        <select class="field-select" name="urgency">\n          ').concat(renderSelectOptions(["Haute", "Moyenne", "Basse"], (_a = order == null ? void 0 : order.urgency) != null ? _a : "Moyenne"), '\n        </select>\n      </label>\n      <label>\n        <span class="field-label">Client</span>\n        <input class="field-input" name="clientName" type="text" list="clientSuggestions" value="').concat(escapeHtml(orderClientLabel(order)), '">\n      </label>\n      <label>\n        <span class="field-label">Contact</span>\n        <input class="field-input" name="contact" type="text" value="').concat(escapeHtml((_b = order == null ? void 0 : order.contact) != null ? _b : ""), '">\n      </label>\n      <label>\n        <span class="field-label">Zone</span>\n        <select class="field-select" name="zone">\n          ').concat(renderSelectOptions(ORDER_ZONE_OPTIONS, normalizeOrderZone(order == null ? void 0 : order.zone)), '\n        </select>\n      </label>\n      <label>\n        <span class="field-label">Quantite</span>\n        <input class="field-input" name="quantity" type="number" min="1" value="').concat(Math.max(1, Number(order == null ? void 0 : order.quantity) || 1), '">\n      </label>\n      <label>\n        <span class="field-label">Livraison</span>\n        <input class="field-input" name="deliveryDate" type="date" value="').concat(escapeHtml((_c = order == null ? void 0 : order.deliveryDate) != null ? _c : ""), '">\n      </label>\n      <label>\n        <span class="field-label">Statut</span>\n        <select class="field-select" name="status">').concat(renderOrderStatusOptions(order == null ? void 0 : order.status), '</select>\n      </label>\n      <label class="field-checkbox" data-order-mockup-field ').concat(showMockupField ? "" : "hidden", '>\n        <span class="field-label">Maquette</span>\n        <span class="checkbox-row">\n          <input name="markMockup" type="checkbox" ').concat((order == null ? void 0 : order.status) === "Maquette \xE0 faire" ? "checked" : "", " ").concat(showMockupField ? "" : "disabled", '>\n          <span>Maquette \xE0 faire</span>\n        </span>\n      </label>\n      <label class="field-choice-group">\n        <span class="field-label">Assign\xE9</span>\n        <span class="team-bubble-group" aria-label="Assignation commande">\n          ').concat(renderOrderAssigneeChoices(order == null ? void 0 : order.assignedTo), '\n        </span>\n      </label>\n      <label class="order-form-note">\n        <span class="field-label">Note</span>\n        <input class="field-input" name="note" type="text" value="').concat(escapeHtml((_d = order == null ? void 0 : order.note) != null ? _d : ""), '">\n      </label>\n    </div>\n    <datalist id="clientSuggestions">').concat(renderClientSuggestionOptions(), "</datalist>\n  ");
+    return '\n    <div class="field-grid order-form-grid">\n      <label>\n        <span class="field-label">Produit</span>\n        <select class="field-select" name="product">\n          '.concat(renderOrderProductOptions(order == null ? void 0 : order.product), '\n        </select>\n      </label>\n      <label>\n        <span class="field-label">Urgence</span>\n        <select class="field-select" name="urgency">\n          ').concat(renderSelectOptions(["", "Haute", "Moyenne", "Basse"], String((_b = order == null ? void 0 : order.urgency) != null ? _b : "").trim()), '\n        </select>\n      </label>\n      <label>\n        <span class="field-label">Client</span>\n        <input class="field-input" name="clientName" type="text" list="clientSuggestions" value="').concat(escapeHtml(order ? orderClientLabel(order) : ""), '">\n      </label>\n      <label>\n        <span class="field-label">Contact</span>\n        <input class="field-input" name="contact" type="text" value="').concat(escapeHtml((_c = order == null ? void 0 : order.contact) != null ? _c : ""), '">\n      </label>\n      <label>\n        <span class="field-label">Zone</span>\n        <select class="field-select" name="zone">\n          ').concat(renderSelectOptions(["", ...ORDER_ZONE_OPTIONS], zone), '\n        </select>\n      </label>\n      <label>\n        <span class="field-label">Quantite</span>\n        <input class="field-input" name="quantity" type="number" min="1" value="').concat((order == null ? void 0 : order.quantity) ? escapeHtml(String(order.quantity)) : "", '">\n      </label>\n      <label>\n        <span class="field-label">Livraison</span>\n        <input class="field-input" name="deliveryDate" type="date" value="').concat(escapeHtml((_d = order == null ? void 0 : order.deliveryDate) != null ? _d : ""), '">\n      </label>\n      <label>\n        <span class="field-label">Statut</span>\n        <select class="field-select" name="status">').concat(renderOrderStatusOptions(order == null ? void 0 : order.status), '</select>\n      </label>\n      <label class="field-checkbox" data-order-mockup-field ').concat(showMockupField ? "" : "hidden", '>\n        <span class="field-label">Maquette</span>\n        <span class="checkbox-row">\n          <input name="markMockup" type="checkbox" ').concat((order == null ? void 0 : order.status) === "Maquette \xE0 faire" ? "checked" : "", " ").concat(showMockupField ? "" : "disabled", '>\n          <span>Maquette \xE0 faire</span>\n        </span>\n      </label>\n      <label class="field-choice-group">\n        <span class="field-label">Assign\xE9</span>\n        <span class="team-bubble-group" aria-label="Assignation commande">\n          ').concat(renderOrderAssigneeChoices(order == null ? void 0 : order.assignedTo), '\n        </span>\n      </label>\n      <label class="order-form-note">\n        <span class="field-label">Note</span>\n        <input class="field-input" name="note" type="text" value="').concat(escapeHtml((_e = order == null ? void 0 : order.note) != null ? _e : ""), '">\n      </label>\n    </div>\n    <datalist id="clientSuggestions">').concat(renderClientSuggestionOptions(), "</datalist>\n  ");
+  }
+  function renderTestPlanningForm(item = null) {
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i;
+    const stage = normalizeTestPlanningStage(item == null ? void 0 : item.stage);
+    const stageStatusOptions = testPlanningStatusesForStage(stage);
+    const stageIndex = TEST_PLANNING_STAGE_KEYS.indexOf(stage);
+    const canGoPrev = stageIndex > 0;
+    const canGoNext = stageIndex < TEST_PLANNING_STAGE_KEYS.length - 1;
+    return '\n    <div class="field-grid test-planning-form-grid">\n      <div class="test-planning-form-head">\n        <div>\n          <span class="field-label">\xC9tape</span>\n          <strong data-test-planning-stage-label>'.concat(escapeHtml((_b = (_a = TEST_PLANNING_STAGES[stageIndex]) == null ? void 0 : _a.label) != null ? _b : TEST_PLANNING_STAGES[0].label), '</strong>\n        </div>\n        <div class="test-planning-form-nav">\n          <button class="pill-button" type="button" data-action="test-planning-form-prev-stage" ').concat(canGoPrev ? "" : "disabled", '>\u2190 Retour</button>\n          <button class="pill-button" type="button" data-action="test-planning-form-next-stage" ').concat(canGoNext ? "" : "disabled", '>\xC9tape suivante \u2192</button>\n        </div>\n      </div>\n      <label class="test-planning-field-type">\n        <span class="field-label">Type</span>\n        <span class="team-bubble-group" aria-label="Type de client test planning">\n          ').concat(renderTestPlanningClientTypeChoices(item == null ? void 0 : item.clientType), '\n        </span>\n      </label>\n      <label class="test-planning-field-client">\n        <span class="field-label">Client</span>\n        <input class="field-input" name="clientName" type="text" list="testPlanningClientSuggestions" value="').concat(escapeHtml((_c = item == null ? void 0 : item.clientName) != null ? _c : ""), '" placeholder="CLIENT">\n      </label>\n      <label class="test-planning-field-family">\n        <span class="field-label">Famille</span>\n        <input class="field-input" name="family" type="text" list="testPlanningFamilyOptions" value="').concat(escapeHtml((_d = item == null ? void 0 : item.family) != null ? _d : ""), '" placeholder="Famille">\n      </label>\n      <label class="test-planning-field-product">\n        <span class="field-label">Produit</span>\n        <input class="field-input" name="product" type="text" list="testPlanningProductOptions" value="').concat(escapeHtml((_e = item == null ? void 0 : item.product) != null ? _e : ""), '" placeholder="Produit">\n      </label>\n      <label class="test-planning-field-quantity">\n        <span class="field-label">Qt\xE9</span>\n        <input class="field-input" name="quantity" type="text" value="').concat(escapeHtml((_f = item == null ? void 0 : item.quantity) != null ? _f : ""), '" placeholder="Qt\xE9">\n      </label>\n      <label class="test-planning-field-delivery">\n        <span class="field-label">Date de livraison</span>\n        <input class="field-input" name="deliveryDate" type="date" value="').concat(escapeHtml((_g = item == null ? void 0 : item.deliveryDate) != null ? _g : ""), '">\n      </label>\n      <label class="test-planning-field-mockup-toggle">\n        <span class="field-label">Maquette \xE0 faire</span>\n        <span class="checkbox-row">\n          <input name="needsMockup" type="checkbox" ').concat((item == null ? void 0 : item.needsMockup) ? "checked" : "", '>\n          <span>Activer</span>\n        </span>\n      </label>\n      <label class="test-planning-field-status">\n        <span class="field-label">\xC9tat</span>\n        <select class="field-select" name="status">\n          <option value="">\u2014 Choisir un \xE9tat \u2014</option>\n          ').concat(renderTestPlanningStatusOptgroups((_h = item == null ? void 0 : item.status) != null ? _h : ""), '\n        </select>\n      </label>\n      <label class="order-form-note">\n        <span class="field-label">Note</span>\n        <input class="field-input" name="note" type="text" value="').concat(escapeHtml((_i = item == null ? void 0 : item.note) != null ? _i : ""), '" placeholder="Note">\n      </label>\n      <label class="test-planning-field-assignee">\n        <span class="field-label">Assign\xE9</span>\n        <span class="team-bubble-group" aria-label="Assignation test planning">\n          ').concat(renderOrderAssigneeChoices(item == null ? void 0 : item.assignedTo), '\n        </span>\n      </label>\n      <label hidden>\n        <span class="field-label">\xC9tape</span>\n        <select class="field-select" name="stage">\n          ').concat(TEST_PLANNING_STAGES.map((entry) => '<option value="'.concat(entry.key, '" ').concat(entry.key === stage ? "selected" : "", ">").concat(escapeHtml(entry.label), "</option>")).join(""), '\n        </select>\n      </label>\n    </div>\n    <datalist id="testPlanningClientSuggestions">').concat(renderTestPlanningClientSuggestionOptions(), '</datalist>\n    <datalist id="testPlanningFamilyOptions">').concat(renderListOptions(testPlanningCombinedOptions("family", TEST_PLANNING_FAMILY_OPTIONS)), '</datalist>\n    <datalist id="testPlanningProductOptions">').concat(renderListOptions(testPlanningCombinedOptions("product", TEST_PLANNING_PRODUCT_OPTIONS)), "</datalist>\n    <!-- status is now a <select> with optgroups -->\n  ");
   }
   function getVisibleClientRows() {
     const query = state.search;
@@ -2674,6 +3025,25 @@
       return "".concat(improvementTypeLabel(item.type), " ").concat(item.label).toLowerCase().includes(state.search);
     });
   }
+  function getVisibleTestPlanningItems(stageKey) {
+    return db.testPlanningItems.filter((item) => {
+      if (item.stage !== stageKey) {
+        return false;
+      }
+      if (!state.search) {
+        return true;
+      }
+      return [
+        item.clientName,
+        item.family,
+        item.product,
+        item.quantity,
+        item.note,
+        item.status,
+        item.mockupStatus
+      ].join(" ").toLowerCase().includes(state.search);
+    });
+  }
   function duplicateDtfItems(ids) {
     let nextCloneId = nextId(db.dtfRequests, db.dtfRequests.length + 10);
     const clones = db.dtfRequests.filter((item) => ids.includes(item.id)).map((item) => ({
@@ -2850,7 +3220,8 @@
       textileOrders: injectImportedTextileOrders(deepClone(seed.textileOrders), clients, 0),
       purchaseItems: mergePurchaseDefaults(deepClone(seed.purchaseItems)),
       workshopTasks: mergeWorkshopDefaults(deepClone(seed.workshopTasks)),
-      improvementItems: []
+      improvementItems: [],
+      testPlanningItems: []
     };
   }
   function normalizeDb(parsed) {
@@ -2870,7 +3241,8 @@
       purchaseItems: mergePurchaseDefaults(Array.isArray(parsed.purchaseItems) ? parsed.purchaseItems : deepClone(seed.purchaseItems)),
       productionItems: Array.isArray(parsed.productionItems) ? parsed.productionItems.map(normalizeProductionItem) : deepClone(seed.productionItems),
       workshopTasks: mergeWorkshopDefaults(Array.isArray(parsed.workshopTasks) ? parsed.workshopTasks : deepClone(seed.workshopTasks)),
-      improvementItems: Array.isArray(parsed.improvementItems) ? parsed.improvementItems.map(normalizeImprovementItem).filter((item) => item.label) : []
+      improvementItems: Array.isArray(parsed.improvementItems) ? parsed.improvementItems.map(normalizeImprovementItem).filter((item) => item.label) : [],
+      testPlanningItems: Array.isArray(parsed.testPlanningItems) ? parsed.testPlanningItems.map(normalizeTestPlanningItem) : []
     };
   }
   function mergeImportedClients(collection) {
@@ -3156,6 +3528,27 @@
       type: IMPROVEMENT_TYPES.some((entry) => entry.key === type) ? type : "bug",
       label: String((_b = item.label) != null ? _b : "").trim(),
       createdAt: String((_c = item.createdAt) != null ? _c : isoToday())
+    };
+  }
+  function normalizeTestPlanningItem(item, index = 0) {
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j;
+    const stage = normalizeTestPlanningStage(item.stage);
+    return {
+      id: Number(item.id) || index + 1,
+      clientType: String((_a = item.clientType) != null ? _a : "").trim().toUpperCase(),
+      clientId: Number(item.clientId) || null,
+      clientName: String((_b = item.clientName) != null ? _b : "").trim().toUpperCase(),
+      family: String((_c = item.family) != null ? _c : "").trim().toUpperCase(),
+      product: String((_d = item.product) != null ? _d : "").trim().toUpperCase(),
+      quantity: String((_e = item.quantity) != null ? _e : "").trim(),
+      note: String((_f = item.note) != null ? _f : "").trim(),
+      deliveryDate: String((_g = item.deliveryDate) != null ? _g : "").trim(),
+      needsMockup: Boolean(item.needsMockup),
+      mockupStatus: String((_h = item.mockupStatus) != null ? _h : "").trim(),
+      status: String((_i = item.status) != null ? _i : "").trim(),
+      stage,
+      assignedTo: normalizeImportedAssignee(item.assignedTo),
+      createdAt: String((_j = item.createdAt) != null ? _j : isoNow())
     };
   }
   function mergeWorkshopDefaults(collection) {
@@ -3565,6 +3958,9 @@
     if (state.activeSheetAction === "editImprovementItem") {
       return sheetDraftStorageKey(state.activeSheetAction, state.activeImprovementId);
     }
+    if (state.activeSheetAction === "editTestPlanningOrder") {
+      return sheetDraftStorageKey(state.activeSheetAction, state.activeTestPlanningId);
+    }
     return sheetDraftStorageKey(state.activeSheetAction);
   }
   function persistSheetDraft() {
@@ -3731,6 +4127,133 @@
     }
     return "".concat(offset, "j");
   }
+  function normalizeTestPlanningStage(value) {
+    const stage = String(value != null ? value : "").trim();
+    return TEST_PLANNING_STAGE_KEYS.includes(stage) ? stage : TEST_PLANNING_DEFAULT_STAGE;
+  }
+  function syncTestPlanningStageField() {
+    var _a, _b;
+    if (!refs.sheetForm) {
+      return;
+    }
+    const stageField = refs.sheetForm.elements.namedItem("stage");
+    const statusField = refs.sheetForm.elements.namedItem("status");
+    const stageLabel = refs.sheetForm.querySelector("[data-test-planning-stage-label]");
+    const prevButton = refs.sheetForm.querySelector('[data-action="test-planning-form-prev-stage"]');
+    const nextButton = refs.sheetForm.querySelector('[data-action="test-planning-form-next-stage"]');
+    if (!(stageField instanceof HTMLSelectElement)) {
+      return;
+    }
+    const stageIndex = TEST_PLANNING_STAGE_KEYS.indexOf(stageField.value);
+    if (stageLabel) {
+      stageLabel.textContent = (_b = (_a = TEST_PLANNING_STAGES[stageIndex]) == null ? void 0 : _a.label) != null ? _b : TEST_PLANNING_STAGES[0].label;
+    }
+    if (prevButton instanceof HTMLButtonElement) {
+      prevButton.disabled = stageIndex <= 0;
+    }
+    if (nextButton instanceof HTMLButtonElement) {
+      nextButton.disabled = stageIndex >= TEST_PLANNING_STAGE_KEYS.length - 1;
+    }
+  }
+  function shiftTestPlanningSheetStage(direction) {
+    if (!refs.sheetForm) {
+      return;
+    }
+    const stageField = refs.sheetForm.elements.namedItem("stage");
+    if (!(stageField instanceof HTMLSelectElement)) {
+      return;
+    }
+    const currentIndex = TEST_PLANNING_STAGE_KEYS.indexOf(stageField.value);
+    if (currentIndex === -1) {
+      return;
+    }
+    const nextIndex = currentIndex + direction;
+    if (nextIndex < 0 || nextIndex >= TEST_PLANNING_STAGE_KEYS.length) {
+      return;
+    }
+    stageField.value = TEST_PLANNING_STAGE_KEYS[nextIndex];
+    const statusField = refs.sheetForm.elements.namedItem("status");
+    if (statusField instanceof HTMLSelectElement) {
+      statusField.value = testPlanningDefaultStatus(stageField.value);
+    }
+    syncTestPlanningStageField();
+    persistSheetDraft();
+  }
+  function syncTestPlanningMockupField() {
+    if (!refs.sheetForm) {
+      return;
+    }
+    const toggle = refs.sheetForm.elements.namedItem("needsMockup");
+    const field = refs.sheetForm.elements.namedItem("mockupStatus");
+    if (!(toggle instanceof HTMLInputElement) || !(field instanceof HTMLInputElement)) {
+      return;
+    }
+    field.disabled = !toggle.checked;
+    if (!toggle.checked && !field.value.trim()) {
+      field.placeholder = "Non utilis\xE9e";
+    } else if (!field.value.trim()) {
+      field.placeholder = "\xC0 faire ou OK";
+    }
+  }
+  function testPlanningStatusesForStage(stage) {
+    const config = TEST_PLANNING_STAGES.find((entry) => entry.key === stage);
+    return config ? config.statuses : TEST_PLANNING_STATUS_OPTIONS;
+  }
+  function testPlanningDefaultStatus(stage) {
+    return testPlanningStatusesForStage(stage)[0] || "";
+  }
+  function testPlanningStageForStatus(status) {
+    if (!status) return null;
+    for (var i = 0; i < TEST_PLANNING_STAGES.length; i++) {
+      if (TEST_PLANNING_STAGES[i].statuses.indexOf(status) !== -1) {
+        return TEST_PLANNING_STAGES[i].key;
+      }
+    }
+    return null;
+  }
+  function renderTestPlanningStatusOptgroups(selectedValue) {
+    return TEST_PLANNING_STAGES.map(function(stage) {
+      var opts = stage.statuses.map(function(s) {
+        var sel = s === selectedValue ? " selected" : "";
+        return '<option value="' + escapeHtml(s) + '"' + sel + ">" + escapeHtml(s) + "</option>";
+      }).join("");
+      return '<optgroup label="' + escapeHtml(stage.label) + '">' + opts + "</optgroup>";
+    }).join("");
+  }
+  function handleInlineStatusEvent(sel) {
+    var itemId = Number(sel.dataset.inlineStatusSel);
+    var item = db.testPlanningItems.find(function(e) {
+      return e.id === itemId;
+    });
+    if (!item) return;
+    var newStatus = sel.value;
+    item.status = newStatus;
+    var targetStage = testPlanningStageForStatus(newStatus);
+    if (targetStage && targetStage !== item.stage) {
+      item.stage = targetStage;
+    }
+    item.updatedAt = isoNow();
+    persistDb();
+    requestRender({ header: false, status: false, view: true });
+  }
+  function testPlanningCombinedOptions(key, defaults) {
+    defaults = defaults || [];
+    var values = [];
+    var i;
+    for (i = 0; i < defaults.length; i++) {
+      if (defaults[i] && values.indexOf(defaults[i]) === -1) {
+        values.push(defaults[i]);
+      }
+    }
+    var items = db.testPlanningItems || [];
+    for (i = 0; i < items.length; i++) {
+      var value = String(items[i] && items[i][key] != null ? items[i][key] : "").trim();
+      if (value && values.indexOf(value) === -1) {
+        values.push(value);
+      }
+    }
+    return values;
+  }
   function normalizeLogoPlacement(value) {
     return String(value != null ? value : "").trim().toUpperCase() === "AR" ? "AR" : "AV";
   }
@@ -3756,7 +4279,9 @@
     return "draft";
   }
   function renderOrderStatusOptions(selectedStatus = ORDER_STATUS_DEFAULT) {
-    return ORDER_STATUS_GROUPS.map((group) => '\n    <optgroup label="'.concat(escapeHtml(group.label), '">\n      ').concat(group.options.map((status) => '\n        <option value="'.concat(escapeHtml(status), '" ').concat(status === selectedStatus ? "selected" : "", ">").concat(escapeHtml(status), "</option>\n      ")).join(""), "\n    </optgroup>\n  ")).join("");
+    const current = String(selectedStatus != null ? selectedStatus : "").trim();
+    const emptyOption = '<option value="" '.concat(current ? "" : "selected", "></option>");
+    return emptyOption + ORDER_STATUS_GROUPS.map((group) => '\n    <optgroup label="'.concat(escapeHtml(group.label), '">\n      ').concat(group.options.map((status) => '\n        <option value="'.concat(escapeHtml(status), '" ').concat(status === current ? "selected" : "", ">").concat(escapeHtml(status), "</option>\n      ")).join(""), "\n    </optgroup>\n  ")).join("");
   }
   function renderProductionStatusOptions(selectedStatus = PRODUCTION_STATUS_DEFAULT) {
     return PRODUCTION_STATUS_OPTIONS.map((status) => '\n    <option value="'.concat(escapeHtml(status), '" ').concat(status === selectedStatus ? "selected" : "", ">").concat(escapeHtml(status), "</option>\n  ")).join("");
@@ -3812,6 +4337,14 @@
       clientName: raw
     };
   }
+  function parseTestPlanningClient(value) {
+    var _a;
+    const parsed = parseOrderClient(value);
+    return {
+      clientId: parsed.clientId,
+      clientName: String((_a = parsed.clientName) != null ? _a : "").trim().toUpperCase()
+    };
+  }
   function normalizeOrderStatus(status) {
     const value = String(status != null ? status : "").trim();
     if (value === "A valider") {
@@ -3846,6 +4379,8 @@
       editOrder: "Modifier la commande",
       addDtf: "+ Ajouter une demande",
       editDtf: "Modifier la demande",
+      addTestPlanningOrder: "+ Ajouter une commande",
+      editTestPlanningOrder: "Modifier la commande",
       addTextileOrder: "+ Ajouter une commande",
       editTextileOrder: "Modifier la commande",
       addProductionItem: "+ Ajouter un PRT",
@@ -3865,6 +4400,8 @@
       editOrder: "Enregistrer",
       addDtf: "Cr\xE9er la demande",
       editDtf: "Enregistrer",
+      addTestPlanningOrder: "Cr\xE9er la commande",
+      editTestPlanningOrder: "Enregistrer",
       addTextileOrder: "Cr\xE9er la commande",
       editTextileOrder: "Enregistrer",
       addProductionItem: "Ajouter le PRT",
@@ -3884,6 +4421,8 @@
       editOrder: "Commandes g\xE9n\xE9rales",
       addDtf: "Demande DTF",
       editDtf: "Demande DTF",
+      addTestPlanningOrder: "",
+      editTestPlanningOrder: "",
       addTextileOrder: "Achat Textile",
       editTextileOrder: "Achat Textile",
       addProductionItem: "Production",

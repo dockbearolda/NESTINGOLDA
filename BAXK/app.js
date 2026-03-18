@@ -26,6 +26,13 @@ const views = {
     primaryAction: "addOrder",
     searchPlaceholder: "Rechercher..."
   },
+  testPlanning: {
+    label: "Test planning",
+    eyebrow: "Test planning",
+    intro: "",
+    primaryAction: "addTestPlanningOrder",
+    searchPlaceholder: "Rechercher..."
+  },
   clients: {
     label: "Clients Pro",
     eyebrow: "Clients",
@@ -121,6 +128,63 @@ const ORDER_STATUS_BUCKETS = {
 const ORDER_ZONE_OPTIONS = ["Textiles", "Gravure et découpe laser", "Impression UV", "Goodies"];
 const ORDER_ASSIGNEES = ["L", "M", "C", "A", "R"];
 const ORDER_PRODUCT_OPTIONS = ["Tshirt", "Pochette", "Sac", "Casquette", "Tasses", "Goodies"];
+const TEST_PLANNING_STAGES = [
+  {
+    key: "demande",
+    label: "1. Demande",
+    shortLabel: "Demande",
+    accent: "blue",
+    statuses: ["Devis à faire", "Pas urgent", "Manque information", "Pas de Stock"]
+  },
+  {
+    key: "devis",
+    label: "2. Devis en cours",
+    shortLabel: "Devis",
+    accent: "violet",
+    statuses: ["Devis en attente validation", "Modification devis", "Manque information", "Maquette à faire"]
+  },
+  {
+    key: "accepted",
+    label: "3. Devis accepté",
+    shortLabel: "Accepté",
+    accent: "orange",
+    statuses: ["Préparation du produit", "Attente Marchandise", "Maquette en cours de validation"]
+  },
+  {
+    key: "production",
+    label: "4. Production",
+    shortLabel: "Production",
+    accent: "green",
+    statuses: ["PRT à faire", "A produire", "En cours", "Manque information"]
+  },
+  {
+    key: "facture",
+    label: "5. Facturé",
+    shortLabel: "Facturé",
+    accent: "rose",
+    statuses: ["Commande Terminé", "Client prévenu", "Commande récupéré"]
+  },
+  {
+    key: "paye",
+    label: "6. Payé",
+    shortLabel: "Payé",
+    accent: "cyan",
+    statuses: ["Payé en boutique", "Payé par virement prochainement", "Manque information"]
+  },
+  {
+    key: "archived",
+    label: "7. Archivé",
+    shortLabel: "Archivé",
+    accent: "slate",
+    statuses: ["Payé + Livré = Terminé"]
+  }
+];
+const TEST_PLANNING_STAGE_KEYS = TEST_PLANNING_STAGES.map((stage) => stage.key);
+const TEST_PLANNING_DEFAULT_STAGE = TEST_PLANNING_STAGES[0].key;
+const TEST_PLANNING_CLIENT_TYPE_OPTIONS = ["", "PRO", "PERSO"];
+const TEST_PLANNING_FAMILY_OPTIONS = ["", "TEXTILES", "TROTEC", "UV", "GOODIES", "AUTRES"];
+const TEST_PLANNING_PRODUCT_OPTIONS = ["", "TSHIRT", "TSHIRT PRO", "SAC", "POCHETTE", "CASQUETTE"];
+const TEST_PLANNING_STATUS_OPTIONS = TEST_PLANNING_STAGES.flatMap((stage) => stage.statuses);
 const PRODUCTION_STATUS_OPTIONS = ["A imprimer", "Impression en cours", "Erreur", "Terminé"];
 const PRODUCTION_STATUS_DEFAULT = "A imprimer";
 const TEAM_NOTE_MEMBERS = ["Loic", "Charlie", "Melina", "Amandine"];
@@ -612,7 +676,8 @@ const seed = {
     recurring: task.recurring,
     createdAt: "2026-03-17"
   })),
-  improvementItems: []
+  improvementItems: [],
+  testPlanningItems: []
 };
 
 const state = {
@@ -634,6 +699,8 @@ const state = {
   activePurchaseId: null,
   activeWorkshopTaskId: null,
   activeImprovementId: null,
+  activeTestPlanningId: null,
+  activeTestStage: null,
   activeClientId: null,
   activeTeamNoteEdit: null,
   toastTimer: null,
@@ -791,6 +858,7 @@ function dbContentScore(sourceDb) {
   score += Array.isArray(sourceDb.productionItems) ? sourceDb.productionItems.length * 2 : 0;
   score += Array.isArray(sourceDb.workshopTasks) ? sourceDb.workshopTasks.length : 0;
   score += Array.isArray(sourceDb.improvementItems) ? sourceDb.improvementItems.length : 0;
+  score += Array.isArray(sourceDb.testPlanningItems) ? sourceDb.testPlanningItems.length * 4 : 0;
   score += Array.isArray(sourceDb.teamNotes)
     ? sourceDb.teamNotes.reduce((total, note) => total + (Array.isArray(note?.items) ? note.items.length : 0), 0)
     : 0;
@@ -954,6 +1022,27 @@ function bindEvents() {
   refs.sheetForm.addEventListener("submit", handleSheetSubmit);
   refs.sheetForm.addEventListener("input", handleSheetDraftInput);
   refs.sheetForm.addEventListener("change", handleSheetDraftInput);
+  refs.sheetForm.addEventListener("click", function(event) {
+    var target = event.target;
+    var actionNode = target.closest("[data-action]");
+    if (!actionNode) return;
+    var action = actionNode.dataset.action;
+    if (action === "test-planning-form-next-stage" || action === "test-planning-form-prev-stage") {
+      var direction = action === "test-planning-form-next-stage" ? 1 : -1;
+      var item = db.testPlanningItems.find(function(e) { return e.id === state.activeTestPlanningId; });
+      if (!item) return;
+      var currentIndex = TEST_PLANNING_STAGE_KEYS.indexOf(item.stage);
+      if (currentIndex === -1) return;
+      var nextIndex = currentIndex + direction;
+      if (nextIndex < 0 || nextIndex >= TEST_PLANNING_STAGE_KEYS.length) return;
+      item.stage = TEST_PLANNING_STAGE_KEYS[nextIndex];
+      item.status = testPlanningDefaultStatus(item.stage);
+      item.updatedAt = isoNow();
+      persistDb();
+      shiftTestPlanningSheetStage(direction);
+      requestRender({ header: false, status: false, view: true });
+    }
+  });
 
   refs.viewRoot.addEventListener("click", handleRootClick);
   refs.viewRoot.addEventListener("input", handleRootInput);
@@ -961,6 +1050,11 @@ function bindEvents() {
   refs.viewRoot.addEventListener("keydown", handleRootKeyDown);
   refs.viewRoot.addEventListener("change", handleRootChange);
   refs.viewRoot.addEventListener("submit", handleRootSubmit);
+  refs.viewRoot.addEventListener("focusout", function(e) {
+    if (e.target && e.target.dataset && e.target.dataset.inlineStatusSel) {
+      handleInlineStatusEvent(e.target);
+    }
+  });
 }
 
 function handleRootClick(event) {
@@ -1159,6 +1253,48 @@ function handleRootClick(event) {
       return;
     }
 
+    if (action === "delete-test-planning") {
+      db.testPlanningItems = db.testPlanningItems.filter((item) => item.id !== id);
+      persistDb();
+      requestRender({ header: false, status: false, view: true });
+      showToast("Ligne test planning supprimée.");
+      return;
+    }
+
+    if (action === "test-planning-next-stage" || action === "test-planning-prev-stage") {
+      const item = db.testPlanningItems.find((entry) => entry.id === id);
+      if (!item) {
+        return;
+      }
+
+      const currentIndex = TEST_PLANNING_STAGE_KEYS.indexOf(item.stage);
+      if (currentIndex === -1) {
+        return;
+      }
+
+      const nextIndex = action === "test-planning-next-stage" ? currentIndex + 1 : currentIndex - 1;
+      if (nextIndex < 0 || nextIndex >= TEST_PLANNING_STAGE_KEYS.length) {
+        return;
+      }
+
+      item.stage = TEST_PLANNING_STAGE_KEYS[nextIndex];
+      item.status = testPlanningDefaultStatus(item.stage);
+      persistDb();
+      requestRender({ header: false, status: false, view: true });
+      return;
+    }
+
+    if (action === "test-planning-form-prev-stage") {
+      shiftTestPlanningSheetStage(-1);
+      return;
+    }
+
+    if (action === "test-planning-form-next-stage") {
+      shiftTestPlanningSheetStage(1);
+      return;
+    }
+
+
     if (action === "increase-production-quantity") {
       const item = db.productionItems.find((entry) => entry.id === id);
       if (!item) {
@@ -1265,7 +1401,31 @@ function handleRootClick(event) {
     }
   }
 
-  if (!["planning", "clients", "dtf", "textile", "purchase", "workshop", "improvements"].includes(state.view)) {
+  const stageJumpNode = target.closest("[data-test-stage-jump]");
+  if (stageJumpNode) {
+    var stageJump = stageJumpNode.dataset.testStageJump;
+    if (stageJump === "__recent__") {
+      state.activeTestStage = null;
+    } else {
+      state.activeTestStage = state.activeTestStage === stageJump ? null : stageJump;
+    }
+    requestRender({ header: false, status: false, view: true });
+    return;
+  }
+
+  var inlineStatusNode = target.closest("[data-inline-status]");
+  if (inlineStatusNode && inlineStatusNode.tagName === "SPAN") {
+    var selId = inlineStatusNode.dataset.inlineStatus;
+    var selEl = document.querySelector('[data-inline-status-sel="' + selId + '"]');
+    if (selEl) {
+      inlineStatusNode.classList.add("is-hidden");
+      selEl.classList.remove("is-hidden");
+      selEl.focus();
+    }
+    return;
+  }
+
+  if (!["planning", "testPlanning", "clients", "dtf", "textile", "purchase", "workshop", "improvements"].includes(state.view)) {
     return;
   }
 
@@ -1293,6 +1453,17 @@ function handleRootClick(event) {
     }
 
     openSheet("editClient", { id: Number(row.dataset.clientId) });
+    return;
+  }
+
+  if (state.view === "testPlanning") {
+    if (target.closest("[data-inline-status]")) return;
+    const row = target.closest("[data-test-planning-id]");
+    if (!row) {
+      return;
+    }
+
+    openSheet("editTestPlanningOrder", { id: Number(row.dataset.testPlanningId) });
     return;
   }
 
@@ -1345,9 +1516,11 @@ function handleRootClick(event) {
 }
 
 function handleRootDoubleClick(event) {
-  if (!["planning", "clients", "dtf", "textile", "purchase", "workshop", "improvements"].includes(state.view)) {
+  if (!["planning", "testPlanning", "clients", "dtf", "textile", "purchase", "workshop", "improvements"].includes(state.view)) {
     return;
   }
+
+  if (event.target.closest("[data-inline-status]")) return;
 
   const interactiveNode = event.target.closest("button, input, select, textarea, a, label");
   if (interactiveNode) {
@@ -1373,6 +1546,16 @@ function handleRootDoubleClick(event) {
     }
 
     openSheet("editClient", { id: Number(row.dataset.clientId) });
+    return;
+  }
+
+  if (state.view === "testPlanning") {
+    const row = event.target.closest("[data-test-planning-id]");
+    if (!row) {
+      return;
+    }
+
+    openSheet("editTestPlanningOrder", { id: Number(row.dataset.testPlanningId) });
     return;
   }
 
@@ -1425,7 +1608,7 @@ function handleRootDoubleClick(event) {
 }
 
 function handleRootKeyDown(event) {
-  if (event.key !== "Enter" || !["planning", "clients", "textile", "purchase", "workshop", "improvements"].includes(state.view)) {
+  if (event.key !== "Enter" || !["planning", "testPlanning", "clients", "textile", "purchase", "workshop", "improvements"].includes(state.view)) {
     return;
   }
 
@@ -1450,6 +1633,16 @@ function handleRootKeyDown(event) {
     }
 
     openSheet("editClient", { id: Number(row.dataset.clientId) });
+    return;
+  }
+
+  if (state.view === "testPlanning") {
+    const row = event.target.closest("[data-test-planning-id]");
+    if (!row) {
+      return;
+    }
+
+    openSheet("editTestPlanningOrder", { id: Number(row.dataset.testPlanningId) });
     return;
   }
 
@@ -1527,11 +1720,44 @@ function handleSheetDraftInput(event) {
     syncOrderMockupField();
   }
 
+  if (target?.name === "stage") {
+    syncTestPlanningStageField();
+  }
+
+  if (target?.name === "status" && target instanceof HTMLSelectElement && state.activeSheetAction === "editTestPlanningOrder") {
+    var newStatus = target.value;
+    var targetStage = testPlanningStageForStatus(newStatus);
+    if (targetStage) {
+      var stageField = refs.sheetForm?.elements.namedItem("stage");
+      if (stageField instanceof HTMLSelectElement && stageField.value !== targetStage) {
+        stageField.value = targetStage;
+        var item = db.testPlanningItems.find(function(e) { return e.id === state.activeTestPlanningId; });
+        if (item) {
+          item.stage = targetStage;
+          item.status = newStatus;
+          item.updatedAt = isoNow();
+          persistDb();
+          requestRender({ header: false, status: false, view: true });
+        }
+        syncTestPlanningStageField();
+      }
+    }
+  }
+
+  if (target?.name === "needsMockup") {
+    syncTestPlanningMockupField();
+  }
+
   persistSheetDraft();
 }
 
 function handleRootChange(event) {
   const target = event.target;
+
+  if (target.dataset && target.dataset.inlineStatusSel) {
+    handleInlineStatusEvent(target);
+    return;
+  }
 
   if (target.name === "team-note-edit-label") {
     saveTeamNoteItem(
@@ -1821,18 +2047,20 @@ function handleSheetSubmit(event) {
 
   if (state.activeSheetAction === "addOrder") {
     const client = parseOrderClient(formData.get("clientName"));
+    const rawZone = String(formData.get("zone") ?? "").trim();
+    const rawStatus = String(formData.get("status") ?? "").trim();
     const status = formData.get("markMockup") === "on"
       ? "Maquette à faire"
-      : normalizeOrderStatus(formData.get("status"));
+      : (rawStatus ? normalizeOrderStatus(rawStatus) : "");
     db.customerOrders.unshift({
       id: nextId(db.customerOrders),
       clientId: client.clientId,
       clientName: client.clientName,
       product: String(formData.get("product") ?? "").trim(),
-      urgency: String(formData.get("urgency") ?? "Moyenne"),
+      urgency: String(formData.get("urgency") ?? "").trim(),
       contact: String(formData.get("contact") ?? "").trim(),
-      zone: normalizeOrderZone(formData.get("zone")),
-      quantity: Math.max(1, Number(formData.get("quantity") ?? 1) || 1),
+      zone: rawZone ? normalizeOrderZone(rawZone) : "",
+      quantity: normalizeOrderQuantity(formData.get("quantity")),
       note: String(formData.get("note") ?? "").trim(),
       deliveryDate: String(formData.get("deliveryDate") ?? "").trim(),
       status,
@@ -1860,17 +2088,19 @@ function handleSheetSubmit(event) {
     }
 
     const client = parseOrderClient(formData.get("clientName"));
+    const rawZone = String(formData.get("zone") ?? "").trim();
+    const rawStatus = String(formData.get("status") ?? "").trim();
     const status = formData.get("markMockup") === "on"
       ? "Maquette à faire"
-      : normalizeOrderStatus(formData.get("status"));
+      : (rawStatus ? normalizeOrderStatus(rawStatus) : "");
 
     order.clientId = client.clientId;
     order.clientName = client.clientName;
     order.product = String(formData.get("product") ?? "").trim();
-    order.urgency = String(formData.get("urgency") ?? "Moyenne");
+    order.urgency = String(formData.get("urgency") ?? "").trim();
     order.contact = String(formData.get("contact") ?? "").trim();
-    order.zone = normalizeOrderZone(formData.get("zone"));
-    order.quantity = Math.max(1, Number(formData.get("quantity") ?? 1) || 1);
+    order.zone = rawZone ? normalizeOrderZone(rawZone) : "";
+    order.quantity = normalizeOrderQuantity(formData.get("quantity"));
     order.note = String(formData.get("note") ?? "").trim();
     order.deliveryDate = String(formData.get("deliveryDate") ?? "").trim();
     order.status = status;
@@ -2104,6 +2334,63 @@ function handleSheetSubmit(event) {
     closeSheet();
     requestRender({ transition: true });
     showToast("Remontee mise a jour.");
+    return;
+  }
+
+  if (state.activeSheetAction === "addTestPlanningOrder") {
+    const client = parseTestPlanningClient(formData.get("clientName"));
+    db.testPlanningItems.unshift({
+      id: nextId(db.testPlanningItems),
+      clientType: String(formData.get("clientType") ?? "").trim().toUpperCase(),
+      clientId: client.clientId,
+      clientName: client.clientName,
+      family: String(formData.get("family") ?? "").trim().toUpperCase(),
+      product: String(formData.get("product") ?? "").trim().toUpperCase(),
+      quantity: String(formData.get("quantity") ?? "").trim(),
+      note: String(formData.get("note") ?? "").trim(),
+      deliveryDate: String(formData.get("deliveryDate") ?? "").trim(),
+      needsMockup: formData.get("needsMockup") === "on",
+      mockupStatus: String(formData.get("mockupStatus") ?? "").trim(),
+      status: String(formData.get("status") ?? "").trim(),
+      stage: normalizeTestPlanningStage(formData.get("stage")),
+      assignedTo: normalizeImportedAssignee(formData.get("assignedTo")),
+      createdAt: isoNow()
+    });
+    persistDb();
+    clearSheetDraftByAction("addTestPlanningOrder");
+    closeSheet();
+    requestRender({ transition: true });
+    showToast("Ligne test planning ajoutée.");
+    return;
+  }
+
+  if (state.activeSheetAction === "editTestPlanningOrder") {
+    const item = db.testPlanningItems.find((entry) => entry.id === state.activeTestPlanningId);
+    if (!item) {
+      closeSheet();
+      showToast("Ligne test planning introuvable.");
+      return;
+    }
+
+    const client = parseTestPlanningClient(formData.get("clientName"));
+    item.clientType = String(formData.get("clientType") ?? "").trim().toUpperCase();
+    item.clientId = client.clientId;
+    item.clientName = client.clientName;
+    item.family = String(formData.get("family") ?? "").trim().toUpperCase();
+    item.product = String(formData.get("product") ?? "").trim().toUpperCase();
+    item.quantity = String(formData.get("quantity") ?? "").trim();
+    item.note = String(formData.get("note") ?? "").trim();
+    item.deliveryDate = String(formData.get("deliveryDate") ?? "").trim();
+    item.needsMockup = formData.get("needsMockup") === "on";
+    item.mockupStatus = String(formData.get("mockupStatus") ?? "").trim();
+    item.status = String(formData.get("status") ?? "").trim();
+    item.stage = normalizeTestPlanningStage(formData.get("stage"));
+    item.assignedTo = normalizeImportedAssignee(formData.get("assignedTo"));
+    persistDb();
+    clearSheetDraftByAction("editTestPlanningOrder", item.id);
+    closeSheet();
+    requestRender({ transition: true });
+    showToast("Ligne test planning mise à jour.");
   }
 }
 
@@ -2208,6 +2495,9 @@ function renderView() {
     case "planning":
       refs.viewRoot.innerHTML = renderOrdersView();
       break;
+    case "testPlanning":
+      refs.viewRoot.innerHTML = renderTestPlanningView();
+      break;
     case "clients":
       refs.viewRoot.innerHTML = renderClientsView();
       break;
@@ -2248,6 +2538,121 @@ function renderPlaceholderView() {
         <strong>Module en attente de construction</strong>
       </article>
     </section>
+  `;
+}
+
+function renderTestPlanningView() {
+  const sections = TEST_PLANNING_STAGES.map((stage) => ({
+    ...stage,
+    rows: getVisibleTestPlanningItems(stage.key)
+  }));
+
+  const activeStage = state.activeTestStage;
+  let bodyHtml;
+
+  if (activeStage) {
+    const filteredItems = db.testPlanningItems
+      .filter((item) => {
+        if (item.stage !== activeStage) return false;
+        if (!state.search) return true;
+        return [item.clientName, item.family, item.product, item.quantity, item.note, item.status, item.mockupStatus]
+          .join(" ").toLowerCase().includes(state.search);
+      })
+      .slice()
+      .sort((a, b) => (b.id || 0) - (a.id || 0));
+    bodyHtml = filteredItems.length
+      ? `<section class="test-planning-board">${filteredItems.map(renderTestPlanningCard).join("")}</section>`
+      : `<div class="empty-state">Aucune commande pour cette sélection.</div>`;
+  } else {
+    const allItems = db.testPlanningItems
+      .filter((item) => {
+        if (!state.search) return true;
+        return [item.clientName, item.family, item.product, item.quantity, item.note, item.status, item.mockupStatus]
+          .join(" ").toLowerCase().includes(state.search);
+      })
+      .slice()
+      .sort((a, b) => (b.id || 0) - (a.id || 0));
+    bodyHtml = allItems.length
+      ? `<section class="test-planning-board">${allItems.map(renderTestPlanningCard).join("")}</section>`
+      : `<div class="empty-state">Aucune commande.</div>`;
+  }
+
+  return `
+    <section class="module-layout">
+      <section class="test-planning-steps">
+        <button class="test-step-chip ${!activeStage ? "is-active" : ""}" type="button" data-test-stage-jump="__recent__" data-accent="blue">
+          <span>Toutes</span>
+          <strong>${db.testPlanningItems.length}</strong>
+        </button>
+        ${sections.map(renderTestPlanningStepSummary).join("")}
+      </section>
+      ${bodyHtml}
+    </section>
+  `;
+}
+
+function renderTestPlanningStepSummary(stage) {
+  const isActive = state.activeTestStage === stage.key;
+  return `
+    <button class="test-step-chip ${isActive ? "is-active" : ""}" type="button" data-test-stage-jump="${escapeHtml(stage.key)}" data-accent="${escapeHtml(stage.accent)}">
+      <span>${escapeHtml(stage.shortLabel)}</span>
+      <strong>${stage.rows.length}</strong>
+    </button>
+  `;
+}
+
+function renderTestPlanningStageColumn(stage) {
+  return `
+    <article class="test-stage-column" id="test-stage-${escapeHtml(stage.key)}" data-accent="${escapeHtml(stage.accent)}">
+      <header class="test-stage-head">
+        <div>
+          <p class="module-kicker">${escapeHtml(stage.label)}</p>
+          <strong>${stage.rows.length} ligne${stage.rows.length > 1 ? "s" : ""}</strong>
+        </div>
+        <span class="test-stage-count">${stage.rows.length}</span>
+      </header>
+      <div class="test-stage-body">
+        ${stage.rows.length ? stage.rows.map(renderTestPlanningCard).join("") : `<div class="empty-state">Aucune ligne.</div>`}
+      </div>
+    </article>
+  `;
+}
+
+function renderTestPlanningCard(item) {
+  const stageIndex = TEST_PLANNING_STAGE_KEYS.indexOf(item.stage);
+  const canGoPrev = stageIndex > 0;
+  const canGoNext = stageIndex < TEST_PLANNING_STAGE_KEYS.length - 1;
+  const stageLabel = TEST_PLANNING_STAGES[stageIndex]?.label ?? "";
+  const stageAccent = TEST_PLANNING_STAGES[stageIndex]?.accent ?? "blue";
+  var createdLabel = "";
+  if (item.createdAt) {
+    var d = new Date(item.createdAt);
+    if (!isNaN(d.getTime())) {
+      createdLabel = String(d.getDate()).padStart(2, "0") + "/" + String(d.getMonth() + 1).padStart(2, "0") + " " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+    }
+  }
+  return `
+    <article class="tp-line" data-test-planning-id="${item.id}" data-accent="${escapeHtml(stageAccent)}" tabindex="0">
+      <span class="tp-accent" data-accent="${escapeHtml(stageAccent)}"></span>
+      <div class="tp-grid">
+        <span class="tp-badge" data-accent="${escapeHtml(stageAccent)}">${escapeHtml(stageLabel)}</span>
+        <span class="tp-type">${escapeHtml(item.clientType || "—")}</span>
+        <strong class="tp-client">${escapeHtml(item.clientName || "Client")}</strong>
+        <span class="tp-family">${escapeHtml(item.family || "—")}</span>
+        <span class="tp-product">${escapeHtml(item.product || "—")}</span>
+        <span class="tp-qty">${escapeHtml(item.quantity ? "×" + item.quantity : "—")}</span>
+        <span class="tp-date">${escapeHtml(item.deliveryDate ? formatDate(item.deliveryDate) : "—")}</span>
+        <span class="tp-status" data-inline-status="${item.id}" title="Cliquer pour changer">${escapeHtml(item.status || stageLabel)}</span>
+        <select class="inline-status-select is-hidden" data-inline-status-sel="${item.id}"><option value="">— État —</option>${renderTestPlanningStatusOptgroups(item.status)}</select>
+        <span class="tp-actions">
+          <button class="pill-button" type="button" data-action="test-planning-prev-stage" data-id="${item.id}" title="Étape précédente" ${canGoPrev ? "" : "disabled"}>←</button>
+          <button class="pill-button" type="button" data-action="test-planning-next-stage" data-id="${item.id}" title="Étape suivante" ${canGoNext ? "" : "disabled"}>→</button>
+          <button class="row-action row-action-subtle is-danger" type="button" data-action="delete-test-planning" data-id="${item.id}" aria-label="Supprimer">×</button>
+        </span>
+      </div>
+      ${item.note ? '<div class="tp-sub"><span class="tp-note">' + escapeHtml(item.note) + '</span></div>' : ""}
+      ${createdLabel ? `<time class="tp-time">${createdLabel}</time>` : ""}
+    </article>
   `;
 }
 
@@ -2956,19 +3361,29 @@ function openSheet(action, options = {}) {
   state.activePurchaseId = action === "editPurchaseItem" ? options.id ?? null : null;
   state.activeWorkshopTaskId = action === "editWorkshopTask" ? options.id ?? null : null;
   state.activeImprovementId = action === "editImprovementItem" ? options.id ?? null : null;
+  state.activeTestPlanningId = action === "editTestPlanningOrder" ? options.id ?? null : null;
   state.activeClientId = action === "editClient" ? options.id ?? null : null;
   refs.sheetDialog.dataset.layout = (
     action === "addDtf" || action === "editDtf" ? "dtf-inline"
       : action === "addOrder" || action === "editOrder" ? "order-inline"
         : action === "addTextileOrder" || action === "editTextileOrder" ? "textile-inline"
-        : action === "addClient" || action === "editClient" ? "client-inline"
+          : action === "addClient" || action === "editClient" ? "client-inline"
+            : action === "addTestPlanningOrder" || action === "editTestPlanningOrder" ? "test-planning-inline"
         : ""
   );
   refs.sheetBody.innerHTML = renderSheetBody(action);
-  restoreSheetDraft(action, options);
+  if (action === "addOrder" || action === "addTestPlanningOrder") {
+    clearSheetDraftByAction(action);
+  } else {
+    restoreSheetDraft(action, options);
+  }
   syncOrderMockupField();
+  syncTestPlanningStageField();
+  syncTestPlanningMockupField();
   syncProofingFields(refs.sheetBody);
-  refs.sheetEyebrow.textContent = sheetEyebrow(action);
+  const eyebrowLabel = sheetEyebrow(action);
+  refs.sheetEyebrow.textContent = eyebrowLabel;
+  refs.sheetEyebrow.hidden = !eyebrowLabel;
   refs.sheetTitle.textContent = primaryLabel(action);
   refs.submitSheetButton.textContent = submitLabel(action);
   refs.sheetDialog.showModal();
@@ -3035,6 +3450,7 @@ function closeSheet() {
   state.activePurchaseId = null;
   state.activeWorkshopTaskId = null;
   state.activeImprovementId = null;
+  state.activeTestPlanningId = null;
   state.activeClientId = null;
 }
 
@@ -3063,6 +3479,19 @@ function renderSheetBody(action) {
     }
 
     return renderOrderForm(order);
+  }
+
+  if (action === "addTestPlanningOrder") {
+    return renderTestPlanningForm();
+  }
+
+  if (action === "editTestPlanningOrder") {
+    const item = db.testPlanningItems.find((entry) => entry.id === state.activeTestPlanningId);
+    if (!item) {
+      return "";
+    }
+
+    return renderTestPlanningForm(item);
   }
 
   if (action === "addDtf") {
@@ -3334,6 +3763,13 @@ function renderClientSuggestionOptions() {
     .join("");
 }
 
+function renderTestPlanningClientSuggestionOptions() {
+  return db.clients
+    .filter((client) => !isSampleClient(client))
+    .map((client) => `<option value="${escapeHtml(String(client.name ?? "").toUpperCase())}"></option>`)
+    .join("");
+}
+
 function primaryClientContact(client) {
   return client?.contacts?.[0] ?? { name: "", role: "", phone: "", email: "" };
 }
@@ -3376,7 +3812,7 @@ function renderOrderProductOptions(selectedProduct = "") {
     ? [current, ...ORDER_PRODUCT_OPTIONS]
     : ORDER_PRODUCT_OPTIONS;
 
-  return renderSelectOptions(options, current || ORDER_PRODUCT_OPTIONS[0]);
+  return renderSelectOptions(["", ...options], current);
 }
 
 function renderOrderAssigneeChoices(selectedAssignee = "") {
@@ -3389,12 +3825,22 @@ function renderOrderAssigneeChoices(selectedAssignee = "") {
   `).join("");
 }
 
+function renderTestPlanningClientTypeChoices(selectedType = "") {
+  const current = String(selectedType ?? "").trim().toUpperCase();
+  return ["PRO", "PERSO"].map((type) => `
+    <label class="team-bubble-choice" aria-label="Client ${type}">
+      <input class="team-bubble-choice-input" type="radio" name="clientType" value="${type}" ${current === type ? "checked" : ""}>
+      <span class="team-bubble ${current === type ? "is-active" : ""}">${type}</span>
+    </label>
+  `).join("");
+}
+
 function canOrderUseMockup(zone) {
-  return Boolean(normalizeOrderZone(zone));
+  return Boolean(String(zone ?? "").trim());
 }
 
 function renderOrderForm(order = null) {
-  const zone = normalizeOrderZone(order?.zone);
+  const zone = String(order?.zone ?? "").trim();
   const showMockupField = canOrderUseMockup(zone);
   return `
     <div class="field-grid order-form-grid">
@@ -3407,12 +3853,12 @@ function renderOrderForm(order = null) {
       <label>
         <span class="field-label">Urgence</span>
         <select class="field-select" name="urgency">
-          ${renderSelectOptions(["Haute", "Moyenne", "Basse"], order?.urgency ?? "Moyenne")}
+          ${renderSelectOptions(["", "Haute", "Moyenne", "Basse"], String(order?.urgency ?? "").trim())}
         </select>
       </label>
       <label>
         <span class="field-label">Client</span>
-        <input class="field-input" name="clientName" type="text" list="clientSuggestions" value="${escapeHtml(orderClientLabel(order))}">
+        <input class="field-input" name="clientName" type="text" list="clientSuggestions" value="${escapeHtml(order ? orderClientLabel(order) : "")}">
       </label>
       <label>
         <span class="field-label">Contact</span>
@@ -3421,12 +3867,12 @@ function renderOrderForm(order = null) {
       <label>
         <span class="field-label">Zone</span>
         <select class="field-select" name="zone">
-          ${renderSelectOptions(ORDER_ZONE_OPTIONS, normalizeOrderZone(order?.zone))}
+          ${renderSelectOptions(["", ...ORDER_ZONE_OPTIONS], zone)}
         </select>
       </label>
       <label>
         <span class="field-label">Quantite</span>
-        <input class="field-input" name="quantity" type="number" min="1" value="${Math.max(1, Number(order?.quantity) || 1)}">
+        <input class="field-input" name="quantity" type="number" min="1" value="${order?.quantity ? escapeHtml(String(order.quantity)) : ""}">
       </label>
       <label>
         <span class="field-label">Livraison</span>
@@ -3455,6 +3901,88 @@ function renderOrderForm(order = null) {
       </label>
     </div>
     <datalist id="clientSuggestions">${renderClientSuggestionOptions()}</datalist>
+  `;
+}
+
+function renderTestPlanningForm(item = null) {
+  const stage = normalizeTestPlanningStage(item?.stage);
+  const stageStatusOptions = testPlanningStatusesForStage(stage);
+  const stageIndex = TEST_PLANNING_STAGE_KEYS.indexOf(stage);
+  const canGoPrev = stageIndex > 0;
+  const canGoNext = stageIndex < TEST_PLANNING_STAGE_KEYS.length - 1;
+  return `
+    <div class="field-grid test-planning-form-grid">
+      <div class="test-planning-form-head">
+        <div>
+          <span class="field-label">Étape</span>
+          <strong data-test-planning-stage-label>${escapeHtml(TEST_PLANNING_STAGES[stageIndex]?.label ?? TEST_PLANNING_STAGES[0].label)}</strong>
+        </div>
+        <div class="test-planning-form-nav">
+          <button class="pill-button" type="button" data-action="test-planning-form-prev-stage" ${canGoPrev ? "" : "disabled"}>← Retour</button>
+          <button class="pill-button" type="button" data-action="test-planning-form-next-stage" ${canGoNext ? "" : "disabled"}>Étape suivante →</button>
+        </div>
+      </div>
+      <label class="test-planning-field-type">
+        <span class="field-label">Type</span>
+        <span class="team-bubble-group" aria-label="Type de client test planning">
+          ${renderTestPlanningClientTypeChoices(item?.clientType)}
+        </span>
+      </label>
+      <label class="test-planning-field-client">
+        <span class="field-label">Client</span>
+        <input class="field-input" name="clientName" type="text" list="testPlanningClientSuggestions" value="${escapeHtml(item?.clientName ?? "")}" placeholder="CLIENT">
+      </label>
+      <label class="test-planning-field-family">
+        <span class="field-label">Famille</span>
+        <input class="field-input" name="family" type="text" list="testPlanningFamilyOptions" value="${escapeHtml(item?.family ?? "")}" placeholder="Famille">
+      </label>
+      <label class="test-planning-field-product">
+        <span class="field-label">Produit</span>
+        <input class="field-input" name="product" type="text" list="testPlanningProductOptions" value="${escapeHtml(item?.product ?? "")}" placeholder="Produit">
+      </label>
+      <label class="test-planning-field-quantity">
+        <span class="field-label">Qté</span>
+        <input class="field-input" name="quantity" type="text" value="${escapeHtml(item?.quantity ?? "")}" placeholder="Qté">
+      </label>
+      <label class="test-planning-field-delivery">
+        <span class="field-label">Date de livraison</span>
+        <input class="field-input" name="deliveryDate" type="date" value="${escapeHtml(item?.deliveryDate ?? "")}">
+      </label>
+      <label class="test-planning-field-mockup-toggle">
+        <span class="field-label">Maquette à faire</span>
+        <span class="checkbox-row">
+          <input name="needsMockup" type="checkbox" ${item?.needsMockup ? "checked" : ""}>
+          <span>Activer</span>
+        </span>
+      </label>
+      <label class="test-planning-field-status">
+        <span class="field-label">État</span>
+        <select class="field-select" name="status">
+          <option value="">— Choisir un état —</option>
+          ${renderTestPlanningStatusOptgroups(item?.status ?? "")}
+        </select>
+      </label>
+      <label class="order-form-note">
+        <span class="field-label">Note</span>
+        <input class="field-input" name="note" type="text" value="${escapeHtml(item?.note ?? "")}" placeholder="Note">
+      </label>
+      <label class="test-planning-field-assignee">
+        <span class="field-label">Assigné</span>
+        <span class="team-bubble-group" aria-label="Assignation test planning">
+          ${renderOrderAssigneeChoices(item?.assignedTo)}
+        </span>
+      </label>
+      <label hidden>
+        <span class="field-label">Étape</span>
+        <select class="field-select" name="stage">
+          ${TEST_PLANNING_STAGES.map((entry) => `<option value="${entry.key}" ${entry.key === stage ? "selected" : ""}>${escapeHtml(entry.label)}</option>`).join("")}
+        </select>
+      </label>
+    </div>
+    <datalist id="testPlanningClientSuggestions">${renderTestPlanningClientSuggestionOptions()}</datalist>
+    <datalist id="testPlanningFamilyOptions">${renderListOptions(testPlanningCombinedOptions("family", TEST_PLANNING_FAMILY_OPTIONS))}</datalist>
+    <datalist id="testPlanningProductOptions">${renderListOptions(testPlanningCombinedOptions("product", TEST_PLANNING_PRODUCT_OPTIONS))}</datalist>
+    <!-- status is now a <select> with optgroups -->
   `;
 }
 
@@ -3920,6 +4448,28 @@ function getVisibleImprovementItems(type) {
   });
 }
 
+function getVisibleTestPlanningItems(stageKey) {
+  return db.testPlanningItems.filter((item) => {
+    if (item.stage !== stageKey) {
+      return false;
+    }
+
+    if (!state.search) {
+      return true;
+    }
+
+    return [
+      item.clientName,
+      item.family,
+      item.product,
+      item.quantity,
+      item.note,
+      item.status,
+      item.mockupStatus
+    ].join(" ").toLowerCase().includes(state.search);
+  });
+}
+
 function duplicateDtfItems(ids) {
   let nextCloneId = nextId(db.dtfRequests, db.dtfRequests.length + 10);
   const clones = db.dtfRequests
@@ -4126,7 +4676,8 @@ function buildSeedDb() {
     textileOrders: injectImportedTextileOrders(deepClone(seed.textileOrders), clients, 0),
     purchaseItems: mergePurchaseDefaults(deepClone(seed.purchaseItems)),
     workshopTasks: mergeWorkshopDefaults(deepClone(seed.workshopTasks)),
-    improvementItems: []
+    improvementItems: [],
+    testPlanningItems: []
   };
 }
 
@@ -4150,7 +4701,8 @@ function normalizeDb(parsed) {
     purchaseItems: mergePurchaseDefaults(Array.isArray(parsed.purchaseItems) ? parsed.purchaseItems : deepClone(seed.purchaseItems)),
     productionItems: Array.isArray(parsed.productionItems) ? parsed.productionItems.map(normalizeProductionItem) : deepClone(seed.productionItems),
     workshopTasks: mergeWorkshopDefaults(Array.isArray(parsed.workshopTasks) ? parsed.workshopTasks : deepClone(seed.workshopTasks)),
-    improvementItems: Array.isArray(parsed.improvementItems) ? parsed.improvementItems.map(normalizeImprovementItem).filter((item) => item.label) : []
+    improvementItems: Array.isArray(parsed.improvementItems) ? parsed.improvementItems.map(normalizeImprovementItem).filter((item) => item.label) : [],
+    testPlanningItems: Array.isArray(parsed.testPlanningItems) ? parsed.testPlanningItems.map(normalizeTestPlanningItem) : []
   };
 }
 
@@ -4493,6 +5045,27 @@ function normalizeImprovementItem(item, index = 0) {
     type: IMPROVEMENT_TYPES.some((entry) => entry.key === type) ? type : "bug",
     label: String(item.label ?? "").trim(),
     createdAt: String(item.createdAt ?? isoToday())
+  };
+}
+
+function normalizeTestPlanningItem(item, index = 0) {
+  const stage = normalizeTestPlanningStage(item.stage);
+  return {
+    id: Number(item.id) || index + 1,
+    clientType: String(item.clientType ?? "").trim().toUpperCase(),
+    clientId: Number(item.clientId) || null,
+    clientName: String(item.clientName ?? "").trim().toUpperCase(),
+    family: String(item.family ?? "").trim().toUpperCase(),
+    product: String(item.product ?? "").trim().toUpperCase(),
+    quantity: String(item.quantity ?? "").trim(),
+    note: String(item.note ?? "").trim(),
+    deliveryDate: String(item.deliveryDate ?? "").trim(),
+    needsMockup: Boolean(item.needsMockup),
+    mockupStatus: String(item.mockupStatus ?? "").trim(),
+    status: String(item.status ?? "").trim(),
+    stage,
+    assignedTo: normalizeImportedAssignee(item.assignedTo),
+    createdAt: String(item.createdAt ?? isoNow())
   };
 }
 
@@ -4978,6 +5551,10 @@ function activeSheetDraftStorageKey() {
     return sheetDraftStorageKey(state.activeSheetAction, state.activeImprovementId);
   }
 
+  if (state.activeSheetAction === "editTestPlanningOrder") {
+    return sheetDraftStorageKey(state.activeSheetAction, state.activeTestPlanningId);
+  }
+
   return sheetDraftStorageKey(state.activeSheetAction);
 }
 
@@ -5174,6 +5751,148 @@ function deadlineCopy(offset) {
   return `${offset}j`;
 }
 
+function normalizeTestPlanningStage(value) {
+  const stage = String(value ?? "").trim();
+  return TEST_PLANNING_STAGE_KEYS.includes(stage) ? stage : TEST_PLANNING_DEFAULT_STAGE;
+}
+
+function syncTestPlanningStageField() {
+  if (!refs.sheetForm) {
+    return;
+  }
+
+  const stageField = refs.sheetForm.elements.namedItem("stage");
+  const statusField = refs.sheetForm.elements.namedItem("status");
+  const stageLabel = refs.sheetForm.querySelector("[data-test-planning-stage-label]");
+  const prevButton = refs.sheetForm.querySelector('[data-action="test-planning-form-prev-stage"]');
+  const nextButton = refs.sheetForm.querySelector('[data-action="test-planning-form-next-stage"]');
+  if (!(stageField instanceof HTMLSelectElement)) {
+    return;
+  }
+
+  const stageIndex = TEST_PLANNING_STAGE_KEYS.indexOf(stageField.value);
+  if (stageLabel) {
+    stageLabel.textContent = TEST_PLANNING_STAGES[stageIndex]?.label ?? TEST_PLANNING_STAGES[0].label;
+  }
+  if (prevButton instanceof HTMLButtonElement) {
+    prevButton.disabled = stageIndex <= 0;
+  }
+  if (nextButton instanceof HTMLButtonElement) {
+    nextButton.disabled = stageIndex >= TEST_PLANNING_STAGE_KEYS.length - 1;
+  }
+}
+
+function shiftTestPlanningSheetStage(direction) {
+  if (!refs.sheetForm) {
+    return;
+  }
+
+  const stageField = refs.sheetForm.elements.namedItem("stage");
+  if (!(stageField instanceof HTMLSelectElement)) {
+    return;
+  }
+
+  const currentIndex = TEST_PLANNING_STAGE_KEYS.indexOf(stageField.value);
+  if (currentIndex === -1) {
+    return;
+  }
+
+  const nextIndex = currentIndex + direction;
+  if (nextIndex < 0 || nextIndex >= TEST_PLANNING_STAGE_KEYS.length) {
+    return;
+  }
+
+  stageField.value = TEST_PLANNING_STAGE_KEYS[nextIndex];
+  const statusField = refs.sheetForm.elements.namedItem("status");
+  if (statusField instanceof HTMLSelectElement) {
+    statusField.value = testPlanningDefaultStatus(stageField.value);
+  }
+  syncTestPlanningStageField();
+  persistSheetDraft();
+}
+
+function syncTestPlanningMockupField() {
+  if (!refs.sheetForm) {
+    return;
+  }
+
+  const toggle = refs.sheetForm.elements.namedItem("needsMockup");
+  const field = refs.sheetForm.elements.namedItem("mockupStatus");
+  if (!(toggle instanceof HTMLInputElement) || !(field instanceof HTMLInputElement)) {
+    return;
+  }
+
+  field.disabled = !toggle.checked;
+  if (!toggle.checked && !field.value.trim()) {
+    field.placeholder = "Non utilisée";
+  } else if (!field.value.trim()) {
+    field.placeholder = "À faire ou OK";
+  }
+}
+
+function testPlanningStatusesForStage(stage) {
+  const config = TEST_PLANNING_STAGES.find((entry) => entry.key === stage);
+  return config ? config.statuses : TEST_PLANNING_STATUS_OPTIONS;
+}
+
+function testPlanningDefaultStatus(stage) {
+  return testPlanningStatusesForStage(stage)[0] || "";
+}
+
+function testPlanningStageForStatus(status) {
+  if (!status) return null;
+  for (var i = 0; i < TEST_PLANNING_STAGES.length; i++) {
+    if (TEST_PLANNING_STAGES[i].statuses.indexOf(status) !== -1) {
+      return TEST_PLANNING_STAGES[i].key;
+    }
+  }
+  return null;
+}
+
+function renderTestPlanningStatusOptgroups(selectedValue) {
+  return TEST_PLANNING_STAGES.map(function(stage) {
+    var opts = stage.statuses.map(function(s) {
+      var sel = s === selectedValue ? " selected" : "";
+      return '<option value="' + escapeHtml(s) + '"' + sel + '>' + escapeHtml(s) + '</option>';
+    }).join("");
+    return '<optgroup label="' + escapeHtml(stage.label) + '">' + opts + '</optgroup>';
+  }).join("");
+}
+
+function handleInlineStatusEvent(sel) {
+  var itemId = Number(sel.dataset.inlineStatusSel);
+  var item = db.testPlanningItems.find(function(e) { return e.id === itemId; });
+  if (!item) return;
+  var newStatus = sel.value;
+  item.status = newStatus;
+  var targetStage = testPlanningStageForStatus(newStatus);
+  if (targetStage && targetStage !== item.stage) {
+    item.stage = targetStage;
+  }
+  item.updatedAt = isoNow();
+  persistDb();
+  requestRender({ header: false, status: false, view: true });
+}
+
+function testPlanningCombinedOptions(key, defaults) {
+  defaults = defaults || [];
+  var values = [];
+  var i;
+  for (i = 0; i < defaults.length; i++) {
+    if (defaults[i] && values.indexOf(defaults[i]) === -1) {
+      values.push(defaults[i]);
+    }
+  }
+  var items = db.testPlanningItems || [];
+  for (i = 0; i < items.length; i++) {
+    var value = String(items[i] && items[i][key] != null ? items[i][key] : "").trim();
+    if (value && values.indexOf(value) === -1) {
+      values.push(value);
+    }
+  }
+  return values;
+}
+
 function normalizeLogoPlacement(value) {
   return String(value ?? "").trim().toUpperCase() === "AR" ? "AR" : "AV";
 }
@@ -5242,10 +5961,12 @@ function countOrdersByStatuses(statuses, collection = db.customerOrders) {
 }
 
 function renderOrderStatusOptions(selectedStatus = ORDER_STATUS_DEFAULT) {
-  return ORDER_STATUS_GROUPS.map((group) => `
+  const current = String(selectedStatus ?? "").trim();
+  const emptyOption = `<option value="" ${current ? "" : "selected"}></option>`;
+  return emptyOption + ORDER_STATUS_GROUPS.map((group) => `
     <optgroup label="${escapeHtml(group.label)}">
       ${group.options.map((status) => `
-        <option value="${escapeHtml(status)}" ${status === selectedStatus ? "selected" : ""}>${escapeHtml(status)}</option>
+        <option value="${escapeHtml(status)}" ${status === current ? "selected" : ""}>${escapeHtml(status)}</option>
       `).join("")}
     </optgroup>
   `).join("");
@@ -5336,6 +6057,14 @@ function parseOrderClient(value) {
   };
 }
 
+function parseTestPlanningClient(value) {
+  const parsed = parseOrderClient(value);
+  return {
+    clientId: parsed.clientId,
+    clientName: String(parsed.clientName ?? "").trim().toUpperCase()
+  };
+}
+
 function normalizeOrderStatus(status) {
   const value = String(status ?? "").trim();
 
@@ -5376,6 +6105,8 @@ function primaryLabel(action) {
     editOrder: "Modifier la commande",
     addDtf: "+ Ajouter une demande",
     editDtf: "Modifier la demande",
+    addTestPlanningOrder: "+ Ajouter une commande",
+    editTestPlanningOrder: "Modifier la commande",
     addTextileOrder: "+ Ajouter une commande",
     editTextileOrder: "Modifier la commande",
     addProductionItem: "+ Ajouter un PRT",
@@ -5395,6 +6126,8 @@ function submitLabel(action) {
     editOrder: "Enregistrer",
     addDtf: "Créer la demande",
     editDtf: "Enregistrer",
+    addTestPlanningOrder: "Créer la commande",
+    editTestPlanningOrder: "Enregistrer",
     addTextileOrder: "Créer la commande",
     editTextileOrder: "Enregistrer",
     addProductionItem: "Ajouter le PRT",
@@ -5414,6 +6147,8 @@ function sheetEyebrow(action) {
     editOrder: "Commandes générales",
     addDtf: "Demande DTF",
     editDtf: "Demande DTF",
+    addTestPlanningOrder: "",
+    editTestPlanningOrder: "",
     addTextileOrder: "Achat Textile",
     editTextileOrder: "Achat Textile",
     addProductionItem: "Production",
