@@ -707,6 +707,22 @@ const state = {
   storageRecoveryMessage: ""
 };
 
+let renderQueued = false;
+let pendingRender = {
+  header: true,
+  status: true,
+  view: true,
+  transition: false
+};
+let remoteRevision = 0;
+let remoteSyncReady = false;
+let remotePollingTimer = null;
+let remoteSaveTimer = null;
+let remoteSaveInFlight = false;
+let pendingRemoteSnapshot = null;
+let lastRemoteErrorAt = 0;
+let remoteBootstrapComplete = false;
+
 const loadResult = loadDb();
 let db = loadResult.data;
 db.teamNotes = normalizeTeamNotes(db.teamNotes);
@@ -736,22 +752,6 @@ const refs = {
   cancelSheetButton: document.querySelector("#cancelSheetButton"),
   toast: document.querySelector("#toast")
 };
-
-let renderQueued = false;
-let pendingRender = {
-  header: true,
-  status: true,
-  view: true,
-  transition: false
-};
-let remoteRevision = 0;
-let remoteSyncReady = false;
-let remotePollingTimer = null;
-let remoteSaveTimer = null;
-let remoteSaveInFlight = false;
-let pendingRemoteSnapshot = null;
-let lastRemoteErrorAt = 0;
-let remoteBootstrapComplete = false;
 const SPELLCHECK_SENTENCE_FIELDS = new Set([
   "label",
   "note",
@@ -1026,22 +1026,6 @@ function bindEvents() {
     var target = event.target;
     var actionNode = target.closest("[data-action]");
     if (!actionNode) return;
-    var action = actionNode.dataset.action;
-    if (action === "test-planning-form-next-stage" || action === "test-planning-form-prev-stage") {
-      var direction = action === "test-planning-form-next-stage" ? 1 : -1;
-      var item = db.testPlanningItems.find(function(e) { return e.id === state.activeTestPlanningId; });
-      if (!item) return;
-      var currentIndex = TEST_PLANNING_STAGE_KEYS.indexOf(item.stage);
-      if (currentIndex === -1) return;
-      var nextIndex = currentIndex + direction;
-      if (nextIndex < 0 || nextIndex >= TEST_PLANNING_STAGE_KEYS.length) return;
-      item.stage = TEST_PLANNING_STAGE_KEYS[nextIndex];
-      item.status = testPlanningDefaultStatus(item.stage);
-      item.updatedAt = isoNow();
-      persistDb();
-      shiftTestPlanningSheetStage(direction);
-      requestRender({ header: false, status: false, view: true });
-    }
   });
 
   refs.viewRoot.addEventListener("click", handleRootClick);
@@ -1146,6 +1130,19 @@ function handleRootClick(event) {
       persistDb();
       requestRender({ header: false, status: true, view: true });
       showToast(shouldCreateDtf ? "Maquette terminee. Demande DTF ajoutee." : "Maquette commande terminee.");
+      return;
+    }
+
+    if (action === "complete-test-planning-mockup") {
+      const tpItem = db.testPlanningItems.find((item) => item.id === id);
+      if (!tpItem) {
+        return;
+      }
+
+      tpItem.mockupCompletedAt = isoNow();
+      persistDb();
+      requestRender({ header: false, status: true, view: true });
+      showToast("Maquette terminée.");
       return;
     }
 
@@ -1283,17 +1280,6 @@ function handleRootClick(event) {
       requestRender({ header: false, status: false, view: true });
       return;
     }
-
-    if (action === "test-planning-form-prev-stage") {
-      shiftTestPlanningSheetStage(-1);
-      return;
-    }
-
-    if (action === "test-planning-form-next-stage") {
-      shiftTestPlanningSheetStage(1);
-      return;
-    }
-
 
     if (action === "increase-production-quantity") {
       const item = db.productionItems.find((entry) => entry.id === id);
@@ -1720,25 +1706,21 @@ function handleSheetDraftInput(event) {
     syncOrderMockupField();
   }
 
-  if (target?.name === "stage") {
+  if (target?.name === "stage" && target instanceof HTMLSelectElement && (state.activeSheetAction === "addTestPlanningOrder" || state.activeSheetAction === "editTestPlanningOrder")) {
+    var statusField = refs.sheetForm?.elements.namedItem("status");
+    if (statusField instanceof HTMLSelectElement) {
+      statusField.value = testPlanningDefaultStatus(target.value);
+    }
     syncTestPlanningStageField();
   }
 
-  if (target?.name === "status" && target instanceof HTMLSelectElement && state.activeSheetAction === "editTestPlanningOrder") {
+  if (target?.name === "status" && target instanceof HTMLSelectElement && (state.activeSheetAction === "editTestPlanningOrder" || state.activeSheetAction === "addTestPlanningOrder")) {
     var newStatus = target.value;
     var targetStage = testPlanningStageForStatus(newStatus);
     if (targetStage) {
       var stageField = refs.sheetForm?.elements.namedItem("stage");
       if (stageField instanceof HTMLSelectElement && stageField.value !== targetStage) {
         stageField.value = targetStage;
-        var item = db.testPlanningItems.find(function(e) { return e.id === state.activeTestPlanningId; });
-        if (item) {
-          item.stage = targetStage;
-          item.status = newStatus;
-          item.updatedAt = isoNow();
-          persistDb();
-          requestRender({ header: false, status: false, view: true });
-        }
         syncTestPlanningStageField();
       }
     }
@@ -2351,6 +2333,7 @@ function handleSheetSubmit(event) {
       deliveryDate: String(formData.get("deliveryDate") ?? "").trim(),
       needsMockup: formData.get("needsMockup") === "on",
       mockupStatus: String(formData.get("mockupStatus") ?? "").trim(),
+      mockupCompletedAt: "",
       status: String(formData.get("status") ?? "").trim(),
       stage: normalizeTestPlanningStage(formData.get("stage")),
       assignedTo: normalizeImportedAssignee(formData.get("assignedTo")),
@@ -2383,6 +2366,11 @@ function handleSheetSubmit(event) {
     item.deliveryDate = String(formData.get("deliveryDate") ?? "").trim();
     item.needsMockup = formData.get("needsMockup") === "on";
     item.mockupStatus = String(formData.get("mockupStatus") ?? "").trim();
+    if (item.needsMockup && item.mockupCompletedAt) {
+      // keep mockupCompletedAt
+    } else if (!item.needsMockup) {
+      item.mockupCompletedAt = "";
+    }
     item.status = String(formData.get("status") ?? "").trim();
     item.stage = normalizeTestPlanningStage(formData.get("stage"));
     item.assignedTo = normalizeImportedAssignee(formData.get("assignedTo"));
@@ -2555,7 +2543,7 @@ function renderTestPlanningView() {
       .filter((item) => {
         if (item.stage !== activeStage) return false;
         if (!state.search) return true;
-        return [item.clientName, item.family, item.product, item.quantity, item.note, item.status, item.mockupStatus]
+        return [item.clientName, item.family, item.product, item.quantity, item.note, item.status, item.mockupStatus || ""]
           .join(" ").toLowerCase().includes(state.search);
       })
       .slice()
@@ -2567,7 +2555,7 @@ function renderTestPlanningView() {
     const allItems = db.testPlanningItems
       .filter((item) => {
         if (!state.search) return true;
-        return [item.clientName, item.family, item.product, item.quantity, item.note, item.status, item.mockupStatus]
+        return [item.clientName, item.family, item.product, item.quantity, item.note, item.status, item.mockupStatus || ""]
           .join(" ").toLowerCase().includes(state.search);
       })
       .slice()
@@ -2582,7 +2570,7 @@ function renderTestPlanningView() {
       <section class="test-planning-steps">
         <button class="test-step-chip ${!activeStage ? "is-active" : ""}" type="button" data-test-stage-jump="__recent__" data-accent="blue">
           <span>Toutes</span>
-          <strong>${db.testPlanningItems.length}</strong>
+          <strong>${sections.reduce((sum, s) => sum + s.rows.length, 0)}</strong>
         </button>
         ${sections.map(renderTestPlanningStepSummary).join("")}
       </section>
@@ -2631,8 +2619,14 @@ function renderTestPlanningCard(item) {
       createdLabel = String(d.getDate()).padStart(2, "0") + "/" + String(d.getMonth() + 1).padStart(2, "0") + " " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
     }
   }
+  const mockupTag = item.needsMockup && !item.mockupCompletedAt
+    ? '<span class="tp-mockup-corner">🎨</span>'
+    : item.needsMockup && item.mockupCompletedAt
+      ? '<span class="tp-mockup-corner is-done">✓</span>'
+      : "";
   return `
     <article class="tp-line" data-test-planning-id="${item.id}" data-accent="${escapeHtml(stageAccent)}" tabindex="0">
+      ${mockupTag}
       <span class="tp-accent" data-accent="${escapeHtml(stageAccent)}"></span>
       <div class="tp-grid">
         <span class="tp-badge" data-accent="${escapeHtml(stageAccent)}">${escapeHtml(stageLabel)}</span>
@@ -3027,13 +3021,16 @@ function renderMockupsView() {
 
 function renderMockupRow(item) {
   const isOrder = item.kind === "order";
-  const sourceLabel = isOrder ? "Commande" : "DTF";
+  const isTestPlanning = item.kind === "testPlanning";
+  const sourceLabel = isOrder ? "Commande" : isTestPlanning ? "Planning" : "DTF";
+  const zoneLabel = item.zone || (isOrder ? "Autre" : isTestPlanning ? "Test planning" : "DTF");
+  const completeAction = isOrder ? "complete-order-mockup" : isTestPlanning ? "complete-test-planning-mockup" : "complete-dtf-mockup";
   return `
-    <article class="order-card order-card-line" data-zone="${escapeHtml(isOrder ? item.zone || "Autre" : "DTF")}">
+    <article class="order-card order-card-line" data-zone="${escapeHtml(zoneLabel)}">
       <div class="order-line-primary">
         <div class="order-line-summary order-line-primary-main">
           <strong class="order-client-name">${escapeHtml(item.client)}</strong>
-          <span class="order-zone-chip" data-zone="${escapeHtml(isOrder ? item.zone || "Autre" : "DTF")}">${escapeHtml(isOrder ? item.zone || "Autre" : "DTF")}</span>
+          <span class="order-zone-chip" data-zone="${escapeHtml(zoneLabel)}">${escapeHtml(zoneLabel)}</span>
           <span class="order-type-badge" data-tone="pro">${sourceLabel}</span>
           ${item.quantity > 0 ? `<span class="order-qty-chip">${item.quantity}</span>` : ""}
           ${item.meta ? `<span class="order-inline-copy">${escapeHtml(item.meta)}</span>` : ""}
@@ -3049,7 +3046,7 @@ function renderMockupRow(item) {
       </div>
       <div class="order-card-controls order-card-controls-line">
         <div class="order-controls-inline">
-          <button class="button button-primary" type="button" data-action="${isOrder ? "complete-order-mockup" : "complete-dtf-mockup"}" data-id="${item.id}">
+          <button class="button button-primary" type="button" data-action="${completeAction}" data-id="${item.id}">
             Maquette faite
           </button>
         </div>
@@ -3906,22 +3903,14 @@ function renderOrderForm(order = null) {
 
 function renderTestPlanningForm(item = null) {
   const stage = normalizeTestPlanningStage(item?.stage);
-  const stageStatusOptions = testPlanningStatusesForStage(stage);
-  const stageIndex = TEST_PLANNING_STAGE_KEYS.indexOf(stage);
-  const canGoPrev = stageIndex > 0;
-  const canGoNext = stageIndex < TEST_PLANNING_STAGE_KEYS.length - 1;
   return `
+    <div class="test-planning-field-stage">
+      <span class="field-label">Étape</span>
+      <select class="field-select" name="stage">
+        ${TEST_PLANNING_STAGES.map((entry) => `<option value="${entry.key}" ${entry.key === stage ? "selected" : ""}>${escapeHtml(entry.label)}</option>`).join("")}
+      </select>
+    </div>
     <div class="field-grid test-planning-form-grid">
-      <div class="test-planning-form-head">
-        <div>
-          <span class="field-label">Étape</span>
-          <strong data-test-planning-stage-label>${escapeHtml(TEST_PLANNING_STAGES[stageIndex]?.label ?? TEST_PLANNING_STAGES[0].label)}</strong>
-        </div>
-        <div class="test-planning-form-nav">
-          <button class="pill-button" type="button" data-action="test-planning-form-prev-stage" ${canGoPrev ? "" : "disabled"}>← Retour</button>
-          <button class="pill-button" type="button" data-action="test-planning-form-next-stage" ${canGoNext ? "" : "disabled"}>Étape suivante →</button>
-        </div>
-      </div>
       <label class="test-planning-field-type">
         <span class="field-label">Type</span>
         <span class="team-bubble-group" aria-label="Type de client test planning">
@@ -3971,12 +3960,6 @@ function renderTestPlanningForm(item = null) {
         <span class="team-bubble-group" aria-label="Assignation test planning">
           ${renderOrderAssigneeChoices(item?.assignedTo)}
         </span>
-      </label>
-      <label hidden>
-        <span class="field-label">Étape</span>
-        <select class="field-select" name="stage">
-          ${TEST_PLANNING_STAGES.map((entry) => `<option value="${entry.key}" ${entry.key === stage ? "selected" : ""}>${escapeHtml(entry.label)}</option>`).join("")}
-        </select>
       </label>
     </div>
     <datalist id="testPlanningClientSuggestions">${renderTestPlanningClientSuggestionOptions()}</datalist>
@@ -4344,6 +4327,29 @@ function getVisibleMockupItems() {
     rows.push(row);
   });
 
+  db.testPlanningItems.forEach((item) => {
+    if (!item.needsMockup || item.mockupCompletedAt) {
+      return;
+    }
+
+    const row = {
+      kind: "testPlanning",
+      id: item.id,
+      client: item.clientName || "Client",
+      title: [item.family, item.product].filter(Boolean).join(" · ") || "Test planning",
+      meta: item.note || "",
+      quantity: item.quantity ? Number(item.quantity) : 0,
+      zone: "Test planning",
+      date: item.deliveryDate || (item.createdAt ? item.createdAt.slice(0, 10) : "")
+    };
+
+    if (state.search && !mockupSearchHaystack(row).includes(state.search)) {
+      return;
+    }
+
+    rows.push(row);
+  });
+
   return rows.sort((left, right) => {
     const leftTime = mockupSortTime(left.date);
     const rightTime = mockupSortTime(right.date);
@@ -4465,7 +4471,7 @@ function getVisibleTestPlanningItems(stageKey) {
       item.quantity,
       item.note,
       item.status,
-      item.mockupStatus
+      item.mockupStatus || ""
     ].join(" ").toLowerCase().includes(state.search);
   });
 }
@@ -5062,6 +5068,7 @@ function normalizeTestPlanningItem(item, index = 0) {
     deliveryDate: String(item.deliveryDate ?? "").trim(),
     needsMockup: Boolean(item.needsMockup),
     mockupStatus: String(item.mockupStatus ?? "").trim(),
+    mockupCompletedAt: String(item.mockupCompletedAt ?? ""),
     status: String(item.status ?? "").trim(),
     stage,
     assignedTo: normalizeImportedAssignee(item.assignedTo),
@@ -5763,22 +5770,13 @@ function syncTestPlanningStageField() {
 
   const stageField = refs.sheetForm.elements.namedItem("stage");
   const statusField = refs.sheetForm.elements.namedItem("status");
-  const stageLabel = refs.sheetForm.querySelector("[data-test-planning-stage-label]");
-  const prevButton = refs.sheetForm.querySelector('[data-action="test-planning-form-prev-stage"]');
-  const nextButton = refs.sheetForm.querySelector('[data-action="test-planning-form-next-stage"]');
   if (!(stageField instanceof HTMLSelectElement)) {
     return;
   }
 
-  const stageIndex = TEST_PLANNING_STAGE_KEYS.indexOf(stageField.value);
-  if (stageLabel) {
-    stageLabel.textContent = TEST_PLANNING_STAGES[stageIndex]?.label ?? TEST_PLANNING_STAGES[0].label;
-  }
-  if (prevButton instanceof HTMLButtonElement) {
-    prevButton.disabled = stageIndex <= 0;
-  }
-  if (nextButton instanceof HTMLButtonElement) {
-    nextButton.disabled = stageIndex >= TEST_PLANNING_STAGE_KEYS.length - 1;
+  if (statusField instanceof HTMLSelectElement) {
+    const currentStatus = statusField.value;
+    statusField.innerHTML = '<option value="">— Choisir un état —</option>' + renderTestPlanningStatusOptgroups(currentStatus);
   }
 }
 
@@ -5822,7 +5820,11 @@ function syncTestPlanningMockupField() {
     return;
   }
 
+  const fieldLabel = field.closest("label");
   field.disabled = !toggle.checked;
+  if (fieldLabel) {
+    fieldLabel.hidden = !toggle.checked;
+  }
   if (!toggle.checked && !field.value.trim()) {
     field.placeholder = "Non utilisée";
   } else if (!field.value.trim()) {
@@ -6179,7 +6181,17 @@ function formatDate(value) {
   if (!value) {
     return "—";
   }
-  return new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short" }).format(new Date(`${value}T00:00:00`));
+  try {
+    const raw = String(value).trim();
+    const dateStr = raw.includes("T") ? raw : `${raw}T00:00:00`;
+    const date = new Date(dateStr);
+    if (Number.isNaN(date.getTime())) {
+      return "—";
+    }
+    return new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short" }).format(date);
+  } catch (e) {
+    return "—";
+  }
 }
 
 function formatOrderCreatedAt(value) {
