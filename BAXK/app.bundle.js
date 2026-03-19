@@ -2337,12 +2337,13 @@
       bodyHtml = filteredItems.length ? '<section class="test-planning-board">'.concat(filteredItems.map(renderTestPlanningCard).join(""), "</section>") : '<div class="empty-state">Aucune commande pour cette s\xE9lection.</div>';
     } else {
       const allItems = db.testPlanningItems.filter((item) => {
+        if (item.stage === "archived") return false;
         if (!state.search) return true;
         return [item.clientName, item.family, item.product, item.quantity, item.note, item.status, item.mockupStatus || ""].join(" ").toLowerCase().includes(state.search);
       }).slice().sort((a, b) => (b.id || 0) - (a.id || 0));
       bodyHtml = allItems.length ? '<section class="test-planning-board">'.concat(allItems.map(renderTestPlanningCard).join(""), "</section>") : '<div class="empty-state">Aucune commande.</div>';
     }
-    return '\n    <section class="module-layout">\n      <section class="test-planning-steps">\n        <button class="test-step-chip '.concat(!activeStage ? "is-active" : "", '" type="button" data-test-stage-jump="__recent__" data-accent="blue">\n          <span>Toutes</span>\n          <strong>').concat(sections.reduce((sum, s) => sum + s.rows.length, 0), '</strong>\n        </button>\n        <button class="test-step-chip ').concat(activeStage === "__urgent__" ? "is-active" : "", '" type="button" data-test-stage-jump="__urgent__" data-accent="red">\n          <span>Urgence</span>\n          <strong>').concat(urgentItems.length, "</strong>\n        </button>\n        ").concat(sections.map(renderTestPlanningStepSummary).join(""), "\n      </section>\n      ").concat(bodyHtml, "\n    </section>\n  ");
+    return '\n    <section class="module-layout">\n      <section class="test-planning-steps">\n        <button class="test-step-chip '.concat(!activeStage ? "is-active" : "", '" type="button" data-test-stage-jump="__recent__" data-accent="blue">\n          <span>Toutes</span>\n          <strong>').concat(sections.filter((s) => s.key !== "archived").reduce((sum, s) => sum + s.rows.length, 0), '</strong>\n        </button>\n        <button class="test-step-chip ').concat(activeStage === "__urgent__" ? "is-active" : "", '" type="button" data-test-stage-jump="__urgent__" data-accent="red">\n          <span>Urgence</span>\n          <strong>').concat(urgentItems.length, "</strong>\n        </button>\n        ").concat(sections.map(renderTestPlanningStepSummary).join(""), "\n      </section>\n      ").concat(bodyHtml, "\n    </section>\n  ");
   }
   function renderTestPlanningStepSummary(stage) {
     const isActive = state.activeTestStage === stage.key;

@@ -2620,6 +2620,7 @@ function renderTestPlanningView() {
   } else {
     const allItems = db.testPlanningItems
       .filter((item) => {
+        if (item.stage === "archived") return false;
         if (!state.search) return true;
         return [item.clientName, item.family, item.product, item.quantity, item.note, item.status, item.mockupStatus || ""]
           .join(" ").toLowerCase().includes(state.search);
@@ -2636,7 +2637,7 @@ function renderTestPlanningView() {
       <section class="test-planning-steps">
         <button class="test-step-chip ${!activeStage ? "is-active" : ""}" type="button" data-test-stage-jump="__recent__" data-accent="blue">
           <span>Toutes</span>
-          <strong>${sections.reduce((sum, s) => sum + s.rows.length, 0)}</strong>
+          <strong>${sections.filter(s => s.key !== "archived").reduce((sum, s) => sum + s.rows.length, 0)}</strong>
         </button>
         <button class="test-step-chip ${activeStage === "__urgent__" ? "is-active" : ""}" type="button" data-test-stage-jump="__urgent__" data-accent="red">
           <span>Urgence</span>
