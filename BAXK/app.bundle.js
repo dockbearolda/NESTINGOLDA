@@ -136,7 +136,7 @@
     {
       key: "devis",
       label: "2. Devis en cours",
-      shortLabel: "Devis",
+      shortLabel: "Devis en cours",
       accent: "violet",
       statuses: ["Devis en attente validation", "Modification devis", "Manque information", "Maquette \xE0 faire"]
     },
@@ -1149,7 +1149,10 @@
         return;
       }
       if (action === "delete-purchase") {
-        db.purchaseItems = db.purchaseItems.filter((item) => item.id !== id);
+        const item = db.purchaseItems.find((item2) => item2.id === id);
+        if (item) {
+          item.deletedAt = (/* @__PURE__ */ new Date()).toISOString();
+        }
         persistDb();
         requestRender();
         showToast("Article supprime.");
@@ -1222,6 +1225,25 @@
         item.updatedAt = isoNow();
         persistDb();
         requestRender({ header: false, status: true, view: true });
+        return;
+      }
+      if (action === "duplicate-production-item") {
+        const source = db.productionItems.find((item) => item.id === id);
+        if (source) {
+          const clone = {
+            ...source,
+            id: nextId(db.productionItems),
+            status: PRODUCTION_STATUS_DEFAULT,
+            errorNote: "",
+            prints: source.prints.map((p, i) => ({ id: i + 1, checked: false })),
+            createdAt: (/* @__PURE__ */ new Date()).toISOString(),
+            updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+          };
+          db.productionItems.unshift(clone);
+          persistDb();
+          requestRender({ header: false, status: true, view: true });
+          showToast("PRT duplique.");
+        }
         return;
       }
       if (action === "delete-production-item") {
@@ -1775,7 +1797,7 @@
     }
   }
   function handleSheetSubmit(event) {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p, _q, _r, _s, _t, _u, _v, _w, _x, _y, _z, _A, _B, _C, _D, _E, _F, _G, _H, _I, _J, _K, _L, _M, _N, _O, _P, _Q, _R, _S, _T, _U, _V, _W, _X, _Y, _Z, __, _$, _aa, _ba, _ca, _da, _ea, _fa, _ga, _ha, _ia, _ja, _ka, _la, _ma, _na, _oa, _pa, _qa, _ra, _sa, _ta, _ua, _va, _wa, _xa, _ya, _za, _Aa, _Ba, _Ca, _Da, _Ea, _Fa, _Ga, _Ha, _Ia, _Ja, _Ka, _La, _Ma, _Na, _Oa, _Pa;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p, _q, _r, _s, _t, _u, _v, _w, _x, _y, _z, _A, _B, _C, _D, _E, _F, _G, _H, _I, _J, _K, _L, _M, _N, _O, _P, _Q, _R, _S, _T, _U, _V, _W, _X, _Y, _Z, __, _$, _aa, _ba, _ca, _da, _ea, _fa, _ga, _ha, _ia, _ja, _ka, _la, _ma, _na, _oa, _pa, _qa, _ra, _sa, _ta, _ua, _va, _wa, _xa, _ya, _za, _Aa, _Ba, _Ca, _Da, _Ea, _Fa, _Ga, _Ha, _Ia, _Ja, _Ka, _La, _Ma, _Na, _Oa, _Pa, _Qa, _Ra, _Sa, _Ta, _Ua;
     event.preventDefault();
     const formData = new FormData(refs.sheetForm);
     if (state.activeSheetAction === "addClient") {
@@ -1904,6 +1926,7 @@
         technicalNote: String((_J = formData.get("technicalNote")) != null ? _J : "").trim(),
         quantity: Math.max(1, Number((_K = formData.get("quantity")) != null ? _K : 1) || 1),
         needsMockup: formData.get("needsMockup") === "on",
+        clientType: String((_L = formData.get("clientType")) != null ? _L : "perso"),
         mockupCompletedAt: "",
         status: "draft",
         archivedAt: "",
@@ -1924,15 +1947,16 @@
       const client = parseOrderClient(formData.get("clientName"));
       dtf.clientId = client.clientId;
       dtf.clientName = client.clientName;
-      dtf.dimensions = String((_L = formData.get("dimensions")) != null ? _L : "").trim();
+      dtf.dimensions = String((_M = formData.get("dimensions")) != null ? _M : "").trim();
       dtf.logoPlacement = inferLogoPlacement(formData.get("designName"), dtf.logoPlacement);
-      dtf.designName = String((_M = formData.get("designName")) != null ? _M : "").trim();
-      dtf.size = String((_N = formData.get("size")) != null ? _N : "").trim();
-      dtf.color = String((_O = formData.get("color")) != null ? _O : "").trim();
-      dtf.technicalNote = String((_P = formData.get("technicalNote")) != null ? _P : "").trim();
-      dtf.quantity = Math.max(1, Number((_Q = formData.get("quantity")) != null ? _Q : 1) || 1);
+      dtf.designName = String((_N = formData.get("designName")) != null ? _N : "").trim();
+      dtf.size = String((_O = formData.get("size")) != null ? _O : "").trim();
+      dtf.color = String((_P = formData.get("color")) != null ? _P : "").trim();
+      dtf.technicalNote = String((_Q = formData.get("technicalNote")) != null ? _Q : "").trim();
+      dtf.quantity = Math.max(1, Number((_R = formData.get("quantity")) != null ? _R : 1) || 1);
       dtf.needsMockup = formData.get("needsMockup") === "on";
-      dtf.mockupCompletedAt = dtf.needsMockup ? "" : String((_R = dtf.mockupCompletedAt) != null ? _R : "");
+      dtf.clientType = String((_S = formData.get("clientType")) != null ? _S : "perso");
+      dtf.mockupCompletedAt = dtf.needsMockup ? "" : String((_T = dtf.mockupCompletedAt) != null ? _T : "");
       persistDb();
       clearSheetDraftByAction("editDtf", dtf.id);
       closeSheet();
@@ -1946,17 +1970,17 @@
         id: nextId(db.textileOrders),
         clientId: client.clientId,
         clientName: client.clientName,
-        supplier: String((_S = formData.get("supplier")) != null ? _S : "").trim(),
-        brand: String((_T = formData.get("brand")) != null ? _T : "").trim(),
-        gender: String((_U = formData.get("gender")) != null ? _U : "").trim(),
-        designation: String((_V = formData.get("designation")) != null ? _V : "").trim(),
-        catalogReference: String((_W = formData.get("catalogReference")) != null ? _W : "").trim(),
-        color: String((_X = formData.get("color")) != null ? _X : "").trim(),
-        size: String((_Y = formData.get("size")) != null ? _Y : "").trim(),
-        quantity: Math.max(1, Number((_Z = formData.get("quantity")) != null ? _Z : 1) || 1),
-        deliveryStatus: String((__ = formData.get("deliveryStatus")) != null ? __ : "pending"),
-        sessionLabel: String((_$ = formData.get("sessionLabel")) != null ? _$ : "").trim(),
-        expectedDate: String((_aa = formData.get("expectedDate")) != null ? _aa : isoToday()),
+        supplier: String((_U = formData.get("supplier")) != null ? _U : "").trim(),
+        brand: String((_V = formData.get("brand")) != null ? _V : "").trim(),
+        gender: String((_W = formData.get("gender")) != null ? _W : "").trim(),
+        designation: String((_X = formData.get("designation")) != null ? _X : "").trim(),
+        catalogReference: String((_Y = formData.get("catalogReference")) != null ? _Y : "").trim(),
+        color: String((_Z = formData.get("color")) != null ? _Z : "").trim(),
+        size: String((__ = formData.get("size")) != null ? __ : "").trim(),
+        quantity: Math.max(1, Number((_$ = formData.get("quantity")) != null ? _$ : 1) || 1),
+        deliveryStatus: String((_aa = formData.get("deliveryStatus")) != null ? _aa : "pending"),
+        sessionLabel: String((_ba = formData.get("sessionLabel")) != null ? _ba : "").trim(),
+        expectedDate: String((_ca = formData.get("expectedDate")) != null ? _ca : isoToday()),
         archivedAt: "",
         createdAt: isoToday()
       });
@@ -1977,17 +2001,17 @@
       const client = parseOrderClient(formData.get("clientName"));
       textileOrder.clientId = client.clientId;
       textileOrder.clientName = client.clientName;
-      textileOrder.supplier = String((_ba = formData.get("supplier")) != null ? _ba : "").trim();
-      textileOrder.brand = String((_ca = formData.get("brand")) != null ? _ca : "").trim();
-      textileOrder.gender = String((_da = formData.get("gender")) != null ? _da : "").trim();
-      textileOrder.designation = String((_ea = formData.get("designation")) != null ? _ea : "").trim();
-      textileOrder.catalogReference = String((_fa = formData.get("catalogReference")) != null ? _fa : "").trim();
-      textileOrder.color = String((_ga = formData.get("color")) != null ? _ga : "").trim();
-      textileOrder.size = String((_ha = formData.get("size")) != null ? _ha : "").trim();
-      textileOrder.quantity = Math.max(1, Number((_ia = formData.get("quantity")) != null ? _ia : 1) || 1);
-      textileOrder.deliveryStatus = String((_ja = formData.get("deliveryStatus")) != null ? _ja : "pending");
-      textileOrder.sessionLabel = String((_ka = formData.get("sessionLabel")) != null ? _ka : "").trim();
-      textileOrder.expectedDate = String((_la = formData.get("expectedDate")) != null ? _la : isoToday());
+      textileOrder.supplier = String((_da = formData.get("supplier")) != null ? _da : "").trim();
+      textileOrder.brand = String((_ea = formData.get("brand")) != null ? _ea : "").trim();
+      textileOrder.gender = String((_fa = formData.get("gender")) != null ? _fa : "").trim();
+      textileOrder.designation = String((_ga = formData.get("designation")) != null ? _ga : "").trim();
+      textileOrder.catalogReference = String((_ha = formData.get("catalogReference")) != null ? _ha : "").trim();
+      textileOrder.color = String((_ia = formData.get("color")) != null ? _ia : "").trim();
+      textileOrder.size = String((_ja = formData.get("size")) != null ? _ja : "").trim();
+      textileOrder.quantity = Math.max(1, Number((_ka = formData.get("quantity")) != null ? _ka : 1) || 1);
+      textileOrder.deliveryStatus = String((_la = formData.get("deliveryStatus")) != null ? _la : "pending");
+      textileOrder.sessionLabel = String((_ma = formData.get("sessionLabel")) != null ? _ma : "").trim();
+      textileOrder.expectedDate = String((_na = formData.get("expectedDate")) != null ? _na : isoToday());
       persistDb();
       clearSheetDraftByAction("editTextileOrder", textileOrder.id);
       closeSheet();
@@ -2002,9 +2026,9 @@
         showToast("Article introuvable.");
         return;
       }
-      purchaseItem.zone = String((_ma = formData.get("zone")) != null ? _ma : "SXM");
-      purchaseItem.label = String((_na = formData.get("label")) != null ? _na : "").trim();
-      purchaseItem.quantity = Math.max(1, Number((_oa = formData.get("quantity")) != null ? _oa : 1) || 1);
+      purchaseItem.zone = String((_oa = formData.get("zone")) != null ? _oa : "SXM");
+      purchaseItem.label = String((_pa = formData.get("label")) != null ? _pa : "").trim();
+      purchaseItem.quantity = Math.max(1, Number((_qa = formData.get("quantity")) != null ? _qa : 1) || 1);
       persistDb();
       clearSheetDraftByAction("editPurchaseItem", purchaseItem.id);
       closeSheet();
@@ -2019,8 +2043,8 @@
         showToast("Tache introuvable.");
         return;
       }
-      workshopTask.group = String((_pa = formData.get("group")) != null ? _pa : "standard");
-      workshopTask.label = String((_qa = formData.get("label")) != null ? _qa : "").trim();
+      workshopTask.group = String((_ra = formData.get("group")) != null ? _ra : "standard");
+      workshopTask.label = String((_sa = formData.get("label")) != null ? _sa : "").trim();
       workshopTask.recurring = formData.get("recurring") === "on";
       persistDb();
       clearSheetDraftByAction("editWorkshopTask", workshopTask.id);
@@ -2030,10 +2054,13 @@
       return;
     }
     if (state.activeSheetAction === "addProductionItem") {
-      const quantity = Math.max(1, Number((_ra = formData.get("quantity")) != null ? _ra : 1) || 1);
+      const quantity = Math.max(1, Number((_ta = formData.get("quantity")) != null ? _ta : 1) || 1);
       db.productionItems.unshift({
         id: nextId(db.productionItems),
-        label: String((_sa = formData.get("label")) != null ? _sa : "").trim(),
+        clientType: String((_ua = formData.get("clientType")) != null ? _ua : "perso"),
+        label: String((_va = formData.get("label")) != null ? _va : "").trim(),
+        reference: String((_wa = formData.get("reference")) != null ? _wa : "").trim(),
+        size: String((_xa = formData.get("size")) != null ? _xa : "").trim(),
         prints: Array.from({ length: quantity }, (_, index) => ({
           id: index + 1,
           checked: false
@@ -2053,9 +2080,9 @@
     if (state.activeSheetAction === "addPurchaseItem") {
       db.purchaseItems.unshift({
         id: nextId(db.purchaseItems),
-        zone: String((_ta = formData.get("zone")) != null ? _ta : "SXM"),
-        label: String((_ua = formData.get("label")) != null ? _ua : "").trim(),
-        quantity: Math.max(1, Number((_va = formData.get("quantity")) != null ? _va : 1) || 1),
+        zone: String((_ya = formData.get("zone")) != null ? _ya : "SXM"),
+        label: String((_za = formData.get("label")) != null ? _za : "").trim(),
+        quantity: Math.max(1, Number((_Aa = formData.get("quantity")) != null ? _Aa : 1) || 1),
         checked: false,
         createdAt: isoToday()
       });
@@ -2069,8 +2096,8 @@
     if (state.activeSheetAction === "addWorkshopTask") {
       db.workshopTasks.unshift({
         id: nextId(db.workshopTasks),
-        group: String((_wa = formData.get("group")) != null ? _wa : "standard"),
-        label: String((_xa = formData.get("label")) != null ? _xa : "").trim(),
+        group: String((_Ba = formData.get("group")) != null ? _Ba : "standard"),
+        label: String((_Ca = formData.get("label")) != null ? _Ca : "").trim(),
         checked: false,
         recurring: formData.get("recurring") === "on",
         createdAt: isoToday()
@@ -2089,8 +2116,8 @@
         showToast("Remontee introuvable.");
         return;
       }
-      improvementItem.type = String((_ya = formData.get("type")) != null ? _ya : "bug");
-      improvementItem.label = String((_za = formData.get("label")) != null ? _za : "").trim();
+      improvementItem.type = String((_Da = formData.get("type")) != null ? _Da : "bug");
+      improvementItem.label = String((_Ea = formData.get("label")) != null ? _Ea : "").trim();
       persistDb();
       clearSheetDraftByAction("editImprovementItem", improvementItem.id);
       closeSheet();
@@ -2102,18 +2129,18 @@
       const client = parseTestPlanningClient(formData.get("clientName"));
       db.testPlanningItems.unshift({
         id: nextId(db.testPlanningItems),
-        clientType: String((_Aa = formData.get("clientType")) != null ? _Aa : "").trim().toUpperCase(),
+        clientType: String((_Fa = formData.get("clientType")) != null ? _Fa : "").trim().toUpperCase(),
         clientId: client.clientId,
         clientName: client.clientName,
-        family: String((_Ba = formData.get("family")) != null ? _Ba : "").trim().toUpperCase(),
-        product: String((_Ca = formData.get("product")) != null ? _Ca : "").trim().toUpperCase(),
-        quantity: String((_Da = formData.get("quantity")) != null ? _Da : "").trim(),
-        note: String((_Ea = formData.get("note")) != null ? _Ea : "").trim(),
-        deliveryDate: String((_Fa = formData.get("deliveryDate")) != null ? _Fa : "").trim(),
+        family: String((_Ga = formData.get("family")) != null ? _Ga : "").trim().toUpperCase(),
+        product: String((_Ha = formData.get("product")) != null ? _Ha : "").trim().toUpperCase(),
+        quantity: String((_Ia = formData.get("quantity")) != null ? _Ia : "").trim(),
+        note: String((_Ja = formData.get("note")) != null ? _Ja : "").trim(),
+        deliveryDate: String((_Ka = formData.get("deliveryDate")) != null ? _Ka : "").trim(),
         needsMockup: formData.get("needsMockup") === "on",
-        mockupStatus: String((_Ga = formData.get("mockupStatus")) != null ? _Ga : "").trim(),
+        mockupStatus: String((_La = formData.get("mockupStatus")) != null ? _La : "").trim(),
         mockupCompletedAt: "",
-        status: String((_Ha = formData.get("status")) != null ? _Ha : "").trim(),
+        status: String((_Ma = formData.get("status")) != null ? _Ma : "").trim(),
         stage: normalizeTestPlanningStage(formData.get("stage")),
         assignedTo: normalizeImportedAssignee(formData.get("assignedTo")),
         createdAt: isoNow()
@@ -2133,21 +2160,21 @@
         return;
       }
       const client = parseTestPlanningClient(formData.get("clientName"));
-      item.clientType = String((_Ia = formData.get("clientType")) != null ? _Ia : "").trim().toUpperCase();
+      item.clientType = String((_Na = formData.get("clientType")) != null ? _Na : "").trim().toUpperCase();
       item.clientId = client.clientId;
       item.clientName = client.clientName;
-      item.family = String((_Ja = formData.get("family")) != null ? _Ja : "").trim().toUpperCase();
-      item.product = String((_Ka = formData.get("product")) != null ? _Ka : "").trim().toUpperCase();
-      item.quantity = String((_La = formData.get("quantity")) != null ? _La : "").trim();
-      item.note = String((_Ma = formData.get("note")) != null ? _Ma : "").trim();
-      item.deliveryDate = String((_Na = formData.get("deliveryDate")) != null ? _Na : "").trim();
+      item.family = String((_Oa = formData.get("family")) != null ? _Oa : "").trim().toUpperCase();
+      item.product = String((_Pa = formData.get("product")) != null ? _Pa : "").trim().toUpperCase();
+      item.quantity = String((_Qa = formData.get("quantity")) != null ? _Qa : "").trim();
+      item.note = String((_Ra = formData.get("note")) != null ? _Ra : "").trim();
+      item.deliveryDate = String((_Sa = formData.get("deliveryDate")) != null ? _Sa : "").trim();
       item.needsMockup = formData.get("needsMockup") === "on";
-      item.mockupStatus = String((_Oa = formData.get("mockupStatus")) != null ? _Oa : "").trim();
+      item.mockupStatus = String((_Ta = formData.get("mockupStatus")) != null ? _Ta : "").trim();
       if (item.needsMockup && item.mockupCompletedAt) {
       } else if (!item.needsMockup) {
         item.mockupCompletedAt = "";
       }
-      item.status = String((_Pa = formData.get("status")) != null ? _Pa : "").trim();
+      item.status = String((_Ua = formData.get("status")) != null ? _Ua : "").trim();
       item.stage = normalizeTestPlanningStage(formData.get("stage"));
       item.assignedTo = normalizeImportedAssignee(formData.get("assignedTo"));
       persistDb();
@@ -2277,14 +2304,31 @@
   function renderPlaceholderView() {
     return '\n    <section class="module-layout">\n      <article class="placeholder-card">\n        <p class="module-kicker">'.concat(escapeHtml(views[state.view].label), "</p>\n        <strong>Module en attente de construction</strong>\n      </article>\n    </section>\n  ");
   }
+  function isUrgentTestPlanningItem(item) {
+    if (!item.deliveryDate) return false;
+    if (item.stage === "facture" || item.stage === "paye" || item.stage === "archived") return false;
+    const today = /* @__PURE__ */ new Date();
+    today.setHours(0, 0, 0, 0);
+    const delivery = /* @__PURE__ */ new Date(item.deliveryDate + "T00:00:00");
+    if (Number.isNaN(delivery.getTime())) return false;
+    const diffDays = Math.floor((delivery - today) / (1e3 * 60 * 60 * 24));
+    return diffDays <= 3;
+  }
   function renderTestPlanningView() {
     const sections = TEST_PLANNING_STAGES.map((stage) => ({
       ...stage,
       rows: getVisibleTestPlanningItems(stage.key)
     }));
+    const urgentItems = db.testPlanningItems.filter((item) => {
+      if (!isUrgentTestPlanningItem(item)) return false;
+      if (!state.search) return true;
+      return [item.clientName, item.family, item.product, item.quantity, item.note, item.status, item.mockupStatus || ""].join(" ").toLowerCase().includes(state.search);
+    }).slice().sort((a, b) => (b.id || 0) - (a.id || 0));
     const activeStage = state.activeTestStage;
     let bodyHtml;
-    if (activeStage) {
+    if (activeStage === "__urgent__") {
+      bodyHtml = urgentItems.length ? '<section class="test-planning-board">'.concat(urgentItems.map(renderTestPlanningCard).join(""), "</section>") : '<div class="empty-state">Aucune commande urgente.</div>';
+    } else if (activeStage) {
       const filteredItems = db.testPlanningItems.filter((item) => {
         if (item.stage !== activeStage) return false;
         if (!state.search) return true;
@@ -2298,7 +2342,7 @@
       }).slice().sort((a, b) => (b.id || 0) - (a.id || 0));
       bodyHtml = allItems.length ? '<section class="test-planning-board">'.concat(allItems.map(renderTestPlanningCard).join(""), "</section>") : '<div class="empty-state">Aucune commande.</div>';
     }
-    return '\n    <section class="module-layout">\n      <section class="test-planning-steps">\n        <button class="test-step-chip '.concat(!activeStage ? "is-active" : "", '" type="button" data-test-stage-jump="__recent__" data-accent="blue">\n          <span>Toutes</span>\n          <strong>').concat(sections.reduce((sum, s) => sum + s.rows.length, 0), "</strong>\n        </button>\n        ").concat(sections.map(renderTestPlanningStepSummary).join(""), "\n      </section>\n      ").concat(bodyHtml, "\n    </section>\n  ");
+    return '\n    <section class="module-layout">\n      <section class="test-planning-steps">\n        <button class="test-step-chip '.concat(!activeStage ? "is-active" : "", '" type="button" data-test-stage-jump="__recent__" data-accent="blue">\n          <span>Toutes</span>\n          <strong>').concat(sections.reduce((sum, s) => sum + s.rows.length, 0), '</strong>\n        </button>\n        <button class="test-step-chip ').concat(activeStage === "__urgent__" ? "is-active" : "", '" type="button" data-test-stage-jump="__urgent__" data-accent="red">\n          <span>Urgence</span>\n          <strong>').concat(urgentItems.length, "</strong>\n        </button>\n        ").concat(sections.map(renderTestPlanningStepSummary).join(""), "\n      </section>\n      ").concat(bodyHtml, "\n    </section>\n  ");
   }
   function renderTestPlanningStepSummary(stage) {
     const isActive = state.activeTestStage === stage.key;
@@ -2364,16 +2408,16 @@
     const archiveCount = db.dtfRequests.filter((item) => item.archivedAt).length;
     const allSelected = rows.length > 0 && rows.every((row) => state.selectedDtfIds.has(row.id));
     const isMockupView = state.view === "dtfMockups";
-    return '\n    <section class="module-layout">\n      <div class="archive-toggle">\n        <div>\n          <strong>'.concat(isMockupView ? "Archives maquettes" : "Archives DTF", '</strong>\n          <p class="archive-copy">').concat(archiveCount, '</p>\n        </div>\n        <div class="archive-actions">\n          <button class="pill-button ').concat(state.showDtfArchives ? "is-active" : "", '" type="button" data-action="toggle-dtf-archives">\n            ').concat(state.showDtfArchives ? "Voir les actives" : "Voir les archives", "\n          </button>\n      </div>\n      </div>\n      ").concat(state.selectedDtfIds.size ? renderDtfSelectionBar() : "", '\n      <div class="table-shell">\n        <div class="dense-table-wrap">\n          <table class="data-table">\n            <thead>\n              <tr>\n                <th class="checkbox-cell"><input type="checkbox" name="dtf-select-all" ').concat(allSelected ? "checked" : "", "></th>\n                <th>Client</th>\n                <th>Design</th>\n                <th>Dimension</th>\n                <th>Logo</th>\n                <th>Taille</th>\n                <th>Couleur</th>\n                <th>Note</th>\n                <th>Qte</th>\n                <th>Type</th>\n                <th>Action</th>\n              </tr>\n            </thead>\n            <tbody>\n              ").concat(rows.length ? rows.map(renderDtfRow).join("") : '<tr><td colspan="11"><div class="empty-state">'.concat(isMockupView ? "Aucune maquette DTF a afficher." : "Aucune demande DTF a afficher.", "</div></td></tr>"), "\n            </tbody>\n          </table>\n        </div>\n      </div>\n    </section>\n  ");
+    return '\n    <section class="module-layout">\n      <div class="archive-toggle">\n        <div>\n          <strong>'.concat(isMockupView ? "Archives maquettes" : "Archives DTF", '</strong>\n          <p class="archive-copy">').concat(archiveCount, '</p>\n        </div>\n        <div class="archive-actions">\n          <button class="pill-button ').concat(state.showDtfArchives ? "is-active" : "", '" type="button" data-action="toggle-dtf-archives">\n            ').concat(state.showDtfArchives ? "Voir les actives" : "Voir les archives", "\n          </button>\n      </div>\n      </div>\n      ").concat(state.selectedDtfIds.size ? renderDtfSelectionBar() : "", '\n      <div class="table-shell">\n        <div class="dense-table-wrap">\n          <table class="data-table">\n            <thead>\n              <tr>\n                <th class="checkbox-cell"><input type="checkbox" name="dtf-select-all" ').concat(allSelected ? "checked" : "", "></th>\n                <th>Date</th>\n                <th>Client</th>\n                <th>Design</th>\n                <th>Dimension</th>\n                <th>Logo</th>\n                <th>Taille</th>\n                <th>Couleur</th>\n                <th>Note</th>\n                <th>Qte</th>\n                <th>Type</th>\n                <th>Action</th>\n              </tr>\n            </thead>\n            <tbody>\n              ").concat(rows.length ? rows.map(renderDtfRow).join("") : '<tr><td colspan="12"><div class="empty-state">'.concat(isMockupView ? "Aucune maquette DTF a afficher." : "Aucune demande DTF a afficher.", "</div></td></tr>"), "\n            </tbody>\n          </table>\n        </div>\n      </div>\n    </section>\n  ");
   }
   function renderDtfSelectionBar() {
     return '\n    <section class="selection-bar">\n      <div>\n        <strong>'.concat(state.selectedDtfIds.size, " selection").concat(state.selectedDtfIds.size > 1 ? "s" : "", '</strong>\n      </div>\n      <div class="selection-actions">\n        <button class="pill-button" type="button" data-action="duplicate-dtf">Dupliquer</button>\n        <button class="pill-button" type="button" data-action="validate-dtf">Valider</button>\n        <button class="pill-button" type="button" data-action="archive-dtf">').concat(state.showDtfArchives ? "Restaurer" : "Archiver", '</button>\n        <button class="pill-button" type="button" data-action="delete-dtf">Supprimer</button>\n      </div>\n    </section>\n  ');
   }
   function renderDtfRow(row) {
     const checked = state.selectedDtfIds.has(row.id);
-    const typeTone = row.mockupCompletedAt ? "ready" : row.needsMockup ? "urgent" : "draft";
-    const typeLabel = row.mockupCompletedAt ? "Maquette faite" : row.needsMockup ? "Maquette" : "Magasin";
-    return '\n    <tr data-dtf-id="'.concat(row.id, '">\n      <td class="checkbox-cell"><input type="checkbox" name="dtf-select" value="').concat(row.id, '" ').concat(checked ? "checked" : "", "></td>\n      <td>").concat(escapeHtml(dtfClientLabel(row)), "</td>\n      <td><strong>").concat(escapeHtml(row.designName), "</strong></td>\n      <td>").concat(escapeHtml(row.dimensions), '</td>\n      <td><span class="status-badge" data-tone="draft">').concat(escapeHtml(normalizeLogoPlacement(row.logoPlacement)), "</span></td>\n      <td>").concat(escapeHtml(row.size), "</td>\n      <td>").concat(escapeHtml(row.color), "</td>\n      <td>").concat(escapeHtml(row.technicalNote), "</td>\n      <td>").concat(row.quantity, '</td>\n      <td><span class="status-badge" data-tone="').concat(typeTone, '">').concat(typeLabel, '</span></td>\n      <td>\n        <div class="row-actions">\n          <button class="row-action" type="button" data-action="').concat(row.archivedAt ? "restore-single-dtf" : "archive-single-dtf", '" data-id="').concat(row.id, '">\n            ').concat(row.archivedAt ? "\u21BA" : "\u2934", '\n          </button>\n          <button class="row-action is-danger" type="button" data-action="delete-single-dtf" data-id="').concat(row.id, '">\xD7</button>\n        </div>\n      </td>\n    </tr>\n  ');
+    const typeTone = row.mockupCompletedAt ? "ready" : row.needsMockup ? "urgent" : row.clientType === "pro" ? "pro" : "perso";
+    const typeLabel = row.mockupCompletedAt ? "Maquette faite" : row.needsMockup ? "Maquette" : row.clientType === "pro" ? "PRO" : "Perso";
+    return '\n    <tr data-dtf-id="'.concat(row.id, '">\n      <td class="checkbox-cell"><input type="checkbox" name="dtf-select" value="').concat(row.id, '" ').concat(checked ? "checked" : "", '></td>\n      <td><span class="order-date-chip">').concat(formatDate(row.createdAt), "</span></td>\n      <td>").concat(escapeHtml(dtfClientLabel(row)), "</td>\n      <td><strong>").concat(escapeHtml(row.designName), "</strong></td>\n      <td>").concat(escapeHtml(row.dimensions), '</td>\n      <td><span class="status-badge" data-tone="draft">').concat(escapeHtml(normalizeLogoPlacement(row.logoPlacement)), "</span></td>\n      <td>").concat(escapeHtml(row.size), "</td>\n      <td>").concat(escapeHtml(row.color), "</td>\n      <td>").concat(escapeHtml(row.technicalNote), "</td>\n      <td>").concat(row.quantity, '</td>\n      <td><span class="status-badge" data-tone="').concat(typeTone, '">').concat(typeLabel, '</span></td>\n      <td>\n        <div class="row-actions">\n          <button class="row-action" type="button" data-action="').concat(row.archivedAt ? "restore-single-dtf" : "archive-single-dtf", '" data-id="').concat(row.id, '">\n            ').concat(row.archivedAt ? "\u21BA" : "\u2934", '\n          </button>\n          <button class="row-action is-danger" type="button" data-action="delete-single-dtf" data-id="').concat(row.id, '">\xD7</button>\n        </div>\n      </td>\n    </tr>\n  ');
   }
   function renderMockupsView() {
     const rows = getVisibleMockupItems();
@@ -2397,7 +2441,7 @@
     const showError = item.status === "Erreur";
     const totalPrints = getProductionQuantity(item);
     const completedPrints = getProductionCompletedCount(item);
-    return '\n    <article class="order-card production-card" data-status="'.concat(escapeHtml(item.status), '">\n      <div class="production-card-main">\n        <div class="order-line-summary">\n          <strong class="order-client-name">').concat(escapeHtml(item.label), '</strong>\n          <span class="status-badge" data-tone="').concat(productionTone(item.status), '">').concat(escapeHtml(item.status), '</span>\n          <span class="order-qty-chip">').concat(completedPrints, "/").concat(totalPrints, '</span>\n        </div>\n        <div class="production-checklist" aria-label="Points de production">\n          ').concat(item.prints.map((print) => '\n            <label class="production-checkpoint">\n              <input\n                type="checkbox"\n                name="production-print-checked"\n                data-id="'.concat(item.id, '"\n                value="').concat(print.id, '"\n                ').concat(print.checked ? "checked" : "", "\n              >\n              <span></span>\n            </label>\n          ")).join(""), "\n        </div>\n        ").concat(showError && item.errorNote ? '<p class="production-error-copy">'.concat(escapeHtml(item.errorNote), "</p>") : "", '\n      </div>\n      <div class="production-counter" aria-label="Compteur">\n        <button class="row-action" type="button" data-action="decrease-production-quantity" data-id="').concat(item.id, '" aria-label="Diminuer">\u2212</button>\n        <strong>').concat(totalPrints, '</strong>\n        <button class="row-action" type="button" data-action="increase-production-quantity" data-id="').concat(item.id, '" aria-label="Augmenter">+</button>\n      </div>\n      <div class="production-card-controls">\n        <select class="field-select table-status-select" name="production-status" data-id="').concat(item.id, '" aria-label="Statut production">\n          ').concat(renderProductionStatusOptions(item.status), '\n        </select>\n        <button class="row-action is-danger" type="button" data-action="delete-production-item" data-id="').concat(item.id, '" aria-label="Supprimer la ligne">\xD7</button>\n      </div>\n      ').concat(showError ? '\n        <label class="production-error-field">\n          <span class="field-label">Erreur</span>\n          <textarea class="field-textarea production-error-textarea" name="production-error" data-id="'.concat(item.id, '" placeholder="Ajouter l\'erreur...">').concat(escapeHtml((_a = item.errorNote) != null ? _a : ""), "</textarea>\n        </label>\n      ") : "", "\n    </article>\n  ");
+    return '\n    <article class="order-card production-card" data-status="'.concat(escapeHtml(item.status), '">\n      <div class="production-card-main">\n        <div class="order-line-summary">\n          <strong class="order-client-name">').concat(escapeHtml(item.label), '</strong>\n          <span class="order-type-badge" data-tone="').concat(item.clientType === "pro" ? "pro" : "perso", '">').concat(item.clientType === "pro" ? "PRO" : "Perso", "</span>\n          ").concat(item.reference ? '<span class="order-inline-copy">'.concat(escapeHtml(item.reference), "</span>") : "", "\n          ").concat(item.size ? '<span class="order-qty-chip">'.concat(escapeHtml(item.size), "</span>") : "", '\n          <span class="status-badge" data-tone="').concat(productionTone(item.status), '">').concat(escapeHtml(item.status), '</span>\n          <span class="order-qty-chip">').concat(completedPrints, "/").concat(totalPrints, '</span>\n        </div>\n        <div class="production-checklist" aria-label="Points de production">\n          ').concat(item.prints.map((print) => '\n            <label class="production-checkpoint">\n              <input\n                type="checkbox"\n                name="production-print-checked"\n                data-id="'.concat(item.id, '"\n                value="').concat(print.id, '"\n                ').concat(print.checked ? "checked" : "", "\n              >\n              <span></span>\n            </label>\n          ")).join(""), "\n        </div>\n        ").concat(showError && item.errorNote ? '<p class="production-error-copy">'.concat(escapeHtml(item.errorNote), "</p>") : "", '\n      </div>\n      <div class="production-counter" aria-label="Compteur">\n        <button class="row-action" type="button" data-action="decrease-production-quantity" data-id="').concat(item.id, '" aria-label="Diminuer">\u2212</button>\n        <strong>').concat(totalPrints, '</strong>\n        <button class="row-action" type="button" data-action="increase-production-quantity" data-id="').concat(item.id, '" aria-label="Augmenter">+</button>\n      </div>\n      <div class="production-card-controls">\n        <select class="field-select table-status-select" name="production-status" data-id="').concat(item.id, '" aria-label="Statut production">\n          ').concat(renderProductionStatusOptions(item.status), '\n        </select>\n        <button class="row-action" type="button" data-action="duplicate-production-item" data-id="').concat(item.id, '" aria-label="Dupliquer">\u29C9</button>\n        <button class="row-action is-danger" type="button" data-action="delete-production-item" data-id="').concat(item.id, '" aria-label="Supprimer la ligne">\xD7</button>\n      </div>\n      ').concat(showError ? '\n        <label class="production-error-field">\n          <span class="field-label">Erreur</span>\n          <textarea class="field-textarea production-error-textarea" name="production-error" data-id="'.concat(item.id, '" placeholder="Ajouter l\'erreur...">').concat(escapeHtml((_a = item.errorNote) != null ? _a : ""), "</textarea>\n        </label>\n      ") : "", "\n    </article>\n  ");
   }
   function renderTextileView() {
     const rows = getVisibleTextileOrders();
@@ -2584,7 +2628,7 @@
       return renderTextileOrderForm(textileOrder);
     }
     if (action === "addProductionItem") {
-      return '\n      <div class="field-grid production-form-grid">\n        <label class="field-span">\n          <span class="field-label">Nom du PRT</span>\n          <input class="field-input" name="label" type="text" placeholder="Ex: Logo dos noir">\n        </label>\n        <label>\n          <span class="field-label">Combien de fois</span>\n          <input class="field-input" name="quantity" type="number" min="1" value="1">\n        </label>\n      </div>\n    ';
+      return '\n      <div class="field-grid production-form-grid">\n        <label>\n          <span class="field-label">Type</span>\n          <select class="field-select" name="clientType">\n            <option value="perso" selected>Perso</option>\n            <option value="pro">Pro</option>\n          </select>\n        </label>\n        <label class="field-span">\n          <span class="field-label">Nom du PRT</span>\n          <input class="field-input" name="label" type="text" placeholder="Ex: Logo dos noir">\n        </label>\n        <label>\n          <span class="field-label">R\xE9f\xE9rence</span>\n          <input class="field-input" name="reference" type="text" placeholder="Ex: H-001">\n        </label>\n        <label>\n          <span class="field-label">Taille</span>\n          <input class="field-input" name="size" type="text" placeholder="Ex: M, L, XL">\n        </label>\n        <label>\n          <span class="field-label">Combien de fois</span>\n          <input class="field-input" name="quantity" type="number" min="1" value="1">\n        </label>\n      </div>\n    ';
     }
     if (action === "addPurchaseItem") {
       return renderPurchaseItemForm();
@@ -2628,8 +2672,8 @@
     return '\n    <div class="field-grid">\n      <label>\n        <span class="field-label">Categorie</span>\n        <select class="field-select" name="type">\n          '.concat(IMPROVEMENT_TYPES.map((type) => '<option value="'.concat(type.key, '" ').concat((item == null ? void 0 : item.type) === type.key ? "selected" : "", ">").concat(escapeHtml(type.label), "</option>")).join(""), '\n        </select>\n      </label>\n      <label class="field-span">\n        <span class="field-label">Remontee</span>\n        <input class="field-input" name="label" type="text" value="').concat(escapeHtml((_a = item == null ? void 0 : item.label) != null ? _a : ""), '">\n      </label>\n    </div>\n  ');
   }
   function renderDtfForm(dtf = null) {
-    var _a, _b, _c, _d, _e;
-    return '\n    <div class="field-grid dtf-form-grid">\n      <label class="dtf-form-wide">\n        <span class="field-label">Client</span>\n        <input class="field-input" name="clientName" type="text" list="clientSuggestions" value="'.concat(escapeHtml(dtfClientLabel(dtf)), '">\n      </label>\n      <label>\n        <span class="field-label">Dimension</span>\n        <input class="field-input" name="dimensions" type="text" value="').concat(escapeHtml((_a = dtf == null ? void 0 : dtf.dimensions) != null ? _a : ""), '">\n      </label>\n      <label class="dtf-logo-field">\n        <span class="field-label">Nom du logo</span>\n        <div class="field-stack">\n          <input class="field-input" name="designName" type="text" value="').concat(escapeHtml((_b = dtf == null ? void 0 : dtf.designName) != null ? _b : ""), '" placeholder="Design perso ou logo existant">\n          <select class="field-select" name="designPreset">\n            ').concat(renderLogoPresetOptions(dtf == null ? void 0 : dtf.designName), '\n          </select>\n        </div>\n      </label>\n      <label>\n        <span class="field-label">Taille</span>\n        <input class="field-input" name="size" type="text" value="').concat(escapeHtml((_c = dtf == null ? void 0 : dtf.size) != null ? _c : ""), '">\n      </label>\n      <label>\n        <span class="field-label">Couleur</span>\n        <input class="field-input" name="color" type="text" list="dtfColorOptions" value="').concat(escapeHtml((_d = dtf == null ? void 0 : dtf.color) != null ? _d : ""), '">\n      </label>\n      <label>\n        <span class="field-label">Quantite</span>\n        <input class="field-input" name="quantity" type="number" min="1" value="').concat(Math.max(1, Number(dtf == null ? void 0 : dtf.quantity) || 1), '">\n      </label>\n      <label class="field-checkbox">\n        <span class="field-label">Type de demande</span>\n        <span class="checkbox-row">\n          <input name="needsMockup" type="checkbox" ').concat((dtf == null ? void 0 : dtf.needsMockup) ? "checked" : "", '>\n          <span>Maquette \xE0 faire</span>\n        </span>\n      </label>\n      <label class="dtf-form-note">\n        <span class="field-label">Note technique</span>\n        <input class="field-input" name="technicalNote" type="text" value="').concat(escapeHtml((_e = dtf == null ? void 0 : dtf.technicalNote) != null ? _e : ""), '">\n      </label>\n    </div>\n    <datalist id="clientSuggestions">').concat(renderClientSuggestionOptions(), '</datalist>\n    <datalist id="dtfColorOptions">').concat(renderListOptions(TEXTILE_COLOR_OPTIONS), "</datalist>\n  ");
+    var _a, _b, _c, _d, _e, _f;
+    return '\n    <div class="field-grid dtf-form-grid">\n      <label class="dtf-form-wide">\n        <span class="field-label">Client</span>\n        <input class="field-input" name="clientName" type="text" list="clientSuggestions" value="'.concat(escapeHtml(dtfClientLabel(dtf)), '">\n      </label>\n      <label>\n        <span class="field-label">Dimension</span>\n        <input class="field-input" name="dimensions" type="text" value="').concat(escapeHtml((_a = dtf == null ? void 0 : dtf.dimensions) != null ? _a : ""), '">\n      </label>\n      <label class="dtf-logo-field">\n        <span class="field-label">Nom du logo</span>\n        <div class="field-stack">\n          <input class="field-input" name="designName" type="text" value="').concat(escapeHtml((_b = dtf == null ? void 0 : dtf.designName) != null ? _b : ""), '" placeholder="Design perso ou logo existant">\n          <select class="field-select" name="designPreset">\n            ').concat(renderLogoPresetOptions(dtf == null ? void 0 : dtf.designName), '\n          </select>\n        </div>\n      </label>\n      <label>\n        <span class="field-label">Taille</span>\n        <input class="field-input" name="size" type="text" value="').concat(escapeHtml((_c = dtf == null ? void 0 : dtf.size) != null ? _c : ""), '">\n      </label>\n      <label>\n        <span class="field-label">Couleur</span>\n        <input class="field-input" name="color" type="text" list="dtfColorOptions" value="').concat(escapeHtml((_d = dtf == null ? void 0 : dtf.color) != null ? _d : ""), '">\n      </label>\n      <label>\n        <span class="field-label">Quantite</span>\n        <input class="field-input" name="quantity" type="number" min="1" value="').concat(Math.max(1, Number(dtf == null ? void 0 : dtf.quantity) || 1), '">\n      </label>\n      <label>\n        <span class="field-label">Type de client</span>\n        <select class="field-select" name="clientType">\n          <option value="perso" ').concat(((_e = dtf == null ? void 0 : dtf.clientType) != null ? _e : "perso") === "perso" ? "selected" : "", '>Perso</option>\n          <option value="pro" ').concat((dtf == null ? void 0 : dtf.clientType) === "pro" ? "selected" : "", '>Pro</option>\n        </select>\n      </label>\n      <label class="field-checkbox">\n        <span class="field-label">Type de demande</span>\n        <span class="checkbox-row">\n          <input name="needsMockup" type="checkbox" ').concat((dtf == null ? void 0 : dtf.needsMockup) ? "checked" : "", '>\n          <span>Maquette \xE0 faire</span>\n        </span>\n      </label>\n      <label class="dtf-form-note">\n        <span class="field-label">Note technique</span>\n        <input class="field-input" name="technicalNote" type="text" value="').concat(escapeHtml((_f = dtf == null ? void 0 : dtf.technicalNote) != null ? _f : ""), '">\n      </label>\n    </div>\n    <datalist id="clientSuggestions">').concat(renderClientSuggestionOptions(), '</datalist>\n    <datalist id="dtfColorOptions">').concat(renderListOptions(TEXTILE_COLOR_OPTIONS), "</datalist>\n  ");
   }
   function renderTextileOrderForm(order = null) {
     var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j;
@@ -3014,6 +3058,9 @@
   }
   function getVisiblePurchaseItems(zone) {
     return db.purchaseItems.filter((item) => {
+      if (item.deletedAt) {
+        return false;
+      }
       if (item.zone !== zone) {
         return false;
       }
@@ -3486,7 +3533,7 @@
     });
   }
   function normalizeDtfRequest(item) {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m;
     const legacyDimensions = String((_a = item.dimensions) != null ? _a : "").trim();
     const legacyFront = String((_b = item.dimensionFront) != null ? _b : "").trim();
     const legacyBack = String((_c = item.dimensionBack) != null ? _c : "").trim();
@@ -3504,13 +3551,14 @@
       quantity: Math.max(1, Number(item.quantity) || 1),
       needsMockup: Boolean(item.needsMockup),
       mockupCompletedAt: String((_i = item.mockupCompletedAt) != null ? _i : ""),
-      status: String((_j = item.status) != null ? _j : "draft"),
-      archivedAt: String((_k = item.archivedAt) != null ? _k : ""),
-      createdAt: String((_l = item.createdAt) != null ? _l : isoToday())
+      clientType: String((_j = item.clientType) != null ? _j : "perso"),
+      status: String((_k = item.status) != null ? _k : "draft"),
+      archivedAt: String((_l = item.archivedAt) != null ? _l : ""),
+      createdAt: String((_m = item.createdAt) != null ? _m : isoToday())
     };
   }
   function normalizeProductionItem(item) {
-    var _a, _b, _c, _d, _e, _f, _g;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j;
     const quantity = Math.max(1, Number(item.quantity) || 1);
     const rawPrints = Array.isArray(item.prints) ? item.prints : Array.from({ length: quantity }, (_, index) => ({
       id: index + 1,
@@ -3518,15 +3566,18 @@
     }));
     return {
       id: Number(item.id),
-      label: String((_b = (_a = item.label) != null ? _a : item.name) != null ? _b : "").trim(),
+      clientType: String((_a = item.clientType) != null ? _a : "perso"),
+      label: String((_c = (_b = item.label) != null ? _b : item.name) != null ? _c : "").trim(),
+      reference: String((_d = item.reference) != null ? _d : "").trim(),
+      size: String((_e = item.size) != null ? _e : "").trim(),
       prints: rawPrints.map((print, index) => ({
         id: Number(print.id) || index + 1,
         checked: Boolean(print.checked)
       })),
       status: normalizeProductionStatus(item.status),
-      errorNote: String((_d = (_c = item.errorNote) != null ? _c : item.error) != null ? _d : "").trim(),
-      createdAt: String((_e = item.createdAt) != null ? _e : isoNow()),
-      updatedAt: String((_g = (_f = item.updatedAt) != null ? _f : item.createdAt) != null ? _g : isoNow())
+      errorNote: String((_g = (_f = item.errorNote) != null ? _f : item.error) != null ? _g : "").trim(),
+      createdAt: String((_h = item.createdAt) != null ? _h : isoNow()),
+      updatedAt: String((_j = (_i = item.updatedAt) != null ? _i : item.createdAt) != null ? _j : isoNow())
     };
   }
   function normalizeWorkshopTask(item, index = 0) {
@@ -3594,14 +3645,15 @@
     return tasks;
   }
   function normalizePurchaseItem(item, index = 0) {
-    var _a, _b, _c;
+    var _a, _b, _c, _d;
     return {
       id: Number(item.id) || index + 1,
       zone: String((_a = item.zone) != null ? _a : "SXM"),
       label: String((_b = item.label) != null ? _b : "").trim(),
       quantity: Math.max(1, Number(item.quantity) || 1),
       checked: Boolean(item.checked),
-      createdAt: String((_c = item.createdAt) != null ? _c : isoToday())
+      createdAt: String((_c = item.createdAt) != null ? _c : isoToday()),
+      deletedAt: String((_d = item.deletedAt) != null ? _d : "")
     };
   }
   function mergePurchaseDefaults(collection) {

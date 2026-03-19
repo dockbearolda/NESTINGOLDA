@@ -139,7 +139,7 @@ const TEST_PLANNING_STAGES = [
   {
     key: "devis",
     label: "2. Devis en cours",
-    shortLabel: "Devis",
+    shortLabel: "Devis en cours",
     accent: "violet",
     statuses: ["Devis en attente validation", "Modification devis", "Manque information", "Maquette à faire"]
   },
@@ -1243,7 +1243,10 @@ function handleRootClick(event) {
     }
 
     if (action === "delete-purchase") {
-      db.purchaseItems = db.purchaseItems.filter((item) => item.id !== id);
+      const item = db.purchaseItems.find((item) => item.id === id);
+      if (item) {
+        item.deletedAt = new Date().toISOString();
+      }
       persistDb();
       requestRender();
       showToast("Article supprime.");
@@ -1328,6 +1331,26 @@ function handleRootClick(event) {
       item.updatedAt = isoNow();
       persistDb();
       requestRender({ header: false, status: true, view: true });
+      return;
+    }
+
+    if (action === "duplicate-production-item") {
+      const source = db.productionItems.find((item) => item.id === id);
+      if (source) {
+        const clone = {
+          ...source,
+          id: nextId(db.productionItems),
+          status: PRODUCTION_STATUS_DEFAULT,
+          errorNote: "",
+          prints: source.prints.map((p, i) => ({ id: i + 1, checked: false })),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        db.productionItems.unshift(clone);
+        persistDb();
+        requestRender({ header: false, status: true, view: true });
+        showToast("PRT duplique.");
+      }
       return;
     }
 
@@ -2126,6 +2149,7 @@ function handleSheetSubmit(event) {
       technicalNote: String(formData.get("technicalNote") ?? "").trim(),
       quantity: Math.max(1, Number(formData.get("quantity") ?? 1) || 1),
       needsMockup: formData.get("needsMockup") === "on",
+      clientType: String(formData.get("clientType") ?? "perso"),
       mockupCompletedAt: "",
       status: "draft",
       archivedAt: "",
@@ -2156,6 +2180,7 @@ function handleSheetSubmit(event) {
     dtf.technicalNote = String(formData.get("technicalNote") ?? "").trim();
     dtf.quantity = Math.max(1, Number(formData.get("quantity") ?? 1) || 1);
     dtf.needsMockup = formData.get("needsMockup") === "on";
+    dtf.clientType = String(formData.get("clientType") ?? "perso");
     dtf.mockupCompletedAt = dtf.needsMockup ? "" : String(dtf.mockupCompletedAt ?? "");
     persistDb();
     clearSheetDraftByAction("editDtf", dtf.id);
@@ -2265,7 +2290,10 @@ function handleSheetSubmit(event) {
     const quantity = Math.max(1, Number(formData.get("quantity") ?? 1) || 1);
     db.productionItems.unshift({
       id: nextId(db.productionItems),
+      clientType: String(formData.get("clientType") ?? "perso"),
       label: String(formData.get("label") ?? "").trim(),
+      reference: String(formData.get("reference") ?? "").trim(),
+      size: String(formData.get("size") ?? "").trim(),
       prints: Array.from({ length: quantity }, (_, index) => ({
         id: index + 1,
         checked: false
@@ -2545,16 +2573,38 @@ function renderPlaceholderView() {
   `;
 }
 
+function isUrgentTestPlanningItem(item) {
+  if (!item.deliveryDate) return false;
+  if (item.stage === "facture" || item.stage === "paye" || item.stage === "archived") return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const delivery = new Date(item.deliveryDate + "T00:00:00");
+  if (Number.isNaN(delivery.getTime())) return false;
+  const diffDays = Math.floor((delivery - today) / (1000 * 60 * 60 * 24));
+  return diffDays <= 3;
+}
+
 function renderTestPlanningView() {
   const sections = TEST_PLANNING_STAGES.map((stage) => ({
     ...stage,
     rows: getVisibleTestPlanningItems(stage.key)
   }));
 
+  const urgentItems = db.testPlanningItems.filter((item) => {
+    if (!isUrgentTestPlanningItem(item)) return false;
+    if (!state.search) return true;
+    return [item.clientName, item.family, item.product, item.quantity, item.note, item.status, item.mockupStatus || ""]
+      .join(" ").toLowerCase().includes(state.search);
+  }).slice().sort((a, b) => (b.id || 0) - (a.id || 0));
+
   const activeStage = state.activeTestStage;
   let bodyHtml;
 
-  if (activeStage) {
+  if (activeStage === "__urgent__") {
+    bodyHtml = urgentItems.length
+      ? `<section class="test-planning-board">${urgentItems.map(renderTestPlanningCard).join("")}</section>`
+      : `<div class="empty-state">Aucune commande urgente.</div>`;
+  } else if (activeStage) {
     const filteredItems = db.testPlanningItems
       .filter((item) => {
         if (item.stage !== activeStage) return false;
@@ -2587,6 +2637,10 @@ function renderTestPlanningView() {
         <button class="test-step-chip ${!activeStage ? "is-active" : ""}" type="button" data-test-stage-jump="__recent__" data-accent="blue">
           <span>Toutes</span>
           <strong>${sections.reduce((sum, s) => sum + s.rows.length, 0)}</strong>
+        </button>
+        <button class="test-step-chip ${activeStage === "__urgent__" ? "is-active" : ""}" type="button" data-test-stage-jump="__urgent__" data-accent="red">
+          <span>Urgence</span>
+          <strong>${urgentItems.length}</strong>
         </button>
         ${sections.map(renderTestPlanningStepSummary).join("")}
       </section>
@@ -2942,6 +2996,7 @@ function renderDtfView() {
             <thead>
               <tr>
                 <th class="checkbox-cell"><input type="checkbox" name="dtf-select-all" ${allSelected ? "checked" : ""}></th>
+                <th>Date</th>
                 <th>Client</th>
                 <th>Design</th>
                 <th>Dimension</th>
@@ -2955,7 +3010,7 @@ function renderDtfView() {
               </tr>
             </thead>
             <tbody>
-              ${rows.length ? rows.map(renderDtfRow).join("") : `<tr><td colspan="11"><div class="empty-state">${isMockupView ? "Aucune maquette DTF a afficher." : "Aucune demande DTF a afficher."}</div></td></tr>`}
+              ${rows.length ? rows.map(renderDtfRow).join("") : `<tr><td colspan="12"><div class="empty-state">${isMockupView ? "Aucune maquette DTF a afficher." : "Aucune demande DTF a afficher."}</div></td></tr>`}
             </tbody>
           </table>
         </div>
@@ -2982,11 +3037,12 @@ function renderDtfSelectionBar() {
 
 function renderDtfRow(row) {
   const checked = state.selectedDtfIds.has(row.id);
-  const typeTone = row.mockupCompletedAt ? "ready" : row.needsMockup ? "urgent" : "draft";
-  const typeLabel = row.mockupCompletedAt ? "Maquette faite" : row.needsMockup ? "Maquette" : "Magasin";
+  const typeTone = row.mockupCompletedAt ? "ready" : row.needsMockup ? "urgent" : (row.clientType === "pro" ? "pro" : "perso");
+  const typeLabel = row.mockupCompletedAt ? "Maquette faite" : row.needsMockup ? "Maquette" : (row.clientType === "pro" ? "PRO" : "Perso");
   return `
     <tr data-dtf-id="${row.id}">
       <td class="checkbox-cell"><input type="checkbox" name="dtf-select" value="${row.id}" ${checked ? "checked" : ""}></td>
+      <td><span class="order-date-chip">${formatDate(row.createdAt)}</span></td>
       <td>${escapeHtml(dtfClientLabel(row))}</td>
       <td><strong>${escapeHtml(row.designName)}</strong></td>
       <td>${escapeHtml(row.dimensions)}</td>
@@ -3104,6 +3160,9 @@ function renderProductionItem(item) {
       <div class="production-card-main">
         <div class="order-line-summary">
           <strong class="order-client-name">${escapeHtml(item.label)}</strong>
+          <span class="order-type-badge" data-tone="${item.clientType === "pro" ? "pro" : "perso"}">${item.clientType === "pro" ? "PRO" : "Perso"}</span>
+          ${item.reference ? `<span class="order-inline-copy">${escapeHtml(item.reference)}</span>` : ""}
+          ${item.size ? `<span class="order-qty-chip">${escapeHtml(item.size)}</span>` : ""}
           <span class="status-badge" data-tone="${productionTone(item.status)}">${escapeHtml(item.status)}</span>
           <span class="order-qty-chip">${completedPrints}/${totalPrints}</span>
         </div>
@@ -3132,6 +3191,7 @@ function renderProductionItem(item) {
         <select class="field-select table-status-select" name="production-status" data-id="${item.id}" aria-label="Statut production">
           ${renderProductionStatusOptions(item.status)}
         </select>
+        <button class="row-action" type="button" data-action="duplicate-production-item" data-id="${item.id}" aria-label="Dupliquer">⧉</button>
         <button class="row-action is-danger" type="button" data-action="delete-production-item" data-id="${item.id}" aria-label="Supprimer la ligne">×</button>
       </div>
       ${showError ? `
@@ -3538,9 +3598,24 @@ function renderSheetBody(action) {
   if (action === "addProductionItem") {
     return `
       <div class="field-grid production-form-grid">
+        <label>
+          <span class="field-label">Type</span>
+          <select class="field-select" name="clientType">
+            <option value="perso" selected>Perso</option>
+            <option value="pro">Pro</option>
+          </select>
+        </label>
         <label class="field-span">
           <span class="field-label">Nom du PRT</span>
           <input class="field-input" name="label" type="text" placeholder="Ex: Logo dos noir">
+        </label>
+        <label>
+          <span class="field-label">Référence</span>
+          <input class="field-input" name="reference" type="text" placeholder="Ex: H-001">
+        </label>
+        <label>
+          <span class="field-label">Taille</span>
+          <input class="field-input" name="size" type="text" placeholder="Ex: M, L, XL">
         </label>
         <label>
           <span class="field-label">Combien de fois</span>
@@ -3689,6 +3764,13 @@ function renderDtfForm(dtf = null) {
       <label>
         <span class="field-label">Quantite</span>
         <input class="field-input" name="quantity" type="number" min="1" value="${Math.max(1, Number(dtf?.quantity) || 1)}">
+      </label>
+      <label>
+        <span class="field-label">Type de client</span>
+        <select class="field-select" name="clientType">
+          <option value="perso" ${(dtf?.clientType ?? "perso") === "perso" ? "selected" : ""}>Perso</option>
+          <option value="pro" ${dtf?.clientType === "pro" ? "selected" : ""}>Pro</option>
+        </select>
       </label>
       <label class="field-checkbox">
         <span class="field-label">Type de demande</span>
@@ -4432,6 +4514,10 @@ function getVisibleTextileOrders() {
 
 function getVisiblePurchaseItems(zone) {
   return db.purchaseItems.filter((item) => {
+    if (item.deletedAt) {
+      return false;
+    }
+
     if (item.zone !== zone) {
       return false;
     }
@@ -5022,6 +5108,7 @@ function normalizeDtfRequest(item) {
     quantity: Math.max(1, Number(item.quantity) || 1),
     needsMockup: Boolean(item.needsMockup),
     mockupCompletedAt: String(item.mockupCompletedAt ?? ""),
+    clientType: String(item.clientType ?? "perso"),
     status: String(item.status ?? "draft"),
     archivedAt: String(item.archivedAt ?? ""),
     createdAt: String(item.createdAt ?? isoToday())
@@ -5039,7 +5126,10 @@ function normalizeProductionItem(item) {
 
   return {
     id: Number(item.id),
+    clientType: String(item.clientType ?? "perso"),
     label: String(item.label ?? item.name ?? "").trim(),
+    reference: String(item.reference ?? "").trim(),
+    size: String(item.size ?? "").trim(),
     prints: rawPrints.map((print, index) => ({
       id: Number(print.id) || index + 1,
       checked: Boolean(print.checked)
@@ -5128,7 +5218,8 @@ function normalizePurchaseItem(item, index = 0) {
     label: String(item.label ?? "").trim(),
     quantity: Math.max(1, Number(item.quantity) || 1),
     checked: Boolean(item.checked),
-    createdAt: String(item.createdAt ?? isoToday())
+    createdAt: String(item.createdAt ?? isoToday()),
+    deletedAt: String(item.deletedAt ?? "")
   };
 }
 

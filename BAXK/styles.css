@@ -794,8 +794,19 @@ button {
 }
 
 .field-stack {
-  display: grid;
+  display: flex;
   gap: 0.5rem;
+  align-items: center;
+}
+
+.field-stack > .field-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.field-stack > .field-select {
+  flex: 0 0 auto;
+  width: auto;
 }
 
 .team-bubble-choice {
@@ -1188,6 +1199,7 @@ button {
 .order-priority-badge,
 .order-zone-chip,
 .order-qty-chip,
+.order-date-chip,
 .deadline-badge {
   display: inline-flex;
   align-items: center;
@@ -1251,6 +1263,12 @@ button {
   min-width: 2.25rem;
   background: rgba(18, 22, 29, 0.06);
   color: #344054;
+}
+
+.order-date-chip {
+  background: rgba(18, 22, 29, 0.04);
+  color: #667085;
+  font-weight: 500;
 }
 
 .order-client-name {
@@ -1539,6 +1557,7 @@ button {
 .test-step-chip[data-accent="orange"]::after  { background: #d97706; }
 .test-step-chip[data-accent="cyan"]::after    { background: #0891b2; }
 .test-step-chip[data-accent="amber"]::after   { background: #b45309; }
+.test-step-chip[data-accent="red"]::after     { background: #dc2626; }
 .test-step-chip[data-accent="rose"]::after    { background: #e11d48; }
 .test-step-chip[data-accent="slate"]::after   { background: #64748b; }
 
