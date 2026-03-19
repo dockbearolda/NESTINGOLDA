@@ -109,6 +109,18 @@ button {
   letter-spacing: -0.04em;
 }
 
+.brand-block {
+  display: flex;
+  justify-content: center;
+}
+
+.home-logo {
+  width: 100%;
+  max-width: 120px;
+  height: auto;
+  fill: currentColor;
+}
+
 .eyebrow,
 .field-label,
 .table-header,
@@ -175,7 +187,8 @@ button {
   padding: 0 0.95rem;
   border-radius: 16px;
   text-align: left;
-  color: var(--muted);
+  color: #1a1a1a;
+  font-weight: 500;
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -191,17 +204,43 @@ button {
   opacity: 0.55;
 }
 
-.menu-link:hover .menu-icon,
-.menu-link.is-active .menu-icon {
-  filter: grayscale(1) brightness(0.4);
-  opacity: 0.75;
+.menu-link {
+  position: relative;
 }
 
-.menu-link:hover,
+.menu-link::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 25%;
+  bottom: 25%;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: #1a1a1a;
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+
+.menu-link:hover .menu-icon,
+.menu-link.is-active .menu-icon {
+  filter: grayscale(0);
+  opacity: 1;
+}
+
+.menu-link:hover {
+  background: rgba(0, 0, 0, 0.03);
+  color: #1a1a1a;
+}
+
 .menu-link.is-active {
-  border-color: rgba(10, 132, 255, 0.18);
-  background: var(--accent-soft);
-  color: var(--accent);
+  background: rgba(0, 0, 0, 0.05);
+  color: #1a1a1a;
+  font-weight: 600;
+  border-color: transparent;
+}
+
+.menu-link.is-active::before {
+  opacity: 1;
 }
 
 .menu-link-danger {
