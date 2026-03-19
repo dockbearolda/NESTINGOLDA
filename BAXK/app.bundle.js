@@ -848,6 +848,20 @@
     document.removeEventListener("visibilitychange", handleRemoteVisibilityChange);
     document.addEventListener("visibilitychange", handleRemoteVisibilityChange);
   }
+  var remotePollingPaused = false;
+  function pauseRemotePolling() {
+    remotePollingPaused = true;
+    if (remotePollingTimer) {
+      clearInterval(remotePollingTimer);
+      remotePollingTimer = null;
+    }
+    document.removeEventListener("visibilitychange", handleRemoteVisibilityChange);
+  }
+  function resumeRemotePolling() {
+    remotePollingPaused = false;
+    startRemotePolling();
+    void pollRemoteDb();
+  }
   function handleRemoteVisibilityChange() {
     if (!document.hidden) {
       void pollRemoteDb();
@@ -909,8 +923,9 @@
     persistDb({ skipRemote: normalizedPayload === incomingPayload });
     requestRender();
     if (options.announce) {
-      const message = importedOrdersAdded2 || duplicateOrdersRemoved2 ? "Nouvelles donnees synchronisees et normalisees." : "Le site a ete mis a jour depuis un autre poste.";
-      showToast(message);
+      if (importedOrdersAdded2 || duplicateOrdersRemoved2) {
+        showToast("Nouvelles donnees synchronisees et normalisees.");
+      }
     }
   }
   function bindGlobalErrorHandlers() {
@@ -2443,6 +2458,7 @@
     state.activeImprovementId = action === "editImprovementItem" ? (_f = options.id) != null ? _f : null : null;
     state.activeTestPlanningId = action === "editTestPlanningOrder" ? (_g = options.id) != null ? _g : null : null;
     state.activeClientId = action === "editClient" ? (_h = options.id) != null ? _h : null : null;
+    pauseRemotePolling();
     refs.sheetDialog.dataset.layout = action === "addDtf" || action === "editDtf" ? "dtf-inline" : action === "addOrder" || action === "editOrder" ? "order-inline" : action === "addTextileOrder" || action === "editTextileOrder" ? "textile-inline" : action === "addClient" || action === "editClient" ? "client-inline" : action === "addTestPlanningOrder" || action === "editTestPlanningOrder" ? "test-planning-inline" : "";
     refs.sheetBody.innerHTML = renderSheetBody(action);
     if (action === "addOrder" || action === "addTestPlanningOrder") {
@@ -2514,6 +2530,7 @@
     state.activeImprovementId = null;
     state.activeTestPlanningId = null;
     state.activeClientId = null;
+    resumeRemotePolling();
   }
   function renderSheetBody(action) {
     if (action === "addClient") {
@@ -3879,8 +3896,12 @@
       });
       if (response.status === 409) {
         const record2 = await response.json();
-        applyRemoteDbRecord(record2, { announce: true });
-        showToast("Une autre modification a ete enregistree avant la tienne. Les donnees ont ete rechargees.");
+        remoteRevision = Math.max(0, Number(record2.revision) || 0);
+        const localSnapshot = buildDbSnapshot();
+        applyRemoteDbRecord(record2, { announce: false });
+        mergeLocalChangesBack(localSnapshot);
+        persistDb();
+        showToast("Donnees synchronisees avec le serveur.");
         return;
       }
       if (!response.ok) {
@@ -3896,6 +3917,40 @@
       remoteSaveInFlight = false;
       if (pendingRemoteSnapshot) {
         scheduleRemoteSave({ immediate: true });
+      }
+    }
+  }
+  function mergeLocalChangesBack(localSnapshot) {
+    if (!localSnapshot || typeof localSnapshot !== "object") return;
+    var collections = [
+      "testPlanningItems",
+      "orders",
+      "dtfOrders",
+      "textileOrders",
+      "purchaseItems",
+      "workshopTasks",
+      "improvementItems"
+    ];
+    for (var c = 0; c < collections.length; c++) {
+      var key = collections[c];
+      var localItems = localSnapshot[key];
+      var remoteItems = db[key];
+      if (!Array.isArray(localItems) || !Array.isArray(remoteItems)) continue;
+      for (var i = 0; i < localItems.length; i++) {
+        var localItem = localItems[i];
+        if (!localItem || !localItem.id) continue;
+        var remoteItem = remoteItems.find(function(r) {
+          return r.id === localItem.id;
+        });
+        if (remoteItem) {
+          var localUpdated = localItem.updatedAt || localItem.createdAt || "";
+          var remoteUpdated = remoteItem.updatedAt || remoteItem.createdAt || "";
+          if (localUpdated > remoteUpdated) {
+            Object.assign(remoteItem, localItem);
+          }
+        } else {
+          remoteItems.push(localItem);
+        }
       }
     }
   }

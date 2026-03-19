@@ -878,6 +878,23 @@ function startRemotePolling() {
   document.addEventListener("visibilitychange", handleRemoteVisibilityChange);
 }
 
+var remotePollingPaused = false;
+
+function pauseRemotePolling() {
+  remotePollingPaused = true;
+  if (remotePollingTimer) {
+    clearInterval(remotePollingTimer);
+    remotePollingTimer = null;
+  }
+  document.removeEventListener("visibilitychange", handleRemoteVisibilityChange);
+}
+
+function resumeRemotePolling() {
+  remotePollingPaused = false;
+  startRemotePolling();
+  void pollRemoteDb();
+}
+
 function handleRemoteVisibilityChange() {
   if (!document.hidden) {
     void pollRemoteDb();
@@ -954,10 +971,9 @@ function applyRemoteDbRecord(record, options = {}) {
   requestRender();
 
   if (options.announce) {
-    const message = importedOrdersAdded || duplicateOrdersRemoved
-      ? "Nouvelles donnees synchronisees et normalisees."
-      : "Le site a ete mis a jour depuis un autre poste.";
-    showToast(message);
+    if (importedOrdersAdded || duplicateOrdersRemoved) {
+      showToast("Nouvelles donnees synchronisees et normalisees.");
+    }
   }
 }
 
@@ -3360,6 +3376,7 @@ function openSheet(action, options = {}) {
   state.activeImprovementId = action === "editImprovementItem" ? options.id ?? null : null;
   state.activeTestPlanningId = action === "editTestPlanningOrder" ? options.id ?? null : null;
   state.activeClientId = action === "editClient" ? options.id ?? null : null;
+  pauseRemotePolling();
   refs.sheetDialog.dataset.layout = (
     action === "addDtf" || action === "editDtf" ? "dtf-inline"
       : action === "addOrder" || action === "editOrder" ? "order-inline"
@@ -3449,6 +3466,7 @@ function closeSheet() {
   state.activeImprovementId = null;
   state.activeTestPlanningId = null;
   state.activeClientId = null;
+  resumeRemotePolling();
 }
 
 function renderSheetBody(action) {
@@ -5458,8 +5476,12 @@ async function flushRemoteSave() {
 
     if (response.status === 409) {
       const record = await response.json();
-      applyRemoteDbRecord(record, { announce: true });
-      showToast("Une autre modification a ete enregistree avant la tienne. Les donnees ont ete rechargees.");
+      remoteRevision = Math.max(0, Number(record.revision) || 0);
+      const localSnapshot = buildDbSnapshot();
+      applyRemoteDbRecord(record, { announce: false });
+      mergeLocalChangesBack(localSnapshot);
+      persistDb();
+      showToast("Donnees synchronisees avec le serveur.");
       return;
     }
 
@@ -5478,6 +5500,38 @@ async function flushRemoteSave() {
 
     if (pendingRemoteSnapshot) {
       scheduleRemoteSave({ immediate: true });
+    }
+  }
+}
+
+function mergeLocalChangesBack(localSnapshot) {
+  if (!localSnapshot || typeof localSnapshot !== "object") return;
+
+  var collections = [
+    "testPlanningItems", "orders", "dtfOrders", "textileOrders",
+    "purchaseItems", "workshopTasks", "improvementItems"
+  ];
+
+  for (var c = 0; c < collections.length; c++) {
+    var key = collections[c];
+    var localItems = localSnapshot[key];
+    var remoteItems = db[key];
+    if (!Array.isArray(localItems) || !Array.isArray(remoteItems)) continue;
+
+    for (var i = 0; i < localItems.length; i++) {
+      var localItem = localItems[i];
+      if (!localItem || !localItem.id) continue;
+      var remoteItem = remoteItems.find(function(r) { return r.id === localItem.id; });
+
+      if (remoteItem) {
+        var localUpdated = localItem.updatedAt || localItem.createdAt || "";
+        var remoteUpdated = remoteItem.updatedAt || remoteItem.createdAt || "";
+        if (localUpdated > remoteUpdated) {
+          Object.assign(remoteItem, localItem);
+        }
+      } else {
+        remoteItems.push(localItem);
+      }
     }
   }
 }
