@@ -924,7 +924,6 @@
     requestRender();
     if (options.announce) {
       if (importedOrdersAdded2 || duplicateOrdersRemoved2) {
-        showToast("Nouvelles donnees synchronisees et normalisees.");
       }
     }
   }

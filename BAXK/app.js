@@ -972,7 +972,7 @@ function applyRemoteDbRecord(record, options = {}) {
 
   if (options.announce) {
     if (importedOrdersAdded || duplicateOrdersRemoved) {
-      showToast("Nouvelles donnees synchronisees et normalisees.");
+      // silent – no toast for background sync
     }
   }
 }
