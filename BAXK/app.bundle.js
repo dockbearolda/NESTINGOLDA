@@ -1392,17 +1392,24 @@
     }
   }
   function handleSheetDraftInput(event) {
-    var _a, _b, _c;
+    var _a, _b, _c, _d;
     const target = event == null ? void 0 : event.target;
+    if (((_a = target == null ? void 0 : target.classList) == null ? void 0 : _a.contains("team-bubble-choice-input")) && target instanceof HTMLInputElement && target.checked) {
+      const group = refs.sheetForm.querySelectorAll('.team-bubble-choice-input[name="'.concat(CSS.escape(target.name), '"]'));
+      group.forEach((input) => {
+        const bubble = input.nextElementSibling;
+        if (bubble) bubble.classList.toggle("is-active", input === target);
+      });
+    }
     if ((target == null ? void 0 : target.name) === "designPreset") {
-      const presetValue = String((_a = target.value) != null ? _a : "").trim();
+      const presetValue = String((_b = target.value) != null ? _b : "").trim();
       const designInput = refs.sheetForm.elements.namedItem("designName");
       if (designInput instanceof HTMLInputElement) {
         designInput.value = presetValue;
       }
     }
     if ((target == null ? void 0 : target.name) === "stage" && target instanceof HTMLSelectElement && (state.activeSheetAction === "addTestPlanningOrder" || state.activeSheetAction === "editTestPlanningOrder")) {
-      var statusField = (_b = refs.sheetForm) == null ? void 0 : _b.elements.namedItem("status");
+      var statusField = (_c = refs.sheetForm) == null ? void 0 : _c.elements.namedItem("status");
       if (statusField instanceof HTMLSelectElement) {
         statusField.value = testPlanningDefaultStatus(target.value);
       }
@@ -1412,7 +1419,7 @@
       var newStatus = target.value;
       var targetStage = testPlanningStageForStatus(newStatus);
       if (targetStage) {
-        var stageField = (_c = refs.sheetForm) == null ? void 0 : _c.elements.namedItem("stage");
+        var stageField = (_d = refs.sheetForm) == null ? void 0 : _d.elements.namedItem("stage");
         if (stageField instanceof HTMLSelectElement && stageField.value !== targetStage) {
           stageField.value = targetStage;
           syncTestPlanningStageField();
