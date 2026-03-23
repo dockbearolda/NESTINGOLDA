@@ -2478,9 +2478,6 @@
       if (!state.showDtfArchives && item.archivedAt) {
         return false;
       }
-      if (item.needsMockup) {
-        return false;
-      }
       if (!state.search) {
         return true;
       }
