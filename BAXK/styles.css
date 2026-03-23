@@ -1935,6 +1935,41 @@ button {
   opacity: 0.55;
 }
 
+.autocomplete-wrap {
+  position: relative;
+}
+
+.autocomplete-dropdown {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  right: 0;
+  z-index: 200;
+  background: var(--panel-strong);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 8px 24px rgba(18, 22, 29, 0.14);
+  max-height: 13rem;
+  overflow-y: auto;
+}
+
+.autocomplete-option {
+  padding: 0.55rem 0.85rem;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: var(--text);
+  border: none;
+  background: none;
+  text-align: left;
+  width: 100%;
+}
+
+.autocomplete-option:hover,
+.autocomplete-option:focus {
+  background: var(--accent-soft);
+  outline: none;
+}
+
 .field-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

@@ -3000,6 +3000,9 @@ function openSheet(action, options = {}) {
   syncTestPlanningStageField();
   syncTestPlanningMockupField();
   syncProofingFields(refs.sheetBody);
+  if (action === "addTestPlanningOrder" || action === "editTestPlanningOrder") {
+    initTestPlanningClientAutocomplete();
+  }
   const eyebrowLabel = sheetEyebrow(action);
   refs.sheetEyebrow.textContent = eyebrowLabel;
   refs.sheetEyebrow.hidden = !eyebrowLabel;
@@ -3463,7 +3466,10 @@ function renderTestPlanningForm(item = null) {
       </label>
       <label class="test-planning-field-client">
         <span class="field-label">Client</span>
-        <input class="field-input" name="clientName" type="text" list="testPlanningClientSuggestions" value="${escapeHtml(item?.clientName ?? "")}" placeholder="CLIENT">
+        <div class="autocomplete-wrap">
+          <input class="field-input" name="clientName" type="text" autocomplete="off" value="${escapeHtml(item?.clientName ?? "")}" placeholder="CLIENT" data-autocomplete="testPlanningClient">
+          <div class="autocomplete-dropdown" id="testPlanningClientDropdown" hidden></div>
+        </div>
       </label>
       <label class="test-planning-field-family">
         <span class="field-label">Famille</span>
@@ -3514,7 +3520,6 @@ function renderTestPlanningForm(item = null) {
         </span>
       </label>
     </div>
-    <datalist id="testPlanningClientSuggestions">${renderTestPlanningClientSuggestionOptions()}</datalist>
     <datalist id="testPlanningFamilyOptions">${renderListOptions(testPlanningCombinedOptions("family", TEST_PLANNING_FAMILY_OPTIONS))}</datalist>
     <datalist id="testPlanningProductOptions">${renderListOptions(testPlanningCombinedOptions("product", TEST_PLANNING_PRODUCT_OPTIONS))}</datalist>
     <!-- status is now a <select> with optgroups -->
@@ -4924,6 +4929,64 @@ function deadlineCopy(offset) {
 function normalizeTestPlanningStage(value) {
   const stage = String(value ?? "").trim();
   return TEST_PLANNING_STAGE_KEYS.includes(stage) ? stage : TEST_PLANNING_DEFAULT_STAGE;
+}
+
+function initTestPlanningClientAutocomplete() {
+  const input = refs.sheetBody.querySelector('[data-autocomplete="testPlanningClient"]');
+  const dropdown = refs.sheetBody.querySelector('#testPlanningClientDropdown');
+  if (!input || !dropdown) return;
+
+  const clientNames = db.clients
+    .filter((c) => !isSampleClient(c))
+    .map((c) => String(c.name ?? "").toUpperCase())
+    .filter(Boolean)
+    .sort();
+
+  function showSuggestions(query) {
+    const q = query.toUpperCase().trim();
+    const matches = q
+      ? clientNames.filter((n) => n.includes(q))
+      : clientNames.slice(0, 40);
+    if (!matches.length) { dropdown.hidden = true; return; }
+    dropdown.innerHTML = matches
+      .map((name) => `<div class="autocomplete-option" tabindex="-1">${escapeHtml(name)}</div>`)
+      .join("");
+    dropdown.hidden = false;
+  }
+
+  function selectOption(name) {
+    input.value = name;
+    dropdown.hidden = true;
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.focus();
+  }
+
+  input.addEventListener("input", () => showSuggestions(input.value));
+  input.addEventListener("focus", () => showSuggestions(input.value));
+  input.addEventListener("blur", () => { setTimeout(() => { dropdown.hidden = true; }, 150); });
+
+  input.addEventListener("keydown", (e) => {
+    if (dropdown.hidden) return;
+    const options = [...dropdown.querySelectorAll(".autocomplete-option")];
+    if (e.key === "ArrowDown") { e.preventDefault(); options[0]?.focus(); }
+    else if (e.key === "Escape") { dropdown.hidden = true; }
+  });
+
+  dropdown.addEventListener("mousedown", (e) => {
+    const opt = e.target.closest(".autocomplete-option");
+    if (!opt) return;
+    e.preventDefault();
+    selectOption(opt.textContent);
+  });
+
+  dropdown.addEventListener("keydown", (e) => {
+    const options = [...dropdown.querySelectorAll(".autocomplete-option")];
+    const idx = options.indexOf(document.activeElement);
+    if (e.key === "ArrowDown") { e.preventDefault(); (options[idx + 1] || options[0])?.focus(); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); idx <= 0 ? input.focus() : options[idx - 1]?.focus(); }
+    else if (e.key === "Enter") { e.preventDefault(); if (idx >= 0) selectOption(options[idx].textContent); }
+    else if (e.key === "Escape") { dropdown.hidden = true; input.focus(); }
+  });
 }
 
 function syncTestPlanningStageField() {

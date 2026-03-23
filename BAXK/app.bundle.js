@@ -2207,6 +2207,9 @@
     syncTestPlanningStageField();
     syncTestPlanningMockupField();
     syncProofingFields(refs.sheetBody);
+    if (action === "addTestPlanningOrder" || action === "editTestPlanningOrder") {
+      initTestPlanningClientAutocomplete();
+    }
     const eyebrowLabel = sheetEyebrow(action);
     refs.sheetEyebrow.textContent = eyebrowLabel;
     refs.sheetEyebrow.hidden = !eyebrowLabel;
@@ -2365,12 +2368,6 @@
   function renderClientSuggestionOptions() {
     return db.clients.filter((client) => !isSampleClient(client)).map((client) => '<option value="'.concat(escapeHtml(client.name), '"></option>')).join("");
   }
-  function renderTestPlanningClientSuggestionOptions() {
-    return db.clients.filter((client) => !isSampleClient(client)).map((client) => {
-      var _a;
-      return '<option value="'.concat(escapeHtml(String((_a = client.name) != null ? _a : "").toUpperCase()), '"></option>');
-    }).join("");
-  }
   function primaryClientContact(client) {
     var _a, _b;
     return (_b = (_a = client == null ? void 0 : client.contacts) == null ? void 0 : _a[0]) != null ? _b : { name: "", role: "", phone: "", email: "" };
@@ -2387,10 +2384,10 @@
   function renderTestPlanningForm(item = null) {
     var _a, _b, _c, _d, _e, _f, _g;
     const stage = normalizeTestPlanningStage(item == null ? void 0 : item.stage);
-    return '\n    <div class="test-planning-field-stage">\n      <span class="field-label">\xC9tape</span>\n      <select class="field-select" name="stage">\n        '.concat(TEST_PLANNING_STAGES.map((entry) => '<option value="'.concat(entry.key, '" ').concat(entry.key === stage ? "selected" : "", ">").concat(escapeHtml(entry.label), "</option>")).join(""), '\n      </select>\n    </div>\n    <div class="field-grid test-planning-form-grid">\n      <label class="test-planning-field-type">\n        <span class="field-label">Type</span>\n        <span class="team-bubble-group" aria-label="Type de client test planning">\n          ').concat(renderTestPlanningClientTypeChoices(item == null ? void 0 : item.clientType), '\n        </span>\n      </label>\n      <label class="test-planning-field-client">\n        <span class="field-label">Client</span>\n        <input class="field-input" name="clientName" type="text" list="testPlanningClientSuggestions" value="').concat(escapeHtml((_a = item == null ? void 0 : item.clientName) != null ? _a : ""), '" placeholder="CLIENT">\n      </label>\n      <label class="test-planning-field-family">\n        <span class="field-label">Famille</span>\n        <input class="field-input" name="family" type="text" list="testPlanningFamilyOptions" value="').concat(escapeHtml((_b = item == null ? void 0 : item.family) != null ? _b : ""), '" placeholder="Famille">\n      </label>\n      <label class="test-planning-field-product">\n        <span class="field-label">Produit</span>\n        <input class="field-input" name="product" type="text" list="testPlanningProductOptions" value="').concat(escapeHtml((_c = item == null ? void 0 : item.product) != null ? _c : ""), '" placeholder="Produit">\n      </label>\n      <label class="test-planning-field-quantity">\n        <span class="field-label">Qt\xE9</span>\n        <input class="field-input" name="quantity" type="text" value="').concat(escapeHtml((_d = item == null ? void 0 : item.quantity) != null ? _d : ""), '" placeholder="Qt\xE9">\n      </label>\n      <label class="test-planning-field-delivery">\n        <span class="field-label">Date de livraison</span>\n        <input class="field-input" name="deliveryDate" type="date" value="').concat(escapeHtml((_e = item == null ? void 0 : item.deliveryDate) != null ? _e : ""), '">\n      </label>\n      <label class="test-planning-field-mockup-toggle">\n        <span class="field-label">Maquette \xE0 faire</span>\n        <span class="checkbox-row">\n          <input name="needsMockup" type="checkbox" ').concat((item == null ? void 0 : item.needsMockup) ? "checked" : "", '>\n          <span>Activer</span>\n        </span>\n      </label>\n      <label class="test-planning-field-status">\n        <span class="field-label">\xC9tat</span>\n        <select class="field-select" name="status">\n          <option value="">\u2014 Choisir un \xE9tat \u2014</option>\n          ').concat(renderTestPlanningStatusOptgroups((_f = item == null ? void 0 : item.status) != null ? _f : ""), '\n        </select>\n      </label>\n      <label class="order-form-note">\n        <span class="field-label">Note</span>\n        <input class="field-input" name="note" type="text" value="').concat(escapeHtml((_g = item == null ? void 0 : item.note) != null ? _g : ""), '" placeholder="Note">\n      </label>\n      <label class="test-planning-field-assignee">\n        <span class="field-label">Assign\xE9</span>\n        <span class="team-bubble-group" aria-label="Assignation test planning">\n          ').concat((() => {
+    return '\n    <div class="test-planning-field-stage">\n      <span class="field-label">\xC9tape</span>\n      <select class="field-select" name="stage">\n        '.concat(TEST_PLANNING_STAGES.map((entry) => '<option value="'.concat(entry.key, '" ').concat(entry.key === stage ? "selected" : "", ">").concat(escapeHtml(entry.label), "</option>")).join(""), '\n      </select>\n    </div>\n    <div class="field-grid test-planning-form-grid">\n      <label class="test-planning-field-type">\n        <span class="field-label">Type</span>\n        <span class="team-bubble-group" aria-label="Type de client test planning">\n          ').concat(renderTestPlanningClientTypeChoices(item == null ? void 0 : item.clientType), '\n        </span>\n      </label>\n      <label class="test-planning-field-client">\n        <span class="field-label">Client</span>\n        <div class="autocomplete-wrap">\n          <input class="field-input" name="clientName" type="text" autocomplete="off" value="').concat(escapeHtml((_a = item == null ? void 0 : item.clientName) != null ? _a : ""), '" placeholder="CLIENT" data-autocomplete="testPlanningClient">\n          <div class="autocomplete-dropdown" id="testPlanningClientDropdown" hidden></div>\n        </div>\n      </label>\n      <label class="test-planning-field-family">\n        <span class="field-label">Famille</span>\n        <input class="field-input" name="family" type="text" list="testPlanningFamilyOptions" value="').concat(escapeHtml((_b = item == null ? void 0 : item.family) != null ? _b : ""), '" placeholder="Famille">\n      </label>\n      <label class="test-planning-field-product">\n        <span class="field-label">Produit</span>\n        <input class="field-input" name="product" type="text" list="testPlanningProductOptions" value="').concat(escapeHtml((_c = item == null ? void 0 : item.product) != null ? _c : ""), '" placeholder="Produit">\n      </label>\n      <label class="test-planning-field-quantity">\n        <span class="field-label">Qt\xE9</span>\n        <input class="field-input" name="quantity" type="text" value="').concat(escapeHtml((_d = item == null ? void 0 : item.quantity) != null ? _d : ""), '" placeholder="Qt\xE9">\n      </label>\n      <label class="test-planning-field-delivery">\n        <span class="field-label">Date de livraison</span>\n        <input class="field-input" name="deliveryDate" type="date" value="').concat(escapeHtml((_e = item == null ? void 0 : item.deliveryDate) != null ? _e : ""), '">\n      </label>\n      <label class="test-planning-field-mockup-toggle">\n        <span class="field-label">Maquette \xE0 faire</span>\n        <span class="checkbox-row">\n          <input name="needsMockup" type="checkbox" ').concat((item == null ? void 0 : item.needsMockup) ? "checked" : "", '>\n          <span>Activer</span>\n        </span>\n      </label>\n      <label class="test-planning-field-status">\n        <span class="field-label">\xC9tat</span>\n        <select class="field-select" name="status">\n          <option value="">\u2014 Choisir un \xE9tat \u2014</option>\n          ').concat(renderTestPlanningStatusOptgroups((_f = item == null ? void 0 : item.status) != null ? _f : ""), '\n        </select>\n      </label>\n      <label class="order-form-note">\n        <span class="field-label">Note</span>\n        <input class="field-input" name="note" type="text" value="').concat(escapeHtml((_g = item == null ? void 0 : item.note) != null ? _g : ""), '" placeholder="Note">\n      </label>\n      <label class="test-planning-field-assignee">\n        <span class="field-label">Assign\xE9</span>\n        <span class="team-bubble-group" aria-label="Assignation test planning">\n          ').concat((() => {
       const current = normalizeImportedAssignee(item == null ? void 0 : item.assignedTo);
       return ORDER_ASSIGNEES.map((assignee) => '\n    <label class="team-bubble-choice" aria-label="Assigner a '.concat(assignee, '">\n      <input class="team-bubble-choice-input" type="radio" name="assignedTo" value="').concat(assignee, '" ').concat(current === assignee ? "checked" : "", '>\n      <span class="team-bubble ').concat(current === assignee ? "is-active" : "", '">').concat(assignee, "</span>\n    </label>\n  ")).join("");
-    })(), '\n        </span>\n      </label>\n    </div>\n    <datalist id="testPlanningClientSuggestions">').concat(renderTestPlanningClientSuggestionOptions(), '</datalist>\n    <datalist id="testPlanningFamilyOptions">').concat(renderListOptions(testPlanningCombinedOptions("family", TEST_PLANNING_FAMILY_OPTIONS)), '</datalist>\n    <datalist id="testPlanningProductOptions">').concat(renderListOptions(testPlanningCombinedOptions("product", TEST_PLANNING_PRODUCT_OPTIONS)), "</datalist>\n    <!-- status is now a <select> with optgroups -->\n  ");
+    })(), '\n        </span>\n      </label>\n    </div>\n    <datalist id="testPlanningFamilyOptions">').concat(renderListOptions(testPlanningCombinedOptions("family", TEST_PLANNING_FAMILY_OPTIONS)), '</datalist>\n    <datalist id="testPlanningProductOptions">').concat(renderListOptions(testPlanningCombinedOptions("product", TEST_PLANNING_PRODUCT_OPTIONS)), "</datalist>\n    <!-- status is now a <select> with optgroups -->\n  ");
   }
   function getVisibleClientRows() {
     const query = state.search;
@@ -3527,6 +3524,73 @@
   function normalizeTestPlanningStage(value) {
     const stage = String(value != null ? value : "").trim();
     return TEST_PLANNING_STAGE_KEYS.includes(stage) ? stage : TEST_PLANNING_DEFAULT_STAGE;
+  }
+  function initTestPlanningClientAutocomplete() {
+    const input = refs.sheetBody.querySelector('[data-autocomplete="testPlanningClient"]');
+    const dropdown = refs.sheetBody.querySelector("#testPlanningClientDropdown");
+    if (!input || !dropdown) return;
+    const clientNames = db.clients.filter((c) => !isSampleClient(c)).map((c) => {
+      var _a;
+      return String((_a = c.name) != null ? _a : "").toUpperCase();
+    }).filter(Boolean).sort();
+    function showSuggestions(query) {
+      const q = query.toUpperCase().trim();
+      const matches = q ? clientNames.filter((n) => n.includes(q)) : clientNames.slice(0, 40);
+      if (!matches.length) {
+        dropdown.hidden = true;
+        return;
+      }
+      dropdown.innerHTML = matches.map((name) => '<div class="autocomplete-option" tabindex="-1">'.concat(escapeHtml(name), "</div>")).join("");
+      dropdown.hidden = false;
+    }
+    function selectOption(name) {
+      input.value = name;
+      dropdown.hidden = true;
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.focus();
+    }
+    input.addEventListener("input", () => showSuggestions(input.value));
+    input.addEventListener("focus", () => showSuggestions(input.value));
+    input.addEventListener("blur", () => {
+      setTimeout(() => {
+        dropdown.hidden = true;
+      }, 150);
+    });
+    input.addEventListener("keydown", (e) => {
+      var _a;
+      if (dropdown.hidden) return;
+      const options = [...dropdown.querySelectorAll(".autocomplete-option")];
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        (_a = options[0]) == null ? void 0 : _a.focus();
+      } else if (e.key === "Escape") {
+        dropdown.hidden = true;
+      }
+    });
+    dropdown.addEventListener("mousedown", (e) => {
+      const opt = e.target.closest(".autocomplete-option");
+      if (!opt) return;
+      e.preventDefault();
+      selectOption(opt.textContent);
+    });
+    dropdown.addEventListener("keydown", (e) => {
+      var _a, _b;
+      const options = [...dropdown.querySelectorAll(".autocomplete-option")];
+      const idx = options.indexOf(document.activeElement);
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        (_a = options[idx + 1] || options[0]) == null ? void 0 : _a.focus();
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        idx <= 0 ? input.focus() : (_b = options[idx - 1]) == null ? void 0 : _b.focus();
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        if (idx >= 0) selectOption(options[idx].textContent);
+      } else if (e.key === "Escape") {
+        dropdown.hidden = true;
+        input.focus();
+      }
+    });
   }
   function syncTestPlanningStageField() {
     if (!refs.sheetForm) {
