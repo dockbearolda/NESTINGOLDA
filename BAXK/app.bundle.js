@@ -812,8 +812,12 @@
       return;
     }
     remoteRevision = Math.max(0, Number(record.revision) || 0);
+    const localSnapshotBeforeOverwrite = pendingRemoteSnapshot ? buildDbSnapshot() : null;
     db = normalizeDb(record.data);
     db.teamNotes = normalizeTeamNotes(db.teamNotes);
+    if (localSnapshotBeforeOverwrite) {
+      mergeLocalChangesBack(localSnapshotBeforeOverwrite);
+    }
     const normalizedPayload = JSON.stringify(buildDbSnapshot());
     const incomingPayload = JSON.stringify({
       ...record.data,
@@ -3324,7 +3328,7 @@
     var collections = [
       "testPlanningItems",
       "orders",
-      "dtfOrders",
+      "dtfRequests",
       "textileOrders",
       "purchaseItems",
       "workshopTasks",

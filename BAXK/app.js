@@ -856,8 +856,12 @@ function applyRemoteDbRecord(record, options = {}) {
   }
 
   remoteRevision = Math.max(0, Number(record.revision) || 0);
+  const localSnapshotBeforeOverwrite = pendingRemoteSnapshot ? buildDbSnapshot() : null;
   db = normalizeDb(record.data);
   db.teamNotes = normalizeTeamNotes(db.teamNotes);
+  if (localSnapshotBeforeOverwrite) {
+    mergeLocalChangesBack(localSnapshotBeforeOverwrite);
+  }
 
   const normalizedPayload = JSON.stringify(buildDbSnapshot());
   const incomingPayload = JSON.stringify({
@@ -4663,7 +4667,7 @@ function mergeLocalChangesBack(localSnapshot) {
   if (!localSnapshot || typeof localSnapshot !== "object") return;
 
   var collections = [
-    "testPlanningItems", "orders", "dtfOrders", "textileOrders",
+    "testPlanningItems", "orders", "dtfRequests", "textileOrders",
     "purchaseItems", "workshopTasks", "improvementItems"
   ];
 
