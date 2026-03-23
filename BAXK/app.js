@@ -631,6 +631,7 @@ let remoteSaveInFlight = false;
 let remotePollInFlight = false;
 let pendingRemoteSnapshot = null;
 let lastRemoteErrorAt = 0;
+let remoteSyncErrorShown = false;
 let remoteBootstrapComplete = false;
 
 const loadResult = loadDb();
@@ -863,12 +864,11 @@ async function pollRemoteDb() {
 }
 
 function notifyRemoteSyncIssue() {
-  const now = Date.now();
-  if (now - lastRemoteErrorAt < 15000) {
+  if (remoteSyncErrorShown) {
     return;
   }
-
-  lastRemoteErrorAt = now;
+  remoteSyncErrorShown = true;
+  lastRemoteErrorAt = Date.now();
   showToast("Synchronisation serveur indisponible. Verifie la connexion.");
 }
 

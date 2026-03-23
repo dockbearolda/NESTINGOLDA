@@ -625,6 +625,7 @@
   var remotePollInFlight = false;
   var pendingRemoteSnapshot = null;
   var lastRemoteErrorAt = 0;
+  var remoteSyncErrorShown = false;
   var remoteBootstrapComplete = false;
   var loadResult = loadDb();
   var db = loadResult.data;
@@ -822,11 +823,11 @@
     }
   }
   function notifyRemoteSyncIssue() {
-    const now = Date.now();
-    if (now - lastRemoteErrorAt < 15e3) {
+    if (remoteSyncErrorShown) {
       return;
     }
-    lastRemoteErrorAt = now;
+    remoteSyncErrorShown = true;
+    lastRemoteErrorAt = Date.now();
     showToast("Synchronisation serveur indisponible. Verifie la connexion.");
   }
   function fetchRemoteDb(revision = null) {
