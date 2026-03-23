@@ -1569,13 +1569,6 @@ function handleSheetDraftInput(event) {
     });
   }
 
-  if (target?.name === "designPreset") {
-    const presetValue = String(target.value ?? "").trim();
-    const designInput = refs.sheetForm.elements.namedItem("designName");
-    if (designInput instanceof HTMLInputElement) {
-      designInput.value = presetValue;
-    }
-  }
 
   if (target?.name === "stage" && target instanceof HTMLSelectElement && (state.activeSheetAction === "addTestPlanningOrder" || state.activeSheetAction === "editTestPlanningOrder")) {
     var statusField = refs.sheetForm?.elements.namedItem("status");
@@ -3356,12 +3349,10 @@ function renderDtfForm(dtf = null) {
       </label>
       <label class="dtf-logo-field">
         <span class="field-label">Nom du logo</span>
-        <div class="field-stack">
-          <input class="field-input" name="designName" type="text" value="${escapeHtml(dtf?.designName ?? "")}" placeholder="Design perso ou logo existant">
-          <select class="field-select" name="designPreset">
-            ${renderLogoPresetOptions(dtf?.designName)}
-          </select>
-        </div>
+        <input class="field-input" name="designName" type="text" list="dtfLogoPresets" value="${escapeHtml(dtf?.designName ?? "")}" placeholder="Taper ou choisir un logo">
+        <datalist id="dtfLogoPresets">
+          ${[...FRONT_LOGO_OPTIONS, ...BACK_LOGO_OPTIONS].map(o => `<option value="${escapeHtml(o)}">`).join("")}
+        </datalist>
       </label>
       <label>
         <span class="field-label">Taille</span>
