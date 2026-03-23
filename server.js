@@ -77,6 +77,9 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (!isAuthenticated(req)) {
+      if (pathname.startsWith("/api/")) {
+        return sendJson(res, 401, { error: "unauthenticated" });
+      }
       redirect(res, "/login");
       return;
     }

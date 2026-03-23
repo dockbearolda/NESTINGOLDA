@@ -814,6 +814,11 @@ async function pollRemoteDb() {
       return;
     }
 
+    if (response.status === 401) {
+      window.location.href = "/login";
+      return;
+    }
+
     if (!response.ok) {
       throw new Error(`Remote poll failed with status ${response.status}`);
     }
@@ -4632,6 +4637,11 @@ async function flushRemoteSave() {
         data: snapshot
       })
     });
+
+    if (response.status === 401) {
+      window.location.href = "/login";
+      return;
+    }
 
     if (response.status === 409) {
       const record = await response.json();

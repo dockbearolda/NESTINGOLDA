@@ -779,6 +779,10 @@
       if (response.status === 204 || response.status === 404) {
         return;
       }
+      if (response.status === 401) {
+        window.location.href = "/login";
+        return;
+      }
       if (!response.ok) {
         throw new Error("Remote poll failed with status ".concat(response.status));
       }
@@ -3297,6 +3301,10 @@
           data: snapshot
         })
       });
+      if (response.status === 401) {
+        window.location.href = "/login";
+        return;
+      }
       if (response.status === 409) {
         const record2 = await response.json();
         remoteRevision = Math.max(0, Number(record2.revision) || 0);
