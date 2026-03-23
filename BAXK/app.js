@@ -2325,6 +2325,14 @@ function renderView() {
   }
 
   syncProofingFields(refs.viewRoot);
+
+  const isArchiveMode = (
+    (state.view === "dtf" && state.showDtfArchives) ||
+    (state.view === "textile" && state.showTextileArchives) ||
+    (state.view === "purchase" && state.showPurchaseArchives) ||
+    (state.view === "testPlanning" && state.showTestPlanningArchives)
+  );
+  document.body.toggleAttribute("data-archive-mode", isArchiveMode);
 }
 
 function renderPlaceholderView() {
@@ -2716,21 +2724,9 @@ function renderDtfRow(row) {
 
 function renderMockupsView() {
   const rows = getVisibleMockupItems();
-  const archiveCount = db.dtfRequests.filter((item) => item.archivedAt && item.needsMockup).length;
 
   return `
     <section class="module-layout orders-layout">
-      <div class="archive-toggle">
-        <div>
-          <strong>Archives maquettes</strong>
-          <p class="archive-copy">${archiveCount}</p>
-        </div>
-        <div class="archive-actions">
-          <button class="pill-button ${state.showDtfArchives ? "is-active" : ""}" type="button" data-action="toggle-dtf-archives">
-            ${state.showDtfArchives ? "Voir les actives" : "Voir les archives"}
-          </button>
-        </div>
-      </div>
       <section class="orders-board">
         <div class="orders-list">
           ${rows.length ? rows.map(renderMockupRow).join("") : `<div class="empty-state">Aucune maquette a faire.</div>`}

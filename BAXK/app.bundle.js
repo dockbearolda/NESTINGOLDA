@@ -2084,6 +2084,8 @@
         break;
     }
     syncProofingFields(refs.viewRoot);
+    const isArchiveMode = state.view === "dtf" && state.showDtfArchives || state.view === "textile" && state.showTextileArchives || state.view === "purchase" && state.showPurchaseArchives || state.view === "testPlanning" && state.showTestPlanningArchives;
+    document.body.toggleAttribute("data-archive-mode", isArchiveMode);
   }
   function renderPlaceholderView() {
     return '\n    <section class="module-layout">\n      <article class="placeholder-card">\n        <p class="module-kicker">'.concat(escapeHtml(views[state.view].label), "</p>\n        <strong>Module en attente de construction</strong>\n      </article>\n    </section>\n  ");
@@ -2200,8 +2202,7 @@
   }
   function renderMockupsView() {
     const rows = getVisibleMockupItems();
-    const archiveCount = db.dtfRequests.filter((item) => item.archivedAt && item.needsMockup).length;
-    return '\n    <section class="module-layout orders-layout">\n      <div class="archive-toggle">\n        <div>\n          <strong>Archives maquettes</strong>\n          <p class="archive-copy">'.concat(archiveCount, '</p>\n        </div>\n        <div class="archive-actions">\n          <button class="pill-button ').concat(state.showDtfArchives ? "is-active" : "", '" type="button" data-action="toggle-dtf-archives">\n            ').concat(state.showDtfArchives ? "Voir les actives" : "Voir les archives", '\n          </button>\n        </div>\n      </div>\n      <section class="orders-board">\n        <div class="orders-list">\n          ').concat(rows.length ? rows.map(renderMockupRow).join("") : '<div class="empty-state">Aucune maquette a faire.</div>', "\n        </div>\n      </section>\n    </section>\n  ");
+    return '\n    <section class="module-layout orders-layout">\n      <section class="orders-board">\n        <div class="orders-list">\n          '.concat(rows.length ? rows.map(renderMockupRow).join("") : '<div class="empty-state">Aucune maquette a faire.</div>', "\n        </div>\n      </section>\n    </section>\n  ");
   }
   function renderMockupRow(item) {
     const isTestPlanning = item.kind === "testPlanning";
