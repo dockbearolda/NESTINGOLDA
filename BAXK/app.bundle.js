@@ -621,6 +621,7 @@
   var remotePollingTimer = null;
   var remoteSaveTimer = null;
   var remoteSaveInFlight = false;
+  var remotePollInFlight = false;
   var pendingRemoteSnapshot = null;
   var lastRemoteErrorAt = 0;
   var remoteBootstrapComplete = false;
@@ -771,9 +772,10 @@
     }
   }
   async function pollRemoteDb() {
-    if (!remoteSyncReady || remoteSaveInFlight) {
+    if (!remoteSyncReady || remoteSaveInFlight || remotePollInFlight) {
       return;
     }
+    remotePollInFlight = true;
     try {
       const response = await fetchRemoteDb(remoteRevision);
       if (response.status === 204 || response.status === 404) {
@@ -789,8 +791,13 @@
       const record = await response.json();
       applyRemoteDbRecord(record, { announce: true });
     } catch (error) {
+      if (error instanceof TypeError) {
+        return;
+      }
       console.error(error);
       notifyRemoteSyncIssue();
+    } finally {
+      remotePollInFlight = false;
     }
   }
   function notifyRemoteSyncIssue() {

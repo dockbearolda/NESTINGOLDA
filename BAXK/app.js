@@ -627,6 +627,7 @@ let remoteSyncReady = false;
 let remotePollingTimer = null;
 let remoteSaveTimer = null;
 let remoteSaveInFlight = false;
+let remotePollInFlight = false;
 let pendingRemoteSnapshot = null;
 let lastRemoteErrorAt = 0;
 let remoteBootstrapComplete = false;
@@ -804,10 +805,11 @@ function handleRemoteVisibilityChange() {
 }
 
 async function pollRemoteDb() {
-  if (!remoteSyncReady || remoteSaveInFlight) {
+  if (!remoteSyncReady || remoteSaveInFlight || remotePollInFlight) {
     return;
   }
 
+  remotePollInFlight = true;
   try {
     const response = await fetchRemoteDb(remoteRevision);
     if (response.status === 204 || response.status === 404) {
@@ -826,8 +828,13 @@ async function pollRemoteDb() {
     const record = await response.json();
     applyRemoteDbRecord(record, { announce: true });
   } catch (error) {
+    if (error instanceof TypeError) {
+      return;
+    }
     console.error(error);
     notifyRemoteSyncIssue();
+  } finally {
+    remotePollInFlight = false;
   }
 }
 
