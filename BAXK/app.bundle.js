@@ -798,6 +798,7 @@
     try {
       const response = await fetchRemoteDb(remoteRevision);
       if (response.status === 204 || response.status === 404) {
+        hideSyncErrorBanner();
         return;
       }
       if (response.status === 401) {
@@ -813,6 +814,7 @@
         return;
       }
       const record = await response.json();
+      hideSyncErrorBanner();
       applyRemoteDbRecord(record, { announce: true });
     } catch (error) {
       if (error instanceof TypeError || error instanceof SyntaxError) {
@@ -830,7 +832,22 @@
     }
     remoteSyncErrorShown = true;
     lastRemoteErrorAt = Date.now();
-    showToast("Synchronisation serveur indisponible. Verifie la connexion.");
+    showSyncErrorBanner();
+  }
+  function showSyncErrorBanner() {
+    let banner = document.getElementById("syncErrorBanner");
+    if (banner) return;
+    banner = document.createElement("div");
+    banner.id = "syncErrorBanner";
+    banner.textContent = "\u26A0\uFE0F Sync serveur indisponible";
+    document.body.appendChild(banner);
+  }
+  function hideSyncErrorBanner() {
+    const banner = document.getElementById("syncErrorBanner");
+    if (banner) {
+      banner.remove();
+      remoteSyncErrorShown = false;
+    }
   }
   function fetchRemoteDb(revision = null) {
     const url = revision ? "".concat(SERVER_DB_ENDPOINT, "?revision=").concat(encodeURIComponent(revision)) : SERVER_DB_ENDPOINT;
@@ -847,24 +864,18 @@
       return;
     }
     remoteRevision = Math.max(0, Number(record.revision) || 0);
+    const snapshotBefore = JSON.stringify(buildDbSnapshot());
     const localSnapshotBeforeOverwrite = pendingRemoteSnapshot ? buildDbSnapshot() : null;
     db = normalizeDb(record.data);
     db.teamNotes = normalizeTeamNotes(db.teamNotes);
     if (localSnapshotBeforeOverwrite) {
       mergeLocalChangesBack(localSnapshotBeforeOverwrite);
     }
-    const normalizedPayload = JSON.stringify(buildDbSnapshot());
-    const incomingPayload = JSON.stringify({
-      ...record.data,
-      _meta: {
-        version: DATA_VERSION
-      }
-    });
-    persistDb({ skipRemote: normalizedPayload === incomingPayload });
-    requestRender();
-    if (options.announce) {
-      if (importedOrdersAdded || duplicateOrdersRemoved) {
-      }
+    const snapshotAfter = JSON.stringify(buildDbSnapshot());
+    const dataChanged = snapshotBefore !== snapshotAfter;
+    persistDb({ skipRemote: !dataChanged });
+    if (dataChanged) {
+      requestRender();
     }
   }
   function bindGlobalErrorHandlers() {

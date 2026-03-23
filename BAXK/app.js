@@ -834,6 +834,7 @@ async function pollRemoteDb() {
   try {
     const response = await fetchRemoteDb(remoteRevision);
     if (response.status === 204 || response.status === 404) {
+      hideSyncErrorBanner();
       return;
     }
 
@@ -853,6 +854,7 @@ async function pollRemoteDb() {
     }
 
     const record = await response.json();
+    hideSyncErrorBanner();
     applyRemoteDbRecord(record, { announce: true });
   } catch (error) {
     if (error instanceof TypeError || error instanceof SyntaxError) {
@@ -871,7 +873,24 @@ function notifyRemoteSyncIssue() {
   }
   remoteSyncErrorShown = true;
   lastRemoteErrorAt = Date.now();
-  showToast("Synchronisation serveur indisponible. Verifie la connexion.");
+  showSyncErrorBanner();
+}
+
+function showSyncErrorBanner() {
+  let banner = document.getElementById("syncErrorBanner");
+  if (banner) return;
+  banner = document.createElement("div");
+  banner.id = "syncErrorBanner";
+  banner.textContent = "⚠️ Sync serveur indisponible";
+  document.body.appendChild(banner);
+}
+
+function hideSyncErrorBanner() {
+  const banner = document.getElementById("syncErrorBanner");
+  if (banner) {
+    banner.remove();
+    remoteSyncErrorShown = false;
+  }
 }
 
 function fetchRemoteDb(revision = null) {
@@ -894,6 +913,7 @@ function applyRemoteDbRecord(record, options = {}) {
   }
 
   remoteRevision = Math.max(0, Number(record.revision) || 0);
+  const snapshotBefore = JSON.stringify(buildDbSnapshot());
   const localSnapshotBeforeOverwrite = pendingRemoteSnapshot ? buildDbSnapshot() : null;
   db = normalizeDb(record.data);
   db.teamNotes = normalizeTeamNotes(db.teamNotes);
@@ -901,21 +921,13 @@ function applyRemoteDbRecord(record, options = {}) {
     mergeLocalChangesBack(localSnapshotBeforeOverwrite);
   }
 
-  const normalizedPayload = JSON.stringify(buildDbSnapshot());
-  const incomingPayload = JSON.stringify({
-    ...record.data,
-    _meta: {
-      version: DATA_VERSION
-    }
-  });
-  persistDb({ skipRemote: normalizedPayload === incomingPayload });
+  const snapshotAfter = JSON.stringify(buildDbSnapshot());
+  const dataChanged = snapshotBefore !== snapshotAfter;
 
-  requestRender();
+  persistDb({ skipRemote: !dataChanged });
 
-  if (options.announce) {
-    if (importedOrdersAdded || duplicateOrdersRemoved) {
-      // silent – no toast for background sync
-    }
+  if (dataChanged) {
+    requestRender();
   }
 }
 
