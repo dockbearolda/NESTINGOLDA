@@ -2105,7 +2105,7 @@
     const activeAssignee = state.activeTestAssignee;
     const assigneeChips = ORDER_ASSIGNEES.map((a) => {
       const isActive = activeAssignee === a;
-      return '<button class="test-step-chip test-assignee-chip '.concat(isActive ? "is-active" : "", '" type="button" data-test-assignee-filter="').concat(escapeHtml(a), '">').concat(escapeHtml(a), "</button>");
+      return '<button class="test-assignee-chip '.concat(isActive ? "is-active" : "", '" type="button" data-test-assignee-filter="').concat(escapeHtml(a), '">').concat(escapeHtml(a), "</button>");
     }).join("");
     return '\n    <section class="module-layout">\n      <section class="test-planning-steps">\n        <button class="test-step-chip '.concat(!activeStage ? "is-active" : "", '" type="button" data-test-stage-jump="__recent__" data-accent="blue">\n          <span>Toutes</span>\n          <strong>').concat(sections.filter((s) => s.key !== "archived").reduce((sum, s) => sum + s.rows.length, 0), '</strong>\n        </button>\n        <button class="test-step-chip ').concat(activeStage === "__urgent__" ? "is-active" : "", '" type="button" data-test-stage-jump="__urgent__" data-accent="red">\n          <span>Urgence</span>\n          <strong>').concat(urgentItems.length, "</strong>\n        </button>\n        ").concat(sections.map(renderTestPlanningStepSummary).join(""), '\n      </section>\n      <section class="test-planning-assignee-filters">\n        ').concat(assigneeChips, "\n      </section>\n      ").concat(bodyHtml, "\n    </section>\n  ");
   }

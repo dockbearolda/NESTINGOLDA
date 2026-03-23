@@ -2369,7 +2369,7 @@ function renderTestPlanningView() {
   const activeAssignee = state.activeTestAssignee;
   const assigneeChips = ORDER_ASSIGNEES.map((a) => {
     const isActive = activeAssignee === a;
-    return `<button class="test-step-chip test-assignee-chip ${isActive ? "is-active" : ""}" type="button" data-test-assignee-filter="${escapeHtml(a)}">${escapeHtml(a)}</button>`;
+    return `<button class="test-assignee-chip ${isActive ? "is-active" : ""}" type="button" data-test-assignee-filter="${escapeHtml(a)}">${escapeHtml(a)}</button>`;
   }).join("");
 
   return `

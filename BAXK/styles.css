@@ -1329,30 +1329,29 @@ button {
 /* ── Assignee filter chips ── */
 .test-planning-assignee-filters {
   display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  margin-top: -6px;
+  gap: 8px;
+  justify-content: center;
   margin-bottom: 4px;
 }
 
 .test-assignee-chip {
   flex: 0 0 auto;
-  height: 28px;
-  min-width: 36px;
-  padding: 0 10px;
-  border-radius: 999px;
-  border: 1.5px solid rgba(0,0,0,0.10);
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1.5px solid rgba(0,0,0,0.12);
   background: transparent;
-  font-size: 0.82rem;
-  font-weight: 600;
-  color: rgba(0,0,0,0.5);
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: rgba(0,0,0,0.45);
   cursor: pointer;
   transition: all 0.15s;
   -webkit-tap-highlight-color: transparent;
 }
 
 .test-assignee-chip:hover {
-  background: rgba(0,0,0,0.04);
+  background: rgba(0,0,0,0.05);
   color: rgba(0,0,0,0.7);
 }
 
