@@ -1556,6 +1556,14 @@ function handleRootInput(event) {
 function handleSheetDraftInput(event) {
   const target = event?.target;
 
+  if (target?.classList?.contains("team-bubble-choice-input") && target instanceof HTMLInputElement && target.checked) {
+    const group = refs.sheetForm.querySelectorAll(`.team-bubble-choice-input[name="${CSS.escape(target.name)}"]`);
+    group.forEach((input) => {
+      const bubble = input.nextElementSibling;
+      if (bubble) bubble.classList.toggle("is-active", input === target);
+    });
+  }
+
   if (target?.name === "designPreset") {
     const presetValue = String(target.value ?? "").trim();
     const designInput = refs.sheetForm.elements.namedItem("designName");
