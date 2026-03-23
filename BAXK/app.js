@@ -601,6 +601,7 @@ const state = {
   showDtfArchives: false,
   showTextileArchives: false,
   showPurchaseArchives: false,
+  showTestPlanningArchives: false,
   textileSort: { key: "expectedDate", direction: "asc" },
   activeSheetAction: null,
   activeDtfId: null,
@@ -1201,6 +1202,16 @@ function handleRootClick(event) {
       persistDb();
       requestRender();
       showToast("Remontee supprimee.");
+      return;
+    }
+
+    if (action === "archive-test-planning") {
+      archiveTestPlanningItem(id, true);
+      return;
+    }
+
+    if (action === "restore-test-planning") {
+      archiveTestPlanningItem(id, false);
       return;
     }
 
@@ -2346,6 +2357,7 @@ function renderTestPlanningView() {
 
   const urgentItems = db.testPlanningItems.filter((item) => {
     if (!isUrgentTestPlanningItem(item)) return false;
+    if (item.archivedAt && !state.showTestPlanningArchives) return false;
     if (state.activeTestAssignee && item.assignedTo !== state.activeTestAssignee) return false;
     if (!state.search) return true;
     return [item.clientName, item.family, item.product, item.quantity, item.note, item.status, item.mockupStatus || ""]
@@ -2363,6 +2375,7 @@ function renderTestPlanningView() {
     const filteredItems = db.testPlanningItems
       .filter((item) => {
         if (item.stage !== activeStage) return false;
+        if (item.archivedAt && !state.showTestPlanningArchives) return false;
         if (state.activeTestAssignee && item.assignedTo !== state.activeTestAssignee) return false;
         if (!state.search) return true;
         return [item.clientName, item.family, item.product, item.quantity, item.note, item.status, item.mockupStatus || ""]
@@ -2377,6 +2390,7 @@ function renderTestPlanningView() {
     const allItems = db.testPlanningItems
       .filter((item) => {
         if (item.stage === "archived") return false;
+        if (item.archivedAt && !state.showTestPlanningArchives) return false;
         if (state.activeTestAssignee && item.assignedTo !== state.activeTestAssignee) return false;
         if (!state.search) return true;
         return [item.clientName, item.family, item.product, item.quantity, item.note, item.status, item.mockupStatus || ""]
@@ -2478,6 +2492,7 @@ function renderTestPlanningCard(item) {
         <span class="tp-actions">
           <button class="pill-button" type="button" data-action="test-planning-prev-stage" data-id="${item.id}" title="Étape précédente" ${canGoPrev ? "" : "disabled"}>←</button>
           <button class="pill-button" type="button" data-action="test-planning-next-stage" data-id="${item.id}" title="Étape suivante" ${canGoNext ? "" : "disabled"}>→</button>
+          <button class="row-action row-action-subtle" type="button" data-action="${item.archivedAt ? "restore-test-planning" : "archive-test-planning"}" data-id="${item.id}" title="${item.archivedAt ? "Restaurer" : "Archiver"}">📦</button>
           <button class="row-action row-action-subtle is-danger" type="button" data-action="delete-test-planning" data-id="${item.id}" aria-label="Supprimer">×</button>
         </span>
       </div>
@@ -3599,7 +3614,7 @@ function renderTestPlanningForm(item = null) {
           ${renderTestPlanningStatusOptgroups(item?.status ?? "")}
         </select>
       </label>
-      <label class="order-form-note">
+      <label class="test-planning-field-note">
         <span class="field-label">Note</span>
         <input class="field-input" name="note" type="text" value="${escapeHtml(item?.note ?? "")}" placeholder="Note">
       </label>
@@ -3938,6 +3953,9 @@ function getVisibleTestPlanningItems(stageKey) {
     if (item.stage !== stageKey) {
       return false;
     }
+    if (item.archivedAt && !state.showTestPlanningArchives) {
+      return false;
+    }
     if (state.activeTestAssignee && item.assignedTo !== state.activeTestAssignee) {
       return false;
     }
@@ -4024,6 +4042,16 @@ function archiveTextileOrder(id, shouldArchive) {
   persistDb();
   requestRender();
   showToast(shouldArchive ? "Commande textile archivee." : "Commande textile restauree.");
+}
+
+function archiveTestPlanningItem(id, shouldArchive) {
+  const item = db.testPlanningItems.find((item) => item.id === id);
+  if (item) {
+    item.archivedAt = shouldArchive ? isoToday() : "";
+  }
+  persistDb();
+  requestRender({ header: false, status: false, view: true });
+  showToast(shouldArchive ? "Commande archivée." : "Commande restaurée.");
 }
 
 function toggleTextileSort(key) {
@@ -4561,7 +4589,8 @@ function normalizeTestPlanningItem(item, index = 0) {
     status: String(item.status ?? "").trim(),
     stage,
     assignedTo: normalizeImportedAssignee(item.assignedTo),
-    createdAt: String(item.createdAt ?? isoNow())
+    createdAt: String(item.createdAt ?? isoNow()),
+    archivedAt: String(item.archivedAt ?? "").trim()
   };
 }
 

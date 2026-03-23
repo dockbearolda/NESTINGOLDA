@@ -2028,6 +2028,10 @@ button {
 }
 
 
+.test-planning-form-grid .test-planning-field-note {
+  grid-column: 1 / -1;
+}
+
 .test-planning-form-grid .test-planning-field-status {
   grid-column: 8 / -1;
 }

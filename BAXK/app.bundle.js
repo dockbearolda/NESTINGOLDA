@@ -596,6 +596,7 @@
     showDtfArchives: false,
     showTextileArchives: false,
     showPurchaseArchives: false,
+    showTestPlanningArchives: false,
     textileSort: { key: "expectedDate", direction: "asc" },
     activeSheetAction: null,
     activeDtfId: null,
@@ -1101,6 +1102,14 @@
         persistDb();
         requestRender();
         showToast("Remontee supprimee.");
+        return;
+      }
+      if (action === "archive-test-planning") {
+        archiveTestPlanningItem(id, true);
+        return;
+      }
+      if (action === "restore-test-planning") {
+        archiveTestPlanningItem(id, false);
         return;
       }
       if (action === "delete-test-planning") {
@@ -2096,6 +2105,7 @@
     }));
     const urgentItems = db.testPlanningItems.filter((item) => {
       if (!isUrgentTestPlanningItem(item)) return false;
+      if (item.archivedAt && !state.showTestPlanningArchives) return false;
       if (state.activeTestAssignee && item.assignedTo !== state.activeTestAssignee) return false;
       if (!state.search) return true;
       return [item.clientName, item.family, item.product, item.quantity, item.note, item.status, item.mockupStatus || ""].join(" ").toLowerCase().includes(state.search);
@@ -2107,6 +2117,7 @@
     } else if (activeStage) {
       const filteredItems = db.testPlanningItems.filter((item) => {
         if (item.stage !== activeStage) return false;
+        if (item.archivedAt && !state.showTestPlanningArchives) return false;
         if (state.activeTestAssignee && item.assignedTo !== state.activeTestAssignee) return false;
         if (!state.search) return true;
         return [item.clientName, item.family, item.product, item.quantity, item.note, item.status, item.mockupStatus || ""].join(" ").toLowerCase().includes(state.search);
@@ -2115,6 +2126,7 @@
     } else {
       const allItems = db.testPlanningItems.filter((item) => {
         if (item.stage === "archived") return false;
+        if (item.archivedAt && !state.showTestPlanningArchives) return false;
         if (state.activeTestAssignee && item.assignedTo !== state.activeTestAssignee) return false;
         if (!state.search) return true;
         return [item.clientName, item.family, item.product, item.quantity, item.note, item.status, item.mockupStatus || ""].join(" ").toLowerCase().includes(state.search);
@@ -2147,7 +2159,7 @@
       }
     }
     const mockupTag = item.needsMockup && !item.mockupCompletedAt ? '<span class="tp-mockup-corner">\u{1F3A8}</span>' : item.needsMockup && item.mockupCompletedAt ? '<span class="tp-mockup-corner is-done">\u2713</span>' : "";
-    return '\n    <article class="tp-line" data-test-planning-id="'.concat(item.id, '" data-accent="').concat(escapeHtml(stageAccent), '" tabindex="0">\n      ').concat(mockupTag, '\n      <span class="tp-accent" data-accent="').concat(escapeHtml(stageAccent), '"></span>\n      <div class="tp-grid">\n        <span class="tp-badge" data-accent="').concat(escapeHtml(stageAccent), '">').concat(escapeHtml(stageLabel), '</span>\n        <span class="tp-type">').concat(escapeHtml(item.clientType || "\u2014"), '</span>\n        <strong class="tp-client">').concat(escapeHtml(item.clientName || "Client"), '</strong>\n        <span class="tp-family">').concat(escapeHtml(item.family || "\u2014"), '</span>\n        <span class="tp-product">').concat(escapeHtml(item.product || "\u2014"), '</span>\n        <span class="tp-qty">').concat(escapeHtml(item.quantity ? "\xD7" + item.quantity : "\u2014"), '</span>\n        <span class="tp-date">').concat(escapeHtml(item.deliveryDate ? formatDate(item.deliveryDate) : "\u2014"), '</span>\n        <span class="tp-status" data-inline-status="').concat(item.id, '" title="Cliquer pour changer">').concat(escapeHtml(item.status || stageLabel), '</span>\n        <select class="inline-status-select is-hidden" data-inline-status-sel="').concat(item.id, '"><option value="">\u2014 \xC9tat \u2014</option>').concat(renderTestPlanningStatusOptgroups(item.status), '</select>\n        <span class="tp-actions">\n          <button class="pill-button" type="button" data-action="test-planning-prev-stage" data-id="').concat(item.id, '" title="\xC9tape pr\xE9c\xE9dente" ').concat(canGoPrev ? "" : "disabled", '>\u2190</button>\n          <button class="pill-button" type="button" data-action="test-planning-next-stage" data-id="').concat(item.id, '" title="\xC9tape suivante" ').concat(canGoNext ? "" : "disabled", '>\u2192</button>\n          <button class="row-action row-action-subtle is-danger" type="button" data-action="delete-test-planning" data-id="').concat(item.id, '" aria-label="Supprimer">\xD7</button>\n        </span>\n      </div>\n      ').concat(item.note ? '<div class="tp-sub"><span class="tp-note">' + escapeHtml(item.note) + "</span></div>" : "", "\n      ").concat(createdLabel ? '<time class="tp-time">'.concat(createdLabel, "</time>") : "", "\n    </article>\n  ");
+    return '\n    <article class="tp-line" data-test-planning-id="'.concat(item.id, '" data-accent="').concat(escapeHtml(stageAccent), '" tabindex="0">\n      ').concat(mockupTag, '\n      <span class="tp-accent" data-accent="').concat(escapeHtml(stageAccent), '"></span>\n      <div class="tp-grid">\n        <span class="tp-badge" data-accent="').concat(escapeHtml(stageAccent), '">').concat(escapeHtml(stageLabel), '</span>\n        <span class="tp-type">').concat(escapeHtml(item.clientType || "\u2014"), '</span>\n        <strong class="tp-client">').concat(escapeHtml(item.clientName || "Client"), '</strong>\n        <span class="tp-family">').concat(escapeHtml(item.family || "\u2014"), '</span>\n        <span class="tp-product">').concat(escapeHtml(item.product || "\u2014"), '</span>\n        <span class="tp-qty">').concat(escapeHtml(item.quantity ? "\xD7" + item.quantity : "\u2014"), '</span>\n        <span class="tp-date">').concat(escapeHtml(item.deliveryDate ? formatDate(item.deliveryDate) : "\u2014"), '</span>\n        <span class="tp-status" data-inline-status="').concat(item.id, '" title="Cliquer pour changer">').concat(escapeHtml(item.status || stageLabel), '</span>\n        <select class="inline-status-select is-hidden" data-inline-status-sel="').concat(item.id, '"><option value="">\u2014 \xC9tat \u2014</option>').concat(renderTestPlanningStatusOptgroups(item.status), '</select>\n        <span class="tp-actions">\n          <button class="pill-button" type="button" data-action="test-planning-prev-stage" data-id="').concat(item.id, '" title="\xC9tape pr\xE9c\xE9dente" ').concat(canGoPrev ? "" : "disabled", '>\u2190</button>\n          <button class="pill-button" type="button" data-action="test-planning-next-stage" data-id="').concat(item.id, '" title="\xC9tape suivante" ').concat(canGoNext ? "" : "disabled", '>\u2192</button>\n          <button class="row-action row-action-subtle" type="button" data-action="').concat(item.archivedAt ? "restore-test-planning" : "archive-test-planning", '" data-id="').concat(item.id, '" title="').concat(item.archivedAt ? "Restaurer" : "Archiver", '">\u{1F4E6}</button>\n          <button class="row-action row-action-subtle is-danger" type="button" data-action="delete-test-planning" data-id="').concat(item.id, '" aria-label="Supprimer">\xD7</button>\n        </span>\n      </div>\n      ').concat(item.note ? '<div class="tp-sub"><span class="tp-note">' + escapeHtml(item.note) + "</span></div>" : "", "\n      ").concat(createdLabel ? '<time class="tp-time">'.concat(createdLabel, "</time>") : "", "\n    </article>\n  ");
   }
   function renderTasksView() {
     const notes = getVisibleTeamNotes();
@@ -2456,7 +2468,7 @@
   function renderTestPlanningForm(item = null) {
     var _a, _b, _c, _d, _e, _f, _g;
     const stage = normalizeTestPlanningStage(item == null ? void 0 : item.stage);
-    return '\n    <div class="test-planning-field-stage">\n      <span class="field-label">\xC9tape</span>\n      <select class="field-select" name="stage">\n        '.concat(TEST_PLANNING_STAGES.map((entry) => '<option value="'.concat(entry.key, '" ').concat(entry.key === stage ? "selected" : "", ">").concat(escapeHtml(entry.label), "</option>")).join(""), '\n      </select>\n    </div>\n    <div class="field-grid test-planning-form-grid">\n      <label class="test-planning-field-type">\n        <span class="field-label">Type</span>\n        <span class="team-bubble-group" aria-label="Type de client test planning">\n          ').concat(renderTestPlanningClientTypeChoices(item == null ? void 0 : item.clientType), '\n        </span>\n      </label>\n      <label class="test-planning-field-client">\n        <span class="field-label">Client</span>\n        <div class="autocomplete-wrap">\n          <input class="field-input" name="clientName" type="text" autocomplete="off" value="').concat(escapeHtml((_a = item == null ? void 0 : item.clientName) != null ? _a : ""), '" placeholder="CLIENT" data-autocomplete="testPlanningClient">\n          <div class="autocomplete-dropdown" id="testPlanningClientDropdown" hidden></div>\n        </div>\n      </label>\n      <label class="test-planning-field-family">\n        <span class="field-label">Famille</span>\n        <input class="field-input" name="family" type="text" list="testPlanningFamilyOptions" value="').concat(escapeHtml((_b = item == null ? void 0 : item.family) != null ? _b : ""), '" placeholder="Famille">\n      </label>\n      <label class="test-planning-field-product">\n        <span class="field-label">Produit</span>\n        <input class="field-input" name="product" type="text" list="testPlanningProductOptions" value="').concat(escapeHtml((_c = item == null ? void 0 : item.product) != null ? _c : ""), '" placeholder="Produit">\n      </label>\n      <label class="test-planning-field-quantity">\n        <span class="field-label">Qt\xE9</span>\n        <input class="field-input" name="quantity" type="text" value="').concat(escapeHtml((_d = item == null ? void 0 : item.quantity) != null ? _d : ""), '" placeholder="Qt\xE9">\n      </label>\n      <label class="test-planning-field-delivery">\n        <span class="field-label">Date de livraison</span>\n        <input class="field-input" name="deliveryDate" type="date" value="').concat(escapeHtml((_e = item == null ? void 0 : item.deliveryDate) != null ? _e : ""), '">\n      </label>\n      <label class="test-planning-field-mockup-toggle">\n        <span class="field-label">Maquette \xE0 faire</span>\n        <span class="checkbox-row">\n          <input name="needsMockup" type="checkbox" ').concat((item == null ? void 0 : item.needsMockup) ? "checked" : "", '>\n          <span>Activer</span>\n        </span>\n      </label>\n      <label class="test-planning-field-status">\n        <span class="field-label">\xC9tat</span>\n        <select class="field-select" name="status">\n          <option value="">\u2014 Choisir un \xE9tat \u2014</option>\n          ').concat(renderTestPlanningStatusOptgroups((_f = item == null ? void 0 : item.status) != null ? _f : ""), '\n        </select>\n      </label>\n      <label class="order-form-note">\n        <span class="field-label">Note</span>\n        <input class="field-input" name="note" type="text" value="').concat(escapeHtml((_g = item == null ? void 0 : item.note) != null ? _g : ""), '" placeholder="Note">\n      </label>\n      <label class="test-planning-field-assignee">\n        <span class="field-label">Assign\xE9</span>\n        <span class="team-bubble-group" aria-label="Assignation test planning">\n          ').concat((() => {
+    return '\n    <div class="test-planning-field-stage">\n      <span class="field-label">\xC9tape</span>\n      <select class="field-select" name="stage">\n        '.concat(TEST_PLANNING_STAGES.map((entry) => '<option value="'.concat(entry.key, '" ').concat(entry.key === stage ? "selected" : "", ">").concat(escapeHtml(entry.label), "</option>")).join(""), '\n      </select>\n    </div>\n    <div class="field-grid test-planning-form-grid">\n      <label class="test-planning-field-type">\n        <span class="field-label">Type</span>\n        <span class="team-bubble-group" aria-label="Type de client test planning">\n          ').concat(renderTestPlanningClientTypeChoices(item == null ? void 0 : item.clientType), '\n        </span>\n      </label>\n      <label class="test-planning-field-client">\n        <span class="field-label">Client</span>\n        <div class="autocomplete-wrap">\n          <input class="field-input" name="clientName" type="text" autocomplete="off" value="').concat(escapeHtml((_a = item == null ? void 0 : item.clientName) != null ? _a : ""), '" placeholder="CLIENT" data-autocomplete="testPlanningClient">\n          <div class="autocomplete-dropdown" id="testPlanningClientDropdown" hidden></div>\n        </div>\n      </label>\n      <label class="test-planning-field-family">\n        <span class="field-label">Famille</span>\n        <input class="field-input" name="family" type="text" list="testPlanningFamilyOptions" value="').concat(escapeHtml((_b = item == null ? void 0 : item.family) != null ? _b : ""), '" placeholder="Famille">\n      </label>\n      <label class="test-planning-field-product">\n        <span class="field-label">Produit</span>\n        <input class="field-input" name="product" type="text" list="testPlanningProductOptions" value="').concat(escapeHtml((_c = item == null ? void 0 : item.product) != null ? _c : ""), '" placeholder="Produit">\n      </label>\n      <label class="test-planning-field-quantity">\n        <span class="field-label">Qt\xE9</span>\n        <input class="field-input" name="quantity" type="text" value="').concat(escapeHtml((_d = item == null ? void 0 : item.quantity) != null ? _d : ""), '" placeholder="Qt\xE9">\n      </label>\n      <label class="test-planning-field-delivery">\n        <span class="field-label">Date de livraison</span>\n        <input class="field-input" name="deliveryDate" type="date" value="').concat(escapeHtml((_e = item == null ? void 0 : item.deliveryDate) != null ? _e : ""), '">\n      </label>\n      <label class="test-planning-field-mockup-toggle">\n        <span class="field-label">Maquette \xE0 faire</span>\n        <span class="checkbox-row">\n          <input name="needsMockup" type="checkbox" ').concat((item == null ? void 0 : item.needsMockup) ? "checked" : "", '>\n          <span>Activer</span>\n        </span>\n      </label>\n      <label class="test-planning-field-status">\n        <span class="field-label">\xC9tat</span>\n        <select class="field-select" name="status">\n          <option value="">\u2014 Choisir un \xE9tat \u2014</option>\n          ').concat(renderTestPlanningStatusOptgroups((_f = item == null ? void 0 : item.status) != null ? _f : ""), '\n        </select>\n      </label>\n      <label class="test-planning-field-note">\n        <span class="field-label">Note</span>\n        <input class="field-input" name="note" type="text" value="').concat(escapeHtml((_g = item == null ? void 0 : item.note) != null ? _g : ""), '" placeholder="Note">\n      </label>\n      <label class="test-planning-field-assignee">\n        <span class="field-label">Assign\xE9</span>\n        <span class="team-bubble-group" aria-label="Assignation test planning">\n          ').concat((() => {
       const current = normalizeImportedAssignee(item == null ? void 0 : item.assignedTo);
       return ORDER_ASSIGNEES.map((assignee) => '\n    <label class="team-bubble-choice" aria-label="Assigner a '.concat(assignee, '">\n      <input class="team-bubble-choice-input" type="radio" name="assignedTo" value="').concat(assignee, '" ').concat(current === assignee ? "checked" : "", '>\n      <span class="team-bubble ').concat(current === assignee ? "is-active" : "", '">').concat(assignee, "</span>\n    </label>\n  ")).join("");
     })(), '\n        </span>\n      </label>\n    </div>\n    <datalist id="testPlanningFamilyOptions">').concat(renderListOptions(testPlanningCombinedOptions("family", TEST_PLANNING_FAMILY_OPTIONS)), '</datalist>\n    <datalist id="testPlanningProductOptions">').concat(renderListOptions(testPlanningCombinedOptions("product", TEST_PLANNING_PRODUCT_OPTIONS)), "</datalist>\n    <!-- status is now a <select> with optgroups -->\n  ");
@@ -2697,6 +2709,9 @@
       if (item.stage !== stageKey) {
         return false;
       }
+      if (item.archivedAt && !state.showTestPlanningArchives) {
+        return false;
+      }
       if (state.activeTestAssignee && item.assignedTo !== state.activeTestAssignee) {
         return false;
       }
@@ -2764,6 +2779,15 @@
     persistDb();
     requestRender();
     showToast(shouldArchive ? "Commande textile archivee." : "Commande textile restauree.");
+  }
+  function archiveTestPlanningItem(id, shouldArchive) {
+    const item = db.testPlanningItems.find((item2) => item2.id === id);
+    if (item) {
+      item.archivedAt = shouldArchive ? isoToday() : "";
+    }
+    persistDb();
+    requestRender({ header: false, status: false, view: true });
+    showToast(shouldArchive ? "Commande archiv\xE9e." : "Commande restaur\xE9e.");
   }
   function toggleTextileSort(key) {
     if (state.textileSort.key === key) {
@@ -3211,7 +3235,7 @@
     };
   }
   function normalizeTestPlanningItem(item, index = 0) {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l;
     const stage = normalizeTestPlanningStage(item.stage);
     return {
       id: Number(item.id) || index + 1,
@@ -3229,7 +3253,8 @@
       status: String((_j = item.status) != null ? _j : "").trim(),
       stage,
       assignedTo: normalizeImportedAssignee(item.assignedTo),
-      createdAt: String((_k = item.createdAt) != null ? _k : isoNow())
+      createdAt: String((_k = item.createdAt) != null ? _k : isoNow()),
+      archivedAt: String((_l = item.archivedAt) != null ? _l : "").trim()
     };
   }
   function mergeWorkshopDefaults(collection) {
