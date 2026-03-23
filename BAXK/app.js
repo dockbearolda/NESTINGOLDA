@@ -825,10 +825,16 @@ async function pollRemoteDb() {
       throw new Error(`Remote poll failed with status ${response.status}`);
     }
 
+    const contentType = response.headers.get("content-type") || "";
+    if (!contentType.includes("application/json")) {
+      window.location.href = "/login";
+      return;
+    }
+
     const record = await response.json();
     applyRemoteDbRecord(record, { announce: true });
   } catch (error) {
-    if (error instanceof TypeError) {
+    if (error instanceof TypeError || error instanceof SyntaxError) {
       return;
     }
     console.error(error);
@@ -4664,9 +4670,13 @@ async function flushRemoteSave() {
     const record = await response.json();
     remoteRevision = Math.max(0, Number(record.revision) || remoteRevision);
   } catch (error) {
-    console.error(error);
-    pendingRemoteSnapshot = snapshot;
-    notifyRemoteSyncIssue();
+    if (error instanceof TypeError || error instanceof SyntaxError) {
+      pendingRemoteSnapshot = snapshot;
+    } else {
+      console.error(error);
+      pendingRemoteSnapshot = snapshot;
+      notifyRemoteSyncIssue();
+    }
   } finally {
     remoteSaveInFlight = false;
 
