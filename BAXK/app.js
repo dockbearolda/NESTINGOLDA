@@ -4600,7 +4600,8 @@ function normalizePurchaseItem(item, index = 0) {
     quantity: Math.max(1, Number(item.quantity) || 1),
     checked: Boolean(item.checked),
     createdAt: String(item.createdAt ?? isoToday()),
-    deletedAt: String(item.deletedAt ?? "")
+    deletedAt: String(item.deletedAt ?? ""),
+    archivedAt: String(item.archivedAt ?? "")
   };
 }
 

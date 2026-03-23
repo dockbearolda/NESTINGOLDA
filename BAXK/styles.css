@@ -1746,13 +1746,9 @@ button {
   opacity: 1;
 }
 
-/* Sub-row: note – positioned absolute so it doesn't affect centering */
+/* Sub-row: note */
 .tp-sub {
-  position: absolute;
-  left: 20px;
-  right: 100px;
-  bottom: 6px;
-  overflow: hidden;
+  padding: 2px 20px 4px;
   pointer-events: none;
 }
 
@@ -1779,9 +1775,6 @@ button {
   font-size: 0.6875rem;
   font-style: italic;
   font-weight: 400;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 

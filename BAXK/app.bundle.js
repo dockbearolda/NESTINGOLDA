@@ -3254,7 +3254,7 @@
     return tasks;
   }
   function normalizePurchaseItem(item, index = 0) {
-    var _a, _b, _c, _d;
+    var _a, _b, _c, _d, _e;
     return {
       id: Number(item.id) || index + 1,
       zone: String((_a = item.zone) != null ? _a : "SXM"),
@@ -3262,7 +3262,8 @@
       quantity: Math.max(1, Number(item.quantity) || 1),
       checked: Boolean(item.checked),
       createdAt: String((_c = item.createdAt) != null ? _c : isoToday()),
-      deletedAt: String((_d = item.deletedAt) != null ? _d : "")
+      deletedAt: String((_d = item.deletedAt) != null ? _d : ""),
+      archivedAt: String((_e = item.archivedAt) != null ? _e : "")
     };
   }
   function mergePurchaseDefaults(collection) {
