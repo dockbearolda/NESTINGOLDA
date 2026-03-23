@@ -634,15 +634,6 @@ button {
   font-size: 1.25rem;
 }
 
-.orders-toolbar-head {
-  min-height: 5.5rem;
-  padding: 1rem;
-}
-
-.orders-toolbar-head .module-actions {
-  align-self: center;
-}
-
 .module-copy {
   max-width: 42rem;
 }
@@ -885,66 +876,6 @@ button {
   vertical-align: top;
 }
 
-.orders-table td {
-  vertical-align: middle;
-}
-
-.orders-table {
-  min-width: 78rem;
-}
-
-.orders-board {
-  border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.88));
-  box-shadow: var(--shadow-md);
-  overflow: hidden;
-}
-
-.orders-list {
-  display: grid;
-  gap: 0;
-}
-
-.orders-layout {
-  animation: none;
-}
-
-.orders-planning-list {
-  display: grid;
-  gap: 1rem;
-}
-
-.planning-section {
-  border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
-  background: rgba(255, 255, 255, 0.78);
-  box-shadow: var(--shadow-md);
-  overflow: hidden;
-}
-
-.planning-section-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.95rem 1rem;
-  border-bottom: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.92);
-}
-
-.planning-section-head h3 {
-  margin: 0.15rem 0 0;
-  font-size: 1.15rem;
-  letter-spacing: -0.03em;
-}
-
-.planning-section-body {
-  display: grid;
-  gap: 0;
-}
-
 .data-table thead th {
   border-bottom: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.96);
@@ -975,37 +906,6 @@ button {
   outline: none;
 }
 
-.orders-table tbody tr {
-  position: relative;
-}
-
-.orders-table tbody tr::before {
-  content: "";
-  position: absolute;
-  left: 0.4rem;
-  top: 0.7rem;
-  bottom: 0.7rem;
-  width: 3px;
-  border-radius: 999px;
-  background: rgba(148, 163, 184, 0.32);
-}
-
-.orders-table tbody tr[data-zone="Textiles"]::before {
-  background: rgba(226, 121, 145, 0.72);
-}
-
-.orders-table tbody tr[data-zone="Impression UV"]::before {
-  background: rgba(77, 171, 247, 0.72);
-}
-
-.orders-table tbody tr[data-zone="Goodies"]::before {
-  background: rgba(198, 154, 92, 0.72);
-}
-
-.orders-table tbody tr[data-zone="Gravure et découpe laser"]::before {
-  background: rgba(111, 143, 180, 0.72);
-}
-
 .data-table tbody tr[data-order-id][data-selected="true"] {
   background: rgba(10, 132, 255, 0.09);
 }
@@ -1013,54 +913,6 @@ button {
 .data-table tbody tr[data-order-id]:focus-visible {
   background: rgba(10, 132, 255, 0.12);
   box-shadow: inset 0 0 0 1px rgba(10, 132, 255, 0.24);
-}
-
-.orders-table tbody tr:hover {
-  background: rgba(255, 255, 255, 0.94);
-  transform: none;
-}
-
-.order-card {
-  position: relative;
-  display: grid;
-  gap: 1rem;
-  padding: 1.2rem 1.15rem 1.2rem 1.35rem;
-  border-bottom: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.94);
-  cursor: pointer;
-  outline: none;
-  transition: none;
-}
-
-.order-card::before {
-  content: "";
-  position: absolute;
-  left: 0.45rem;
-  top: 0.75rem;
-  bottom: 0.75rem;
-  width: 3px;
-  border-radius: 999px;
-  background: rgba(148, 163, 184, 0.32);
-}
-
-.order-card[data-zone="Textiles"]::before {
-  background: rgba(226, 121, 145, 0.72);
-}
-
-.order-card[data-zone="Impression UV"]::before {
-  background: rgba(77, 171, 247, 0.72);
-}
-
-.order-card[data-zone="Goodies"]::before {
-  background: rgba(198, 154, 92, 0.72);
-}
-
-.order-card[data-zone="Gravure et découpe laser"]::before {
-  background: rgba(111, 143, 180, 0.72);
-}
-
-.order-card:last-child {
-  border-bottom: 0;
 }
 
 .production-card {
@@ -1177,225 +1029,6 @@ button {
   min-height: 5.4rem;
 }
 
-.order-card-line {
-  grid-template-columns: minmax(0, 1.3fr) minmax(9rem, auto) minmax(18rem, 0.95fr);
-  grid-template-areas: "primary meta controls";
-  row-gap: 0;
-  column-gap: 1.15rem;
-  align-items: center;
-}
-
-.order-card[data-selected="true"] {
-  background: rgba(10, 132, 255, 0.07);
-}
-
-.order-card:focus-visible {
-  background: rgba(10, 132, 255, 0.1);
-  box-shadow: inset 0 0 0 1px rgba(10, 132, 255, 0.22);
-}
-
-.order-line-summary {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.55rem 0.7rem;
-  align-items: center;
-  min-width: 0;
-}
-
-.order-line-primary {
-  grid-area: primary;
-  display: grid;
-  gap: 0.45rem;
-  align-self: center;
-  justify-self: start;
-}
-
-.order-line-primary-main {
-  flex-wrap: nowrap;
-  justify-content: flex-start;
-  overflow: hidden;
-}
-
-.order-line-primary-note {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: flex-start;
-  gap: 0.2rem;
-  min-width: 0;
-}
-
-.order-badges,
-.order-flow,
-.order-deadline {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-  align-items: center;
-}
-
-.order-type-badge,
-.order-priority-badge,
-.order-zone-chip,
-.order-qty-chip,
-.order-date-chip,
-.deadline-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 1.72rem;
-  padding: 0 0.7rem;
-  border-radius: 999px;
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-}
-
-.order-type-badge[data-tone="pro"] {
-  background: rgba(10, 132, 255, 0.12);
-  color: #0a66d9;
-}
-
-.order-type-badge[data-tone="perso"] {
-  background: rgba(16, 185, 129, 0.12);
-  color: #0f9b6c;
-}
-
-.order-priority-badge[data-tone="high"] {
-  background: rgba(255, 159, 10, 0.14);
-  color: #c46a00;
-}
-
-.order-priority-badge[data-tone="medium"] {
-  background: rgba(10, 132, 255, 0.1);
-  color: #0a66d9;
-}
-
-.order-priority-badge[data-tone="low"] {
-  background: rgba(148, 163, 184, 0.12);
-  color: #64748b;
-}
-
-.order-zone-chip {
-  border: 1px solid rgba(15, 23, 42, 0.06);
-  background: rgba(255, 255, 255, 0.92);
-  color: #344054;
-}
-
-.order-zone-chip[data-zone="Textiles"] {
-  color: #a33f66;
-}
-
-.order-zone-chip[data-zone="Impression UV"] {
-  color: #2a7fd1;
-}
-
-.order-zone-chip[data-zone="Goodies"] {
-  color: #966734;
-}
-
-.order-zone-chip[data-zone="Gravure et découpe laser"] {
-  color: #506e91;
-}
-
-.order-qty-chip {
-  min-width: 2.25rem;
-  background: rgba(18, 22, 29, 0.06);
-  color: #344054;
-}
-
-.order-date-chip {
-  background: rgba(18, 22, 29, 0.04);
-  color: #667085;
-  font-weight: 500;
-}
-
-.order-client-name {
-  display: inline-block;
-  font-size: 1.12rem;
-  line-height: 1.15;
-  letter-spacing: -0.035em;
-  margin-right: 0.15rem;
-  flex: 0 0 auto;
-}
-
-.order-product-line {
-  margin: 0;
-  color: #314155;
-  font-size: 1rem;
-  line-height: 1.4;
-}
-
-.order-inline-copy {
-  color: var(--muted);
-  font-size: 0.92rem;
-  line-height: 1.35;
-  min-width: 0;
-}
-
-.order-inline-note {
-  font-style: italic;
-  display: block;
-  max-width: 100%;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.order-created-meta {
-  color: rgba(100, 116, 139, 0.72);
-  font-size: 0.72rem;
-  line-height: 1.3;
-}
-
-.order-subcopy,
-.order-note {
-  margin: 0;
-  color: var(--muted);
-  line-height: 1.45;
-}
-
-.order-meta-line {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.92rem;
-  line-height: 1.35;
-}
-
-.order-note {
-  max-width: none;
-  font-style: italic;
-  padding-top: 0.15rem;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.order-deadline {
-  justify-content: center;
-  min-width: 0;
-  flex-shrink: 0;
-  align-items: center;
-  text-align: center;
-}
-
-.order-line-meta {
-  grid-area: meta;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  align-self: center;
-  justify-self: center;
-}
-
-.order-deadline strong {
-  font-size: 1.05rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-}
-
 .deadline-badge[data-tone="safe"] {
   background: rgba(10, 132, 255, 0.1);
   color: #0a66d9;
@@ -1416,53 +1049,8 @@ button {
   color: #64748b;
 }
 
-.order-card-controls {
-  display: grid;
-  gap: 0.75rem;
-  justify-items: stretch;
-  align-content: center;
-  min-width: 0;
-}
-
-.order-card-controls-line {
-  grid-area: controls;
-  min-width: 0;
-  justify-items: center;
-  align-content: center;
-  align-self: center;
-  gap: 0.85rem;
-  justify-self: center;
-  text-align: center;
-}
-
-.order-card-controls-line > .field-select,
-.order-card-controls-line > .order-controls-inline {
-  width: min(100%, 28rem);
-}
-
-.order-controls-inline {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 0.65rem;
-}
-
-.order-side-actions {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 0.3rem;
-}
-
 .team-bubble-group {
   justify-content: center;
-}
-
-.order-card-actions {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.6rem;
-  align-items: center;
 }
 
 .sort-button {
@@ -1514,13 +1102,6 @@ button {
   color: var(--muted);
   opacity: 0.5;
   box-shadow: none;
-}
-
-.order-card:hover .row-action-subtle,
-.order-card[data-selected="true"] .row-action-subtle,
-.order-card:focus-visible .row-action-subtle,
-.row-action-subtle:focus-visible {
-  opacity: 1;
 }
 
 .row-action.is-danger {
@@ -1997,11 +1578,6 @@ button {
   color: #c6342b;
 }
 
-.order-action-cell {
-  width: 1%;
-  white-space: nowrap;
-}
-
 .status-badge,
 .delivery-badge {
   display: inline-flex;
@@ -2156,11 +1732,6 @@ button {
   padding-bottom: 0;
 }
 
-.order-form-grid {
-  grid-template-columns: minmax(8rem, 0.95fr) minmax(7rem, 0.8fr) minmax(12rem, 1.35fr) minmax(9rem, 1fr) minmax(7rem, 0.8fr) minmax(5.5rem, 0.6fr) minmax(8.5rem, 0.95fr) minmax(12rem, 1.2fr) minmax(7rem, 0.8fr) minmax(14rem, 1.5fr);
-  align-items: end;
-}
-
 .test-planning-form-grid {
   display: grid;
   grid-template-columns:
@@ -2177,9 +1748,6 @@ button {
   align-items: end;
 }
 
-.test-planning-form-grid .order-form-note {
-  grid-column: 1 / 8;
-}
 
 .test-planning-form-grid .test-planning-field-status {
   grid-column: 8 / -1;
@@ -2311,11 +1879,6 @@ button {
 
 .dtf-logo-field {
   min-width: 0;
-}
-
-.order-form-note {
-  min-width: 0;
-  grid-column: 1 / -1;
 }
 
 .field-checkbox {
@@ -2501,29 +2064,8 @@ button {
     min-width: 0;
   }
 
-  .order-card-line {
-    grid-template-columns: 1fr;
-    grid-template-areas:
-      "primary"
-      "meta"
-      "controls";
-    align-items: start;
-    gap: 1rem;
-  }
-
-  .order-line-primary-main {
-    flex-wrap: wrap;
-    overflow: visible;
-  }
-
   .planning-grid-head {
     display: none;
-  }
-
-  .order-card-controls-line {
-    min-width: 0;
-    justify-items: stretch;
-    justify-self: stretch;
   }
 
   .production-card {
@@ -2533,23 +2075,6 @@ button {
   .production-counter,
   .production-card-controls {
     justify-self: stretch;
-    justify-content: flex-start;
-  }
-
-  .order-line-summary,
-  .order-line-meta {
-    justify-content: flex-start;
-    text-align: left;
-  }
-
-  .order-controls-inline,
-  .order-side-actions,
-  .team-bubble-group {
-    justify-content: flex-start;
-  }
-
-  .order-card-actions {
-    flex-wrap: wrap;
     justify-content: flex-start;
   }
 
@@ -2571,7 +2096,6 @@ button {
     grid-template-columns: 1fr;
   }
 
-  .order-form-grid,
   .textile-form-grid,
   .client-form-grid {
     grid-template-columns: 1fr;

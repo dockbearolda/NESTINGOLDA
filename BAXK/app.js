@@ -19,16 +19,9 @@ const views = {
     primaryAction: null,
     searchPlaceholder: "Rechercher dans les notes..."
   },
-  planning: {
+  testPlanning: {
     label: "Commandes générales",
     eyebrow: "Commandes générales",
-    intro: "",
-    primaryAction: "addOrder",
-    searchPlaceholder: "Rechercher..."
-  },
-  testPlanning: {
-    label: "Test planning",
-    eyebrow: "Test planning",
     intro: "",
     primaryAction: "addTestPlanningOrder",
     searchPlaceholder: "Rechercher..."
@@ -91,43 +84,6 @@ const views = {
   }
 };
 
-const ORDER_STATUS_GROUPS = [
-  {
-    label: "Commercial & Validation",
-    options: ["À deviser", "Attente validation"]
-  },
-  {
-    label: "Logistique",
-    options: ["À préparer", "Attente marchandise", "Manque information"]
-  },
-  {
-    label: "Production (Atelier)",
-    options: ["Maquette à faire", "À produire", "En production", "À monter/nettoyer"]
-  },
-  {
-    label: "Suivi Client",
-    options: ["Prévenir client", "Client prévenu", "Relance client", "Produit récupéré", "Terminé"]
-  },
-  {
-    label: "Comptabilité",
-    options: ["À facturer", "Facture faite"]
-  }
-];
-
-const ORDER_STATUS_DEFAULT = "À deviser";
-const ORDER_STATUS_SET = new Set(
-  ORDER_STATUS_GROUPS.reduce((options, group) => options.concat(group.options), [])
-);
-const ORDER_STATUS_BUCKETS = {
-  validation: ORDER_STATUS_GROUPS[0].options,
-  logistique: ORDER_STATUS_GROUPS[1].options,
-  production: ORDER_STATUS_GROUPS[2].options,
-  client: ORDER_STATUS_GROUPS[3].options,
-  accounting: ORDER_STATUS_GROUPS[4].options
-};
-const ORDER_ZONE_OPTIONS = ["Textiles", "Gravure et découpe laser", "Impression UV", "Goodies"];
-const ORDER_ASSIGNEES = ["L", "M", "C", "A", "R"];
-const ORDER_PRODUCT_OPTIONS = ["Tshirt", "Pochette", "Sac", "Casquette", "Tasses", "Goodies"];
 const TEST_PLANNING_STAGES = [
   {
     key: "demande",
@@ -193,6 +149,7 @@ const IMPROVEMENT_TYPES = [
   { key: "problem", label: "Probleme" },
   { key: "request", label: "Modification souhaitee" }
 ];
+const ORDER_ASSIGNEES = ["L", "M", "C", "A", "R"];
 const TEXTILE_COLUMN_DEFINITIONS = [
   { key: "client", label: "Client" },
   { key: "supplier", label: "Fournisseur" },
@@ -434,49 +391,6 @@ const IMPORTED_PRO_CLIENTS = [
   createdAt: IMPORTED_CLIENT_DATE,
   ...client
 }));
-const IMPORTED_CUSTOMER_ORDERS = [
-  { orderType: "", urgency: "Moyenne", clientName: "Cool SXM", zone: "Textile", quantity: 0, note: "Devis + Maquette drapeau", deliveryDate: "2026-03-20", status: "Attente validation", assignedTo: "M" },
-  { orderType: "", urgency: "Moyenne", clientName: "la chingona", zone: "DTF", quantity: 55, note: "Devis pour DTF objet client la chingona hauteur 110 / faire devis sans la pose.", deliveryDate: "", status: "À deviser", assignedTo: "L" },
-  { orderType: "", urgency: "Moyenne", clientName: "Sea You", zone: "Textile", quantity: 150, note: "CROP TOP", deliveryDate: "", status: "À facturer", assignedTo: "L" },
-  { orderType: "", urgency: "Moyenne", clientName: "Sea You", zone: "Textile", quantity: 15, note: "LYCRA 5 S / 5 M / 5 L TOR-04", deliveryDate: "", status: "À facturer", assignedTo: "L" },
-  { orderType: "", urgency: "Moyenne", clientName: "Soualiga Elevator", zone: "Goodies", quantity: 50, note: "sticker 100 x 100", deliveryDate: "", status: "Attente validation", assignedTo: "L" },
-  { orderType: "", urgency: "Moyenne", clientName: "Villa Riviera", zone: "Textile", quantity: 0, note: "F-006 + Polo K240 + K239", deliveryDate: "2026-03-20", status: "Attente marchandise", assignedTo: "M" },
-  { orderType: "", urgency: "Moyenne", clientName: "Karibuni restaurant", zone: "Textile", quantity: 60, note: "H-001 Almond Green", deliveryDate: "2026-03-20", status: "Attente marchandise", assignedTo: "M" },
-  { orderType: "", urgency: "Moyenne", clientName: "Ocean 82 Djaya", zone: "Gravure", quantity: 5, note: "Gravure sur socle de bougie", deliveryDate: "2026-03-11", status: "Attente validation", assignedTo: "L" },
-  { orderType: "", urgency: "Moyenne", clientName: "HD Factory", zone: "Textile", quantity: 20, note: "K3025IC gris foncé", deliveryDate: "2026-04-01", status: "Attente validation", assignedTo: "M" },
-  { orderType: "", urgency: "Moyenne", clientName: "HD Factory", zone: "Goodies", quantity: 0, note: "Deviser liste de goodies", deliveryDate: "2026-04-01", status: "À deviser", assignedTo: "L" },
-  { orderType: "", urgency: "Moyenne", clientName: "Villa Kyanéa", zone: "Gravure", quantity: 0, note: "Panneau entrée seulement lettre", deliveryDate: "2026-03-13", status: "Manque information", assignedTo: "M" },
-  { orderType: "", urgency: "Moyenne", clientName: "Le Martin", zone: "Impression", quantity: 0, note: "PC plexi - logo + nom et n° de chambre", deliveryDate: "2026-03-16", status: "Manque information", assignedTo: "M" },
-  { orderType: "", urgency: "Moyenne", clientName: "SAS Les Jardiniers", zone: "Textile", quantity: 50, note: "K3025 Gris", deliveryDate: "2026-04-03", status: "Attente marchandise", assignedTo: "M" },
-  { orderType: "", urgency: "Moyenne", clientName: "Radeau Bleu", zone: "Textile", quantity: 2, note: "Logo Radeau Bleu rose bébé", deliveryDate: "2026-03-11", status: "Client prévenu", assignedTo: "M" },
-  { orderType: "", urgency: "Moyenne", clientName: "Achille", zone: "Textile", quantity: 2, note: "Logo Aloha x2 320mm", deliveryDate: "2026-03-18", status: "Maquette à faire", assignedTo: "L" },
-  { orderType: "PRO", urgency: "Moyenne", clientName: "N Sea Stem", zone: "Textile", quantity: 0, note: "", deliveryDate: "", status: "Client prévenu", assignedTo: "L" },
-  { orderType: "PRO", urgency: "Moyenne", clientName: "Cool Sxm", zone: "Textile", quantity: 0, note: "Drapeau", deliveryDate: "", status: "En production", assignedTo: "C" },
-  { orderType: "PRO", urgency: "Moyenne", clientName: "Soualiga Elevator", zone: "Textile", quantity: 0, note: "sweet", deliveryDate: "", status: "À produire", assignedTo: "L" },
-  { orderType: "PRO", urgency: "Moyenne", clientName: "Soualiga Elevator", zone: "Textile", quantity: 16, note: "t-shirt pro", deliveryDate: "", status: "Prévenir client", assignedTo: "L" },
-  { orderType: "PERSO", urgency: "Moyenne", clientName: "Julien Pharmacie", zone: "Textile", quantity: 0, note: "Tote bag", deliveryDate: "", status: "À deviser", assignedTo: "L" },
-  { orderType: "PRO", urgency: "Moyenne", clientName: "Blackswan Sbh", zone: "Impression", quantity: 0, note: "", deliveryDate: "", status: "À préparer", assignedTo: "L" },
-  { orderType: "PRO", urgency: "Moyenne", clientName: "Caribbean Luxury", zone: "Goodies", quantity: 0, note: "attente arrivé marchandise", deliveryDate: "", status: "À deviser", assignedTo: "L" },
-  { orderType: "PRO", urgency: "Moyenne", clientName: "The Friendly Books", zone: "Impression", quantity: 0, note: "", deliveryDate: "", status: "À produire", assignedTo: "L" },
-  { orderType: "PERSO", urgency: "Moyenne", clientName: "Raid Des Gendarme", zone: "Impression", quantity: 0, note: "Bon cadeau", deliveryDate: "2026-05-01", status: "À préparer", assignedTo: "L" },
-  { orderType: "PRO", urgency: "Moyenne", clientName: "100 % Villas", zone: "Gravure", quantity: 0, note: "enseigne", deliveryDate: "", status: "À deviser", assignedTo: "L" },
-  { orderType: "PRO", urgency: "Moyenne", clientName: "Oceano Immo", zone: "Gravure", quantity: 0, note: "enseigne", deliveryDate: "", status: "À deviser", assignedTo: "L" },
-  { orderType: "PERSO", urgency: "Moyenne", clientName: "Patrice", zone: "Textile", quantity: 0, note: "Casquette", deliveryDate: "", status: "Attente validation", assignedTo: "M" },
-  { orderType: "PERSO", urgency: "Moyenne", clientName: "Vincent", zone: "Gravure", quantity: 20, note: "4.50 euros / 1", deliveryDate: "", status: "À produire", assignedTo: "L" },
-  { orderType: "", urgency: "Basse", clientName: "Eddy Couteaux", zone: "Gravure", quantity: 0, note: "x20 couteaux", deliveryDate: "2026-03-31", status: "À deviser", assignedTo: "C" },
-  { orderType: "", urgency: "Haute", clientName: "Guymamalou", zone: "Gravure", quantity: 0, note: "", deliveryDate: "", status: "À deviser", assignedTo: "C" },
-  { orderType: "", urgency: "Haute", clientName: "Jessica", zone: "Gravure", quantity: 0, note: "1x Verre Ti-punch", deliveryDate: "", status: "Terminé", assignedTo: "M" },
-  { orderType: "PRO", urgency: "Haute", clientName: "Intérieur Design", zone: "Textile", quantity: 0, note: "", deliveryDate: "", status: "À deviser", assignedTo: "L" },
-  { orderType: "PRO", urgency: "Haute", clientName: "Karibuni", zone: "Textile", quantity: 12, note: "", deliveryDate: "", status: "À monter/nettoyer", assignedTo: "R" },
-  { orderType: "PRO", urgency: "Haute", clientName: "3sp", zone: "Textile", quantity: 0, note: "Polo entreprise + enfant", deliveryDate: "", status: "Prévenir client", assignedTo: "M" },
-  { orderType: "PRO", urgency: "Haute", clientName: "Iguana Fitness", zone: "Textile", quantity: 0, note: "Sur mesure", deliveryDate: "", status: "À produire", assignedTo: "L" },
-  { orderType: "PRO", urgency: "Haute", clientName: "Shima", zone: "Gravure", quantity: 0, note: "Tasses", deliveryDate: "2026-03-19", status: "À produire", assignedTo: "C" },
-  { orderType: "", urgency: "Moyenne", clientName: "AFS", zone: "Textile", quantity: 0, note: "x50 T-shirts", deliveryDate: "", status: "Maquette à faire", assignedTo: "L" },
-  { orderType: "", urgency: "Moyenne", clientName: "Estelle", zone: "Gravure", quantity: 0, note: "Devis pour PC", deliveryDate: "", status: "À deviser", assignedTo: "M" },
-  { orderType: "", urgency: "Moyenne", clientName: "Ligue De Football SXM", zone: "Gravure", quantity: 0, note: "", deliveryDate: "", status: "Client prévenu", assignedTo: "M" },
-  { orderType: "", urgency: "Moyenne", clientName: "Watt sun Fabrice", zone: "Textile", quantity: 25, note: "H-012 Navy x5 + Noir x5 L / H-014 Blanc x10", deliveryDate: "", status: "À deviser", assignedTo: "M" },
-  { orderType: "", urgency: "Moyenne", clientName: "SOTHEBYS", zone: "Gravure", quantity: 50, note: "Plateau en chene", deliveryDate: "", status: "Attente validation", assignedTo: "L" }
-];
 const TEAM_NOTE_DEFAULT_ITEMS = {
   Loic: [
     "100 % villa",
@@ -605,7 +519,6 @@ const seed = {
       createdAt: "2026-03-09"
     }
   ],
-  customerOrders: [],
   textileOrders: [
     {
       id: 1,
@@ -681,19 +594,14 @@ const seed = {
 };
 
 const state = {
-  view: "planning",
+  view: "testPlanning",
   search: "",
   expandedClients: new Set(),
   selectedDtfIds: new Set(),
-  selectedOrderId: null,
-  orderAssigneeFilter: "",
-  orderZoneFilter: "",
   showDtfArchives: false,
-  showOrderArchives: false,
   showTextileArchives: false,
   textileSort: { key: "expectedDate", direction: "asc" },
   activeSheetAction: null,
-  activeOrderId: null,
   activeDtfId: null,
   activeTextileId: null,
   activePurchaseId: null,
@@ -726,11 +634,6 @@ let remoteBootstrapComplete = false;
 const loadResult = loadDb();
 let db = loadResult.data;
 db.teamNotes = normalizeTeamNotes(db.teamNotes);
-const importedOrdersAdded = mergeImportedCustomerOrders();
-const duplicateOrdersRemoved = dedupeCustomerOrdersInPlace();
-if (importedOrdersAdded || duplicateOrdersRemoved) {
-  persistDb();
-}
 state.storageRecoveryMessage = loadResult.recoveryMessage;
 
 const refs = {
@@ -851,7 +754,6 @@ function dbContentScore(sourceDb) {
 
   let score = 0;
   score += Array.isArray(sourceDb.clients) ? sourceDb.clients.length * 3 : 0;
-  score += Array.isArray(sourceDb.customerOrders) ? sourceDb.customerOrders.length * 5 : 0;
   score += Array.isArray(sourceDb.dtfRequests) ? sourceDb.dtfRequests.length * 4 : 0;
   score += Array.isArray(sourceDb.textileOrders) ? sourceDb.textileOrders.length * 4 : 0;
   score += Array.isArray(sourceDb.purchaseItems) ? sourceDb.purchaseItems.length : 0;
@@ -957,8 +859,6 @@ function applyRemoteDbRecord(record, options = {}) {
   db = normalizeDb(record.data);
   db.teamNotes = normalizeTeamNotes(db.teamNotes);
 
-  const importedOrdersAdded = mergeImportedCustomerOrders();
-  const duplicateOrdersRemoved = dedupeCustomerOrdersInPlace();
   const normalizedPayload = JSON.stringify(buildDbSnapshot());
   const incomingPayload = JSON.stringify({
     ...record.data,
@@ -1129,26 +1029,6 @@ function handleRootClick(event) {
       return;
     }
 
-    if (action === "complete-order-mockup") {
-      const order = db.customerOrders.find((item) => item.id === id);
-      if (!order) {
-        return;
-      }
-
-      const shouldCreateDtf = normalizeOrderZone(order.zone) === "Textiles";
-      order.mockupCompletedAt = isoNow();
-      if (order.status === "Maquette à faire") {
-        order.status = "Attente validation";
-      }
-      if (shouldCreateDtf) {
-        createDtfFromTextileOrder(order);
-      }
-      persistDb();
-      requestRender({ header: false, status: true, view: true });
-      showToast(shouldCreateDtf ? "Maquette terminee. Demande DTF ajoutee." : "Maquette commande terminee.");
-      return;
-    }
-
     if (action === "complete-test-planning-mockup") {
       const tpItem = db.testPlanningItems.find((item) => item.id === id);
       if (!tpItem) {
@@ -1173,13 +1053,6 @@ function handleRootClick(event) {
       persistDb();
       requestRender({ header: false, status: true, view: true });
       showToast("Maquette DTF terminee.");
-      return;
-    }
-
-    if (action === "toggle-order-archives") {
-      state.showOrderArchives = !state.showOrderArchives;
-      state.selectedOrderId = null;
-      requestRender({ transition: true });
       return;
     }
 
@@ -1362,68 +1235,6 @@ function handleRootClick(event) {
       return;
     }
 
-    if (action === "filter-order-assignee") {
-      state.orderAssigneeFilter = state.orderAssigneeFilter === actionNode.dataset.assignee ? "" : String(actionNode.dataset.assignee ?? "");
-      requestRender({ header: false, status: true, view: true });
-      return;
-    }
-
-    if (action === "clear-order-assignee-filter") {
-      state.orderAssigneeFilter = "";
-      requestRender({ header: false, status: true, view: true });
-      return;
-    }
-
-    if (action === "assign-order") {
-      const order = db.customerOrders.find((item) => item.id === id);
-      if (!order) {
-        return;
-      }
-
-      const assignee = String(actionNode.dataset.assignee ?? "");
-      order.assignedTo = assignee;
-      persistDb();
-      syncOrderAssigneeBubbles(id, assignee);
-      if (actionNode instanceof HTMLElement) {
-        actionNode.blur();
-      }
-      requestRender({ header: false, status: false, view: true });
-      return;
-    }
-
-    if (action === "archive-order") {
-      db.customerOrders = db.customerOrders.map((item) => (
-        item.id === id ? { ...item, archivedAt: isoToday() } : item
-      ));
-      if (state.selectedOrderId === id) {
-        state.selectedOrderId = null;
-      }
-      persistDb();
-      requestRender({ header: false, status: true, view: true });
-      showToast("Commande archivee.");
-      return;
-    }
-
-    if (action === "restore-order") {
-      db.customerOrders = db.customerOrders.map((item) => (
-        item.id === id ? { ...item, archivedAt: "" } : item
-      ));
-      persistDb();
-      requestRender({ header: false, status: true, view: true });
-      showToast("Commande restauree.");
-      return;
-    }
-
-    if (action === "delete-order") {
-      db.customerOrders = db.customerOrders.filter((item) => item.id !== id);
-      if (state.selectedOrderId === id) {
-        state.selectedOrderId = null;
-      }
-      persistDb();
-      requestRender({ header: false, status: true, view: true });
-      showToast("Commande supprimee.");
-      return;
-    }
   }
 
   const stageJumpNode = target.closest("[data-test-stage-jump]");
@@ -1456,18 +1267,6 @@ function handleRootClick(event) {
 
   const interactiveNode = target.closest("button, input, select, textarea, a, label");
   if (interactiveNode) {
-    return;
-  }
-
-  if (state.view === "planning") {
-    const row = target.closest("[data-order-id]");
-    if (!row) {
-      return;
-    }
-
-    const orderId = Number(row.dataset.orderId);
-    selectOrderRow(orderId, { render: false });
-    openSheet("editOrder", { id: orderId });
     return;
   }
 
@@ -1552,18 +1351,6 @@ function handleRootDoubleClick(event) {
     return;
   }
 
-  if (state.view === "planning") {
-    const row = event.target.closest("[data-order-id]");
-    if (!row) {
-      return;
-    }
-
-    const orderId = Number(row.dataset.orderId);
-    selectOrderRow(orderId, { render: false });
-    openSheet("editOrder", { id: orderId });
-    return;
-  }
-
   if (state.view === "clients") {
     const row = event.target.closest("[data-client-id]");
     if (!row) {
@@ -1638,18 +1425,6 @@ function handleRootKeyDown(event) {
   }
 
   event.preventDefault();
-
-  if (state.view === "planning") {
-    const row = event.target.closest("[data-order-id]");
-    if (!row) {
-      return;
-    }
-
-    const orderId = Number(row.dataset.orderId);
-    selectOrderRow(orderId, { render: false });
-    openSheet("editOrder", { id: orderId });
-    return;
-  }
 
   if (state.view === "clients") {
     const row = event.target.closest("[data-client-id]");
@@ -1741,10 +1516,6 @@ function handleSheetDraftInput(event) {
     }
   }
 
-  if (target?.name === "zone") {
-    syncOrderMockupField();
-  }
-
   if (target?.name === "stage" && target instanceof HTMLSelectElement && (state.activeSheetAction === "addTestPlanningOrder" || state.activeSheetAction === "editTestPlanningOrder")) {
     var statusField = refs.sheetForm?.elements.namedItem("status");
     if (statusField instanceof HTMLSelectElement) {
@@ -1789,12 +1560,6 @@ function handleRootChange(event) {
     return;
   }
 
-  if (target.name === "order-zone-filter") {
-    state.orderZoneFilter = String(target.value ?? "");
-    requestRender({ header: false, status: true, view: true });
-    return;
-  }
-
   if (target.name === "dtf-select") {
     const id = Number(target.value);
     if (target.checked) {
@@ -1828,17 +1593,6 @@ function handleRootChange(event) {
     return;
   }
 
-  if (target.name === "order-status") {
-    const id = Number(target.dataset.id);
-    const order = db.customerOrders.find((entry) => entry.id === id);
-    if (order) {
-      order.status = normalizeOrderStatus(target.value);
-      order.mockupCompletedAt = order.status === "Maquette à faire" ? "" : String(order.mockupCompletedAt ?? "");
-      persistDb();
-      requestRender({ header: false, status: false, view: true });
-    }
-    return;
-  }
 
   if (target.name === "task-checked") {
     const id = Number(target.value);
@@ -2063,75 +1817,6 @@ function handleSheetSubmit(event) {
     closeSheet();
     requestRender({ transition: true });
     showToast("Client mis a jour.");
-    return;
-  }
-
-  if (state.activeSheetAction === "addOrder") {
-    const client = parseOrderClient(formData.get("clientName"));
-    const rawZone = String(formData.get("zone") ?? "").trim();
-    const rawStatus = String(formData.get("status") ?? "").trim();
-    const status = formData.get("markMockup") === "on"
-      ? "Maquette à faire"
-      : (rawStatus ? normalizeOrderStatus(rawStatus) : "");
-    db.customerOrders.unshift({
-      id: nextId(db.customerOrders),
-      clientId: client.clientId,
-      clientName: client.clientName,
-      product: String(formData.get("product") ?? "").trim(),
-      urgency: String(formData.get("urgency") ?? "").trim(),
-      contact: String(formData.get("contact") ?? "").trim(),
-      zone: rawZone ? normalizeOrderZone(rawZone) : "",
-      quantity: normalizeOrderQuantity(formData.get("quantity")),
-      note: String(formData.get("note") ?? "").trim(),
-      deliveryDate: String(formData.get("deliveryDate") ?? "").trim(),
-      status,
-      mockupCompletedAt: "",
-      assignedTo: String(formData.get("assignedTo") ?? "").trim(),
-      createdAt: isoNow(),
-      archivedAt: ""
-    });
-    persistDb();
-    clearSheetDraftByAction("addOrder");
-    closeSheet();
-    requestRender({ transition: true });
-    showToast("Commande ajoutee.");
-    return;
-  }
-
-  if (state.activeSheetAction === "editOrder") {
-    const orderId = state.activeOrderId;
-    const order = db.customerOrders.find((item) => item.id === orderId);
-
-    if (!order) {
-      closeSheet();
-      showToast("Commande introuvable.");
-      return;
-    }
-
-    const client = parseOrderClient(formData.get("clientName"));
-    const rawZone = String(formData.get("zone") ?? "").trim();
-    const rawStatus = String(formData.get("status") ?? "").trim();
-    const status = formData.get("markMockup") === "on"
-      ? "Maquette à faire"
-      : (rawStatus ? normalizeOrderStatus(rawStatus) : "");
-
-    order.clientId = client.clientId;
-    order.clientName = client.clientName;
-    order.product = String(formData.get("product") ?? "").trim();
-    order.urgency = String(formData.get("urgency") ?? "").trim();
-    order.contact = String(formData.get("contact") ?? "").trim();
-    order.zone = rawZone ? normalizeOrderZone(rawZone) : "";
-    order.quantity = normalizeOrderQuantity(formData.get("quantity"));
-    order.note = String(formData.get("note") ?? "").trim();
-    order.deliveryDate = String(formData.get("deliveryDate") ?? "").trim();
-    order.status = status;
-    order.mockupCompletedAt = order.status === "Maquette à faire" ? "" : String(order.mockupCompletedAt ?? "");
-    order.assignedTo = String(formData.get("assignedTo") ?? "").trim();
-    persistDb();
-    clearSheetDraftByAction("editOrder", orderId);
-    closeSheet();
-    requestRender({ transition: true });
-    showToast("Commande mise a jour.");
     return;
   }
 
@@ -2524,9 +2209,6 @@ function renderView() {
     case "tasks":
       refs.viewRoot.innerHTML = renderTasksView();
       break;
-    case "planning":
-      refs.viewRoot.innerHTML = renderOrdersView();
-      break;
     case "testPlanning":
       refs.viewRoot.innerHTML = renderTestPlanningView();
       break;
@@ -2787,139 +2469,6 @@ function renderTeamNoteItem(noteId, item) {
   `;
 }
 
-function renderOrdersView() {
-  const rows = getVisibleCustomerOrders();
-  const sections = buildOrderPlanningSections(rows);
-  const archiveCount = db.customerOrders.filter((item) => item.archivedAt).length;
-  return `
-    <section class="module-layout orders-layout">
-      <div class="archive-toggle">
-        <div>
-          <strong>Archives commandes</strong>
-          <p class="archive-copy">${archiveCount}</p>
-        </div>
-        <div class="archive-actions">
-          <button class="pill-button ${state.showOrderArchives ? "is-active" : ""}" type="button" data-action="toggle-order-archives">
-            ${state.showOrderArchives ? "Voir les actives" : "Voir les archives"}
-          </button>
-        </div>
-      </div>
-      <article class="module-panel orders-toolbar">
-        <header class="module-head orders-toolbar-head">
-          <div>
-            <p class="module-kicker">Planning</p>
-            <h3>Commandes</h3>
-          </div>
-          <div class="module-actions">
-            <span class="chip">${rows.length} commande${rows.length > 1 ? "s" : ""}</span>
-            <label>
-              <span class="sr-only">Filtrer par zone</span>
-              <select class="field-select" name="order-zone-filter" aria-label="Filtrer par zone">
-                <option value="">Toutes les zones</option>
-                ${ORDER_ZONE_OPTIONS.map((zone) => `<option value="${escapeHtml(zone)}" ${state.orderZoneFilter === zone ? "selected" : ""}>${escapeHtml(zone)}</option>`).join("")}
-              </select>
-            </label>
-            ${state.showOrderArchives ? "" : `
-              <button class="pill-button ${state.orderAssigneeFilter ? "" : "is-active"}" type="button" data-action="clear-order-assignee-filter">Toutes</button>
-              ${ORDER_ASSIGNEES.map((assignee) => `
-                <button class="team-bubble ${state.orderAssigneeFilter === assignee ? "is-active" : ""}" type="button" data-action="filter-order-assignee" data-assignee="${assignee}" aria-label="Filtrer les commandes de ${assignee}">
-                  ${assignee}
-                </button>
-              `).join("")}
-            `}
-          </div>
-        </header>
-      </article>
-      <section class="orders-planning-list">
-        ${sections.map(renderOrderPlanningSection).join("")}
-      </section>
-    </section>
-  `;
-}
-
-function renderOrderPlanningSection(section) {
-  return `
-    <article class="planning-section">
-      <header class="planning-section-head">
-        <div>
-          <p class="module-kicker">${escapeHtml(section.kicker)}</p>
-          <h3>${escapeHtml(section.title)}</h3>
-        </div>
-        <span class="chip">${section.rows.length}</span>
-      </header>
-      <div class="planning-section-body">
-        ${section.rows.length ? section.rows.map(renderOrderRow).join("") : `<div class="empty-state">Aucune commande.</div>`}
-      </div>
-    </article>
-  `;
-}
-
-function renderOrderRow(order) {
-  const isSelected = state.selectedOrderId === order.id;
-  const hasContact = Boolean(order.contact);
-  const hasNote = Boolean(order.note);
-  const createdAtCopy = formatOrderCreatedAt(order.createdAt);
-  const typeBadge = orderTypeLabel(order)
-    ? `<span class="order-type-badge" data-tone="${orderTypeTone(order)}">${orderTypeLabel(order)}</span>`
-    : "";
-  return `
-    <article
-      class="order-card order-card-line"
-      data-order-id="${order.id}"
-      data-zone="${escapeHtml(order.zone || "Autre")}"
-      data-selected="${isSelected ? "true" : "false"}"
-      tabindex="0"
-      aria-selected="${isSelected ? "true" : "false"}"
-    >
-      <div class="order-line-primary">
-        <div class="order-line-summary order-line-primary-main">
-          <strong class="order-client-name">${escapeHtml(orderClientLabel(order))}</strong>
-          <span class="order-zone-chip" data-zone="${escapeHtml(order.zone || "Autre")}">${escapeHtml(order.zone || "Autre")}</span>
-          ${typeBadge}
-          <span class="order-priority-badge" data-tone="${urgencyTone(order.urgency)}">${escapeHtml(order.urgency)}</span>
-          ${order.mockupCompletedAt ? `<span class="status-badge" data-tone="ready">Maquette faite</span>` : ""}
-          ${order.quantity > 0 ? `<span class="order-qty-chip">${order.quantity}</span>` : ""}
-          ${hasContact ? `<span class="order-inline-copy">${escapeHtml(order.contact)}</span>` : ""}
-        </div>
-        ${hasNote || createdAtCopy ? `
-          <div class="order-line-primary-note">
-            ${hasNote ? `<span class="order-inline-copy order-inline-note">${escapeHtml(order.note)}</span>` : ""}
-            ${createdAtCopy ? `<span class="order-created-meta">${escapeHtml(createdAtCopy)}</span>` : ""}
-          </div>
-        ` : ""}
-      </div>
-      <div class="order-line-meta">
-        ${renderOrderDeadline(order)}
-      </div>
-      <div class="order-card-controls order-card-controls-line">
-        <select class="field-select table-status-select" name="order-status" data-id="${order.id}" aria-label="Etat">
-          ${renderOrderStatusOptions(order.status)}
-        </select>
-        <div class="order-controls-inline">
-          <div class="team-bubble-group" aria-label="Assignation commande">
-            ${ORDER_ASSIGNEES.map((assignee) => `
-              <button
-                class="team-bubble ${order.assignedTo === assignee ? "is-active" : ""}"
-                type="button"
-                data-action="assign-order"
-                data-id="${order.id}"
-                data-assignee="${assignee}"
-                aria-label="Assigner a ${assignee}"
-              >
-                ${assignee}
-              </button>
-            `).join("")}
-          </div>
-          <div class="order-side-actions" aria-label="Actions de la commande">
-            <button class="row-action row-action-subtle" type="button" data-action="${order.archivedAt ? "restore-order" : "archive-order"}" data-id="${order.id}" aria-label="${order.archivedAt ? "Restaurer" : "Archiver"} la commande">${order.archivedAt ? "↺" : "⤴"}</button>
-            <button class="row-action row-action-subtle is-danger" type="button" data-action="delete-order" data-id="${order.id}" aria-label="Supprimer la commande">×</button>
-          </div>
-        </div>
-      </div>
-    </article>
-  `;
-}
-
 function renderClientsView() {
   const rows = getVisibleClientRows();
   return `
@@ -3067,8 +2616,7 @@ function renderDtfRow(row) {
 
 function renderMockupsView() {
   const rows = getVisibleMockupItems();
-  const archiveCount = db.customerOrders.filter((item) => item.archivedAt && item.status === "Maquette à faire").length
-    + db.dtfRequests.filter((item) => item.archivedAt && item.needsMockup).length;
+  const archiveCount = db.dtfRequests.filter((item) => item.archivedAt && item.needsMockup).length;
 
   return `
     <section class="module-layout orders-layout">
@@ -3093,11 +2641,10 @@ function renderMockupsView() {
 }
 
 function renderMockupRow(item) {
-  const isOrder = item.kind === "order";
   const isTestPlanning = item.kind === "testPlanning";
-  const sourceLabel = isOrder ? "Commande" : isTestPlanning ? "Planning" : "DTF";
-  const zoneLabel = item.zone || (isOrder ? "Autre" : isTestPlanning ? "Test planning" : "DTF");
-  const completeAction = isOrder ? "complete-order-mockup" : isTestPlanning ? "complete-test-planning-mockup" : "complete-dtf-mockup";
+  const sourceLabel = isTestPlanning ? "Planning" : "DTF";
+  const zoneLabel = item.zone || (isTestPlanning ? "Commandes générales" : "DTF");
+  const completeAction = isTestPlanning ? "complete-test-planning-mockup" : "complete-dtf-mockup";
   return `
     <article class="order-card order-card-line" data-zone="${escapeHtml(zoneLabel)}">
       <div class="order-line-primary">
@@ -3429,7 +2976,6 @@ function renderImprovementItem(item) {
 
 function openSheet(action, options = {}) {
   state.activeSheetAction = action;
-  state.activeOrderId = action === "editOrder" ? options.id ?? null : null;
   state.activeDtfId = action === "editDtf" ? options.id ?? null : null;
   state.activeTextileId = action === "editTextileOrder" ? options.id ?? null : null;
   state.activePurchaseId = action === "editPurchaseItem" ? options.id ?? null : null;
@@ -3440,19 +2986,17 @@ function openSheet(action, options = {}) {
   pauseRemotePolling();
   refs.sheetDialog.dataset.layout = (
     action === "addDtf" || action === "editDtf" ? "dtf-inline"
-      : action === "addOrder" || action === "editOrder" ? "order-inline"
-        : action === "addTextileOrder" || action === "editTextileOrder" ? "textile-inline"
-          : action === "addClient" || action === "editClient" ? "client-inline"
-            : action === "addTestPlanningOrder" || action === "editTestPlanningOrder" ? "test-planning-inline"
-        : ""
+      : action === "addTextileOrder" || action === "editTextileOrder" ? "textile-inline"
+        : action === "addClient" || action === "editClient" ? "client-inline"
+          : action === "addTestPlanningOrder" || action === "editTestPlanningOrder" ? "test-planning-inline"
+          : ""
   );
   refs.sheetBody.innerHTML = renderSheetBody(action);
-  if (action === "addOrder" || action === "addTestPlanningOrder") {
+  if (action === "addTestPlanningOrder") {
     clearSheetDraftByAction(action);
   } else {
     restoreSheetDraft(action, options);
   }
-  syncOrderMockupField();
   syncTestPlanningStageField();
   syncTestPlanningMockupField();
   syncProofingFields(refs.sheetBody);
@@ -3542,19 +3086,6 @@ function renderSheetBody(action) {
     }
 
     return renderClientForm(client);
-  }
-
-  if (action === "addOrder") {
-    return renderOrderForm();
-  }
-
-  if (action === "editOrder") {
-    const order = db.customerOrders.find((item) => item.id === state.activeOrderId);
-    if (!order) {
-      return "";
-    }
-
-    return renderOrderForm(order);
   }
 
   if (action === "addTestPlanningOrder") {
@@ -3904,25 +3435,6 @@ function renderClientForm(client = null) {
   `;
 }
 
-function renderOrderProductOptions(selectedProduct = "") {
-  const current = String(selectedProduct ?? "").trim();
-  const options = current && !ORDER_PRODUCT_OPTIONS.includes(current)
-    ? [current, ...ORDER_PRODUCT_OPTIONS]
-    : ORDER_PRODUCT_OPTIONS;
-
-  return renderSelectOptions(["", ...options], current);
-}
-
-function renderOrderAssigneeChoices(selectedAssignee = "") {
-  const current = normalizeImportedAssignee(selectedAssignee);
-  return ORDER_ASSIGNEES.map((assignee) => `
-    <label class="team-bubble-choice" aria-label="Assigner a ${assignee}">
-      <input class="team-bubble-choice-input" type="radio" name="assignedTo" value="${assignee}" ${current === assignee ? "checked" : ""}>
-      <span class="team-bubble ${current === assignee ? "is-active" : ""}">${assignee}</span>
-    </label>
-  `).join("");
-}
-
 function renderTestPlanningClientTypeChoices(selectedType = "") {
   const current = String(selectedType ?? "").trim().toUpperCase();
   return ["PRO", "PERSO"].map((type) => `
@@ -3931,75 +3443,6 @@ function renderTestPlanningClientTypeChoices(selectedType = "") {
       <span class="team-bubble ${current === type ? "is-active" : ""}">${type}</span>
     </label>
   `).join("");
-}
-
-function canOrderUseMockup(zone) {
-  return Boolean(String(zone ?? "").trim());
-}
-
-function renderOrderForm(order = null) {
-  const zone = String(order?.zone ?? "").trim();
-  const showMockupField = canOrderUseMockup(zone);
-  return `
-    <div class="field-grid order-form-grid">
-      <label>
-        <span class="field-label">Produit</span>
-        <select class="field-select" name="product">
-          ${renderOrderProductOptions(order?.product)}
-        </select>
-      </label>
-      <label>
-        <span class="field-label">Urgence</span>
-        <select class="field-select" name="urgency">
-          ${renderSelectOptions(["", "Haute", "Moyenne", "Basse"], String(order?.urgency ?? "").trim())}
-        </select>
-      </label>
-      <label>
-        <span class="field-label">Client</span>
-        <input class="field-input" name="clientName" type="text" list="clientSuggestions" value="${escapeHtml(order ? orderClientLabel(order) : "")}">
-      </label>
-      <label>
-        <span class="field-label">Contact</span>
-        <input class="field-input" name="contact" type="text" value="${escapeHtml(order?.contact ?? "")}">
-      </label>
-      <label>
-        <span class="field-label">Zone</span>
-        <select class="field-select" name="zone">
-          ${renderSelectOptions(["", ...ORDER_ZONE_OPTIONS], zone)}
-        </select>
-      </label>
-      <label>
-        <span class="field-label">Quantite</span>
-        <input class="field-input" name="quantity" type="number" min="1" value="${order?.quantity ? escapeHtml(String(order.quantity)) : ""}">
-      </label>
-      <label>
-        <span class="field-label">Livraison</span>
-        <input class="field-input" name="deliveryDate" type="date" value="${escapeHtml(order?.deliveryDate ?? "")}">
-      </label>
-      <label>
-        <span class="field-label">Statut</span>
-        <select class="field-select" name="status">${renderOrderStatusOptions(order?.status)}</select>
-      </label>
-      <label class="field-checkbox" data-order-mockup-field ${showMockupField ? "" : "hidden"}>
-        <span class="field-label">Maquette</span>
-        <span class="checkbox-row">
-          <input name="markMockup" type="checkbox" ${order?.status === "Maquette à faire" ? "checked" : ""} ${showMockupField ? "" : "disabled"}>
-          <span>Maquette à faire</span>
-        </span>
-      </label>
-      <label class="field-choice-group">
-        <span class="field-label">Assigné</span>
-        <span class="team-bubble-group" aria-label="Assignation commande">
-          ${renderOrderAssigneeChoices(order?.assignedTo)}
-        </span>
-      </label>
-      <label class="order-form-note">
-        <span class="field-label">Note</span>
-        <input class="field-input" name="note" type="text" value="${escapeHtml(order?.note ?? "")}">
-      </label>
-    </div>
-    <datalist id="clientSuggestions">${renderClientSuggestionOptions()}</datalist>
-  `;
 }
 
 function renderTestPlanningForm(item = null) {
@@ -4059,7 +3502,15 @@ function renderTestPlanningForm(item = null) {
       <label class="test-planning-field-assignee">
         <span class="field-label">Assigné</span>
         <span class="team-bubble-group" aria-label="Assignation test planning">
-          ${renderOrderAssigneeChoices(item?.assignedTo)}
+          ${(() => {
+            const current = normalizeImportedAssignee(item?.assignedTo);
+            return ORDER_ASSIGNEES.map((assignee) => `
+    <label class="team-bubble-choice" aria-label="Assigner a ${assignee}">
+      <input class="team-bubble-choice-input" type="radio" name="assignedTo" value="${assignee}" ${current === assignee ? "checked" : ""}>
+      <span class="team-bubble ${current === assignee ? "is-active" : ""}">${assignee}</span>
+    </label>
+  `).join("");
+          })()}
         </span>
       </label>
     </div>
@@ -4176,159 +3627,6 @@ function getVisibleTeamNoteItems(note) {
   return note.items.filter((item) => `${note.name} ${item.label}`.toLowerCase().includes(state.search));
 }
 
-function getVisibleCustomerOrders(options = {}) {
-  return db.customerOrders.filter((item) => {
-    if (state.showOrderArchives && !item.archivedAt) {
-      return false;
-    }
-
-    if (!state.showOrderArchives && item.archivedAt) {
-      return false;
-    }
-
-    if (!state.showOrderArchives && state.orderZoneFilter) {
-      if (normalizeOrderZone(item.zone) !== state.orderZoneFilter) {
-        return false;
-      }
-    }
-
-    if (!state.showOrderArchives && !options.ignoreAssigneeFilter && state.orderAssigneeFilter && item.assignedTo !== state.orderAssigneeFilter) {
-      return false;
-    }
-
-    if (options.ignoreSearch || !state.search) {
-      return true;
-    }
-
-    const haystack = [
-      orderClientLabel(item),
-      item.product,
-      item.urgency,
-      item.contact,
-      item.zone,
-      item.status,
-      item.note,
-      item.assignedTo
-    ]
-      .join(" ")
-      .toLowerCase();
-
-    return haystack.includes(state.search);
-  }).sort(compareOrderPlanning);
-}
-
-function selectOrderRow(orderId, options = {}) {
-  if (state.selectedOrderId === orderId) {
-    return;
-  }
-
-  state.selectedOrderId = orderId;
-
-  if (options.render === false) {
-    return;
-  }
-
-  requestRender({ header: false, status: false, view: true });
-}
-
-function syncOrderAssigneeBubbles(orderId, assignee) {
-  const row = refs.viewRoot.querySelector(`[data-order-id="${orderId}"]`);
-  if (!row) {
-    return;
-  }
-
-  row.querySelectorAll('[data-action="assign-order"]').forEach((button) => {
-    button.classList.toggle("is-active", button.dataset.assignee === assignee);
-  });
-}
-
-function buildOrderPlanningSections(rows) {
-  const sections = [
-    { key: "late", kicker: "Priorité", title: "En retard", rows: [] },
-    { key: "today", kicker: "Jour", title: "Aujourd'hui", rows: [] },
-    { key: "soon", kicker: "Court terme", title: "Prochains jours", rows: [] },
-    { key: "week", kicker: "Semaine", title: "Cette semaine", rows: [] },
-    { key: "upcoming", kicker: "À venir", title: "Plus tard", rows: [] },
-    { key: "none", kicker: "À classer", title: "Sans date", rows: [] }
-  ];
-
-  rows.forEach((row) => {
-    const offset = orderDayOffset(row.deliveryDate);
-
-    if (offset === null) {
-      sections[5].rows.push(row);
-      return;
-    }
-    if (offset < 0) {
-      sections[0].rows.push(row);
-      return;
-    }
-    if (offset === 0) {
-      sections[1].rows.push(row);
-      return;
-    }
-    if (offset <= 3) {
-      sections[2].rows.push(row);
-      return;
-    }
-    if (offset <= 7) {
-      sections[3].rows.push(row);
-      return;
-    }
-    sections[4].rows.push(row);
-  });
-
-  return sections.filter((section) => section.rows.length);
-}
-
-function compareOrderPlanning(left, right) {
-  const leftOffset = orderDayOffset(left.deliveryDate);
-  const rightOffset = orderDayOffset(right.deliveryDate);
-
-  if (leftOffset === null && rightOffset !== null) {
-    return 1;
-  }
-  if (leftOffset !== null && rightOffset === null) {
-    return -1;
-  }
-  if (leftOffset !== null && rightOffset !== null && leftOffset !== rightOffset) {
-    return leftOffset - rightOffset;
-  }
-
-  const urgencyRank = { Haute: 0, Moyenne: 1, Basse: 2 };
-  const urgencyDiff = (urgencyRank[left.urgency] ?? 3) - (urgencyRank[right.urgency] ?? 3);
-  if (urgencyDiff !== 0) {
-    return urgencyDiff;
-  }
-
-  return orderClientLabel(left).localeCompare(orderClientLabel(right), "fr");
-}
-
-function renderOrderDeadline(order) {
-  if (!order.deliveryDate) {
-    return `
-      <div class="order-deadline">
-        <strong>Sans date</strong>
-      </div>
-    `;
-  }
-
-  const offset = orderDayOffset(order.deliveryDate);
-  const tone = deadlineTone(offset);
-  const badge = offset === null ? "" : `
-    <span class="deadline-badge" data-tone="${tone}">
-      ${escapeHtml(deadlineCopy(offset))}
-    </span>
-  `;
-
-  return `
-    <div class="order-deadline">
-      <strong>${escapeHtml(formatDate(order.deliveryDate))}</strong>
-      ${badge}
-    </div>
-  `;
-}
-
 function getVisibleDtfItems() {
   return db.dtfRequests.filter((item) => {
     if (state.showDtfArchives && !item.archivedAt) {
@@ -4365,37 +3663,6 @@ function getVisibleDtfItems() {
 
 function getVisibleMockupItems() {
   const rows = [];
-
-  db.customerOrders.forEach((item) => {
-    if (state.showDtfArchives && !item.archivedAt) {
-      return;
-    }
-
-    if (!state.showDtfArchives && item.archivedAt) {
-      return;
-    }
-
-    if (item.status !== "Maquette à faire" || item.mockupCompletedAt) {
-      return;
-    }
-
-    const row = {
-      kind: "order",
-      id: item.id,
-      client: orderClientLabel(item),
-      title: item.note || item.product || "Commande",
-      meta: item.contact,
-      quantity: item.quantity,
-      zone: item.zone,
-      date: item.deliveryDate
-    };
-
-    if (state.search && !mockupSearchHaystack(row).includes(state.search)) {
-      return;
-    }
-
-    rows.push(row);
-  });
 
   db.dtfRequests.forEach((item) => {
     if (state.showDtfArchives && !item.archivedAt) {
@@ -4437,10 +3704,10 @@ function getVisibleMockupItems() {
       kind: "testPlanning",
       id: item.id,
       client: item.clientName || "Client",
-      title: [item.family, item.product].filter(Boolean).join(" · ") || "Test planning",
+      title: [item.family, item.product].filter(Boolean).join(" · ") || "Commandes générales",
       meta: item.note || "",
       quantity: item.quantity ? Number(item.quantity) : 0,
-      zone: "Test planning",
+      zone: "Commandes générales",
       date: item.deliveryDate || (item.createdAt ? item.createdAt.slice(0, 10) : "")
     };
 
@@ -4803,11 +4070,6 @@ function normalizeDb(parsed) {
     teamNotes: normalizeTeamNotes(parsed.teamNotes),
     clients,
     dtfRequests: Array.isArray(parsed.dtfRequests) ? parsed.dtfRequests.map(normalizeDtfRequest) : deepClone(seed.dtfRequests),
-    customerOrders: dedupeCustomerOrders(
-      shouldResetCustomerOrders ? [] : (
-        Array.isArray(parsed.customerOrders) ? parsed.customerOrders.map(normalizeCustomerOrder) : deepClone(seed.customerOrders)
-      )
-    ),
     textileOrders: injectImportedTextileOrders(textileOrders, clients, parsedVersion),
     purchaseItems: mergePurchaseDefaults(Array.isArray(parsed.purchaseItems) ? parsed.purchaseItems : deepClone(seed.purchaseItems)),
     productionItems: Array.isArray(parsed.productionItems) ? parsed.productionItems.map(normalizeProductionItem) : deepClone(seed.productionItems),
@@ -5266,214 +4528,9 @@ function backupCorruptedStorage() {
   }
 }
 
-function normalizeCustomerOrder(order) {
-  return {
-    id: Number(order.id),
-    clientId: Number(order.clientId) || null,
-    clientName: String(order.clientName ?? "").trim(),
-    orderType: normalizeOrderType(order.orderType, order.clientId),
-    product: order.product ?? order.title ?? "Commande",
-    urgency: order.urgency ?? "Moyenne",
-    contact: order.contact ?? "",
-    zone: normalizeOrderZone(order.zone ?? order.category ?? ""),
-    quantity: normalizeOrderQuantity(order.quantity),
-    note: order.note ?? "",
-    deliveryDate: String(order.deliveryDate ?? order.dueDate ?? "").trim(),
-    status: normalizeOrderStatus(order.status),
-    mockupCompletedAt: String(order.mockupCompletedAt ?? ""),
-    assignedTo: order.assignedTo ?? "",
-    createdAt: order.createdAt ?? isoToday(),
-    archivedAt: order.archivedAt ?? ""
-  };
-}
-
-function dedupeCustomerOrdersInPlace() {
-  const deduped = dedupeCustomerOrders(db.customerOrders);
-  if (deduped.length === db.customerOrders.length) {
-    return 0;
-  }
-
-  db.customerOrders = deduped;
-  return 1;
-}
-
-function dedupeCustomerOrders(collection) {
-  const seen = new Set();
-  const deduped = [];
-
-  (Array.isArray(collection) ? collection : []).forEach((order) => {
-    const signature = orderImportSignature(order);
-    if (seen.has(signature)) {
-      return;
-    }
-
-    seen.add(signature);
-    deduped.push(order);
-  });
-
-  return deduped;
-}
-
-function mergeImportedCustomerOrders() {
-  const existingSignatures = new Set(db.customerOrders.map(orderImportSignature));
-  const imports = IMPORTED_CUSTOMER_ORDERS
-    .map((item, index) => ({
-      id: nextId(db.customerOrders, db.customerOrders.length + index + 1) + index,
-      clientId: parseOrderClient(item.clientName).clientId,
-      clientName: item.clientName,
-      orderType: item.orderType,
-      product: inferImportedOrderProduct(item.zone, item.note),
-      urgency: item.urgency,
-      contact: "",
-      zone: normalizeOrderZone(item.zone),
-      quantity: normalizeOrderQuantity(item.quantity),
-      note: item.note,
-      deliveryDate: item.deliveryDate,
-      status: normalizeOrderStatus(item.status),
-      mockupCompletedAt: "",
-      assignedTo: normalizeImportedAssignee(item.assignedTo),
-      createdAt: isoNow(),
-      archivedAt: ""
-    }))
-    .filter((item) => {
-      const signature = orderImportSignature(item);
-      if (existingSignatures.has(signature)) {
-        return false;
-      }
-
-      existingSignatures.add(signature);
-      return true;
-    });
-
-  if (!imports.length) {
-    return 0;
-  }
-
-  db.customerOrders = [...db.customerOrders, ...imports];
-  return imports.length;
-}
-
-function orderImportSignature(order) {
-  return [
-    String(order.orderType ?? "").trim().toUpperCase(),
-    String(order.urgency ?? "").trim(),
-    String(order.clientName ?? "").trim().toLowerCase(),
-    String(order.zone ?? "").trim().toLowerCase(),
-    String(order.note ?? "").trim().toLowerCase(),
-    String(order.deliveryDate ?? "").trim(),
-    normalizeImportedAssignee(order.assignedTo),
-    String(normalizeOrderQuantity(order.quantity))
-  ].join("|");
-}
-
-function normalizeOrderQuantity(value) {
-  if (value === "" || value === null || value === undefined) {
-    return 0;
-  }
-
-  const quantity = Number(value);
-  if (!Number.isFinite(quantity) || quantity <= 0) {
-    return 0;
-  }
-
-  return Math.round(quantity);
-}
-
-function inferImportedOrderProduct(zone, note) {
-  const noteValue = String(note ?? "").toLowerCase();
-  const zoneValue = normalizeOrderZone(zone).toLowerCase();
-
-  if (noteValue.includes("casquette")) {
-    return "Casquette";
-  }
-  if (noteValue.includes("tote bag") || noteValue.includes("pochette")) {
-    return "Pochette";
-  }
-  if (noteValue.includes("tasses") || noteValue.includes("verre")) {
-    return "Tasses";
-  }
-  if (zoneValue === "goodies" || zoneValue === "gravure et découpe laser" || zoneValue === "impression uv") {
-    return "Goodies";
-  }
-
-  return "Tshirt";
-}
-
-function normalizeOrderZone(zone) {
-  const value = String(zone ?? "").trim().toLowerCase();
-
-  if (!value || value === "-" || value === "textile" || value === "textiles") {
-    return "Textiles";
-  }
-
-  if (["gravure", "gravure et decoupe laser", "gravure et découpe laser", "laser"].includes(value)) {
-    return "Gravure et découpe laser";
-  }
-
-  if (["uv", "impression", "impression uv", "dtf"].includes(value)) {
-    return "Impression UV";
-  }
-
-  if (value === "goodies") {
-    return "Goodies";
-  }
-
-  return "Textiles";
-}
-
 function normalizeImportedAssignee(value) {
   const normalized = String(value ?? "").trim().toUpperCase();
   return ORDER_ASSIGNEES.includes(normalized) ? normalized : "";
-}
-
-function createDtfFromTextileOrder(order) {
-  if (!order || normalizeOrderZone(order.zone) !== "Textiles") {
-    return;
-  }
-
-  const existing = db.dtfRequests.find((item) => Number(item.sourceOrderId) === Number(order.id));
-  if (existing) {
-    return;
-  }
-
-  db.dtfRequests.unshift({
-    id: nextId(db.dtfRequests),
-    sourceOrderId: order.id,
-    clientId: order.clientId ?? null,
-    clientName: order.clientName ?? "",
-    dimensions: "",
-    logoPlacement: "AV",
-    designName: "",
-    size: "",
-    color: "",
-    technicalNote: String(order.note ?? "").trim(),
-    quantity: Math.max(1, Number(order.quantity) || 1),
-    needsMockup: false,
-    mockupCompletedAt: isoNow(),
-    status: "draft",
-    archivedAt: "",
-    createdAt: isoToday()
-  });
-}
-
-function syncOrderMockupField() {
-  if (!refs.sheetForm || !["addOrder", "editOrder"].includes(state.activeSheetAction)) {
-    return;
-  }
-
-  const zoneField = refs.sheetForm.elements.namedItem("zone");
-  const mockupField = refs.sheetBody.querySelector("[data-order-mockup-field]");
-  const mockupInput = refs.sheetForm.elements.namedItem("markMockup");
-  if (!(zoneField instanceof HTMLSelectElement) || !(mockupField instanceof HTMLElement) || !(mockupInput instanceof HTMLInputElement)) {
-    return;
-  }
-
-  const shouldShow = canOrderUseMockup(zoneField.value);
-  mockupField.hidden = !shouldShow;
-  mockupInput.disabled = !shouldShow;
-  if (!shouldShow) {
-    mockupInput.checked = false;
-  }
 }
 
 function normalizeProductionStatus(value) {
@@ -5680,10 +4737,6 @@ function activeSheetDraftStorageKey() {
     return "";
   }
 
-  if (state.activeSheetAction === "editOrder") {
-    return sheetDraftStorageKey(state.activeSheetAction, state.activeOrderId);
-  }
-
   if (state.activeSheetAction === "editDtf") {
     return sheetDraftStorageKey(state.activeSheetAction, state.activeDtfId);
   }
@@ -5834,31 +4887,6 @@ function teamNoteTone(name) {
   return tones[String(name ?? "").trim()] ?? "cool-1";
 }
 
-function orderClientLabel(order) {
-  if (order?.clientName) {
-    return order.clientName;
-  }
-
-  if (order?.clientId) {
-    return clientName(order.clientId);
-  }
-
-  return "Client inconnu";
-}
-
-function orderTypeLabel(order) {
-  return order?.orderType || "";
-}
-
-function orderTypeTone(order) {
-  if (order?.orderType === "PRO") {
-    return "pro";
-  }
-  if (order?.orderType === "PERSO") {
-    return "perso";
-  }
-  return "muted";
-}
 
 function urgencyTone(urgency) {
   if (urgency === "Haute") {
@@ -5868,17 +4896,6 @@ function urgencyTone(urgency) {
     return "low";
   }
   return "medium";
-}
-
-function orderDayOffset(value) {
-  if (!value) {
-    return null;
-  }
-
-  const current = new Date(`${isoToday()}T00:00:00`);
-  const target = new Date(`${value}T00:00:00`);
-  const diff = target.getTime() - current.getTime();
-  return Math.round(diff / 86400000);
 }
 
 function deadlineTone(offset) {
@@ -6094,32 +5111,6 @@ function productionTone(status) {
   return "draft";
 }
 
-function orderTone(status) {
-  if (status === "Produit récupéré" || status === "Facture faite" || status === "Terminé") {
-    return "ready";
-  }
-  if (ORDER_STATUS_BUCKETS.production.includes(status) || ORDER_STATUS_BUCKETS.client.includes(status) || status === "À facturer") {
-    return "progress";
-  }
-  return "draft";
-}
-
-function countOrdersByStatuses(statuses, collection = db.customerOrders) {
-  return collection.filter((item) => statuses.includes(item.status)).length;
-}
-
-function renderOrderStatusOptions(selectedStatus = ORDER_STATUS_DEFAULT) {
-  const current = String(selectedStatus ?? "").trim();
-  const emptyOption = `<option value="" ${current ? "" : "selected"}></option>`;
-  return emptyOption + ORDER_STATUS_GROUPS.map((group) => `
-    <optgroup label="${escapeHtml(group.label)}">
-      ${group.options.map((status) => `
-        <option value="${escapeHtml(status)}" ${status === current ? "selected" : ""}>${escapeHtml(status)}</option>
-      `).join("")}
-    </optgroup>
-  `).join("");
-}
-
 function renderProductionStatusOptions(selectedStatus = PRODUCTION_STATUS_DEFAULT) {
   return PRODUCTION_STATUS_OPTIONS.map((status) => `
     <option value="${escapeHtml(status)}" ${status === selectedStatus ? "selected" : ""}>${escapeHtml(status)}</option>
@@ -6213,44 +5204,9 @@ function parseTestPlanningClient(value) {
   };
 }
 
-function normalizeOrderStatus(status) {
-  const value = String(status ?? "").trim();
-
-  if (value === "A valider") {
-    return "Attente validation";
-  }
-  if (value === "En cours") {
-    return "En production";
-  }
-  if (value === "Pret") {
-    return "Produit récupéré";
-  }
-  if (ORDER_STATUS_SET.has(value)) {
-    return value;
-  }
-
-  return ORDER_STATUS_DEFAULT;
-}
-
-function normalizeOrderType(type, clientId) {
-  const value = String(type ?? "").trim().toUpperCase();
-
-  if (value === "PRO" || value === "PERSO") {
-    return value;
-  }
-
-  if (Number(clientId)) {
-    return "PRO";
-  }
-
-  return "";
-}
-
 function primaryLabel(action) {
   const labels = {
     addClient: "+ Ajouter un client",
-    addOrder: "+ Ajouter une commande",
-    editOrder: "Modifier la commande",
     addDtf: "+ Ajouter une demande",
     editDtf: "Modifier la demande",
     addTestPlanningOrder: "+ Ajouter une commande",
@@ -6270,8 +5226,6 @@ function primaryLabel(action) {
 function submitLabel(action) {
   const labels = {
     addClient: "Créer le client",
-    addOrder: "Créer la commande",
-    editOrder: "Enregistrer",
     addDtf: "Créer la demande",
     editDtf: "Enregistrer",
     addTestPlanningOrder: "Créer la commande",
@@ -6291,12 +5245,10 @@ function submitLabel(action) {
 function sheetEyebrow(action) {
   const labels = {
     addClient: "Clients Pro",
-    addOrder: "Commandes générales",
-    editOrder: "Commandes générales",
     addDtf: "Demande DTF",
     editDtf: "Demande DTF",
-    addTestPlanningOrder: "",
-    editTestPlanningOrder: "",
+    addTestPlanningOrder: "Commandes générales",
+    editTestPlanningOrder: "Commandes générales",
     addTextileOrder: "Achat Textile",
     editTextileOrder: "Achat Textile",
     addProductionItem: "Production",
@@ -6338,29 +5290,6 @@ function formatDate(value) {
   } catch (e) {
     return "—";
   }
-}
-
-function formatOrderCreatedAt(value) {
-  if (!value) {
-    return "";
-  }
-
-  const raw = String(value).trim();
-  const hasTime = raw.includes("T");
-  const normalized = hasTime && raw.length === 16 ? `${raw}:00` : raw;
-  const date = hasTime ? new Date(normalized) : new Date(`${raw}T00:00:00`);
-
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-
-  const dateCopy = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short" }).format(date);
-  if (!hasTime) {
-    return `Ajoute le ${dateCopy}`;
-  }
-
-  const timeCopy = new Intl.DateTimeFormat("fr-FR", { hour: "2-digit", minute: "2-digit" }).format(date);
-  return `Ajoute le ${dateCopy} a ${timeCopy}`;
 }
 
 function isoToday() {

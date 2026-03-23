@@ -18,16 +18,9 @@
       primaryAction: null,
       searchPlaceholder: "Rechercher dans les notes..."
     },
-    planning: {
+    testPlanning: {
       label: "Commandes g\xE9n\xE9rales",
       eyebrow: "Commandes g\xE9n\xE9rales",
-      intro: "",
-      primaryAction: "addOrder",
-      searchPlaceholder: "Rechercher..."
-    },
-    testPlanning: {
-      label: "Test planning",
-      eyebrow: "Test planning",
       intro: "",
       primaryAction: "addTestPlanningOrder",
       searchPlaceholder: "Rechercher..."
@@ -89,42 +82,6 @@
       searchPlaceholder: "Rechercher..."
     }
   };
-  var ORDER_STATUS_GROUPS = [
-    {
-      label: "Commercial & Validation",
-      options: ["\xC0 deviser", "Attente validation"]
-    },
-    {
-      label: "Logistique",
-      options: ["\xC0 pr\xE9parer", "Attente marchandise", "Manque information"]
-    },
-    {
-      label: "Production (Atelier)",
-      options: ["Maquette \xE0 faire", "\xC0 produire", "En production", "\xC0 monter/nettoyer"]
-    },
-    {
-      label: "Suivi Client",
-      options: ["Pr\xE9venir client", "Client pr\xE9venu", "Relance client", "Produit r\xE9cup\xE9r\xE9", "Termin\xE9"]
-    },
-    {
-      label: "Comptabilit\xE9",
-      options: ["\xC0 facturer", "Facture faite"]
-    }
-  ];
-  var ORDER_STATUS_DEFAULT = "\xC0 deviser";
-  var ORDER_STATUS_SET = new Set(
-    ORDER_STATUS_GROUPS.reduce((options, group) => options.concat(group.options), [])
-  );
-  var ORDER_STATUS_BUCKETS = {
-    validation: ORDER_STATUS_GROUPS[0].options,
-    logistique: ORDER_STATUS_GROUPS[1].options,
-    production: ORDER_STATUS_GROUPS[2].options,
-    client: ORDER_STATUS_GROUPS[3].options,
-    accounting: ORDER_STATUS_GROUPS[4].options
-  };
-  var ORDER_ZONE_OPTIONS = ["Textiles", "Gravure et d\xE9coupe laser", "Impression UV", "Goodies"];
-  var ORDER_ASSIGNEES = ["L", "M", "C", "A", "R"];
-  var ORDER_PRODUCT_OPTIONS = ["Tshirt", "Pochette", "Sac", "Casquette", "Tasses", "Goodies"];
   var TEST_PLANNING_STAGES = [
     {
       key: "demande",
@@ -189,6 +146,7 @@
     { key: "problem", label: "Probleme" },
     { key: "request", label: "Modification souhaitee" }
   ];
+  var ORDER_ASSIGNEES = ["L", "M", "C", "A", "R"];
   var TEXTILE_COLUMN_DEFINITIONS = [
     { key: "client", label: "Client" },
     { key: "supplier", label: "Fournisseur" },
@@ -430,49 +388,6 @@
     createdAt: IMPORTED_CLIENT_DATE,
     ...client
   }));
-  var IMPORTED_CUSTOMER_ORDERS = [
-    { orderType: "", urgency: "Moyenne", clientName: "Cool SXM", zone: "Textile", quantity: 0, note: "Devis + Maquette drapeau", deliveryDate: "2026-03-20", status: "Attente validation", assignedTo: "M" },
-    { orderType: "", urgency: "Moyenne", clientName: "la chingona", zone: "DTF", quantity: 55, note: "Devis pour DTF objet client la chingona hauteur 110 / faire devis sans la pose.", deliveryDate: "", status: "\xC0 deviser", assignedTo: "L" },
-    { orderType: "", urgency: "Moyenne", clientName: "Sea You", zone: "Textile", quantity: 150, note: "CROP TOP", deliveryDate: "", status: "\xC0 facturer", assignedTo: "L" },
-    { orderType: "", urgency: "Moyenne", clientName: "Sea You", zone: "Textile", quantity: 15, note: "LYCRA 5 S / 5 M / 5 L TOR-04", deliveryDate: "", status: "\xC0 facturer", assignedTo: "L" },
-    { orderType: "", urgency: "Moyenne", clientName: "Soualiga Elevator", zone: "Goodies", quantity: 50, note: "sticker 100 x 100", deliveryDate: "", status: "Attente validation", assignedTo: "L" },
-    { orderType: "", urgency: "Moyenne", clientName: "Villa Riviera", zone: "Textile", quantity: 0, note: "F-006 + Polo K240 + K239", deliveryDate: "2026-03-20", status: "Attente marchandise", assignedTo: "M" },
-    { orderType: "", urgency: "Moyenne", clientName: "Karibuni restaurant", zone: "Textile", quantity: 60, note: "H-001 Almond Green", deliveryDate: "2026-03-20", status: "Attente marchandise", assignedTo: "M" },
-    { orderType: "", urgency: "Moyenne", clientName: "Ocean 82 Djaya", zone: "Gravure", quantity: 5, note: "Gravure sur socle de bougie", deliveryDate: "2026-03-11", status: "Attente validation", assignedTo: "L" },
-    { orderType: "", urgency: "Moyenne", clientName: "HD Factory", zone: "Textile", quantity: 20, note: "K3025IC gris fonc\xE9", deliveryDate: "2026-04-01", status: "Attente validation", assignedTo: "M" },
-    { orderType: "", urgency: "Moyenne", clientName: "HD Factory", zone: "Goodies", quantity: 0, note: "Deviser liste de goodies", deliveryDate: "2026-04-01", status: "\xC0 deviser", assignedTo: "L" },
-    { orderType: "", urgency: "Moyenne", clientName: "Villa Kyan\xE9a", zone: "Gravure", quantity: 0, note: "Panneau entr\xE9e seulement lettre", deliveryDate: "2026-03-13", status: "Manque information", assignedTo: "M" },
-    { orderType: "", urgency: "Moyenne", clientName: "Le Martin", zone: "Impression", quantity: 0, note: "PC plexi - logo + nom et n\xB0 de chambre", deliveryDate: "2026-03-16", status: "Manque information", assignedTo: "M" },
-    { orderType: "", urgency: "Moyenne", clientName: "SAS Les Jardiniers", zone: "Textile", quantity: 50, note: "K3025 Gris", deliveryDate: "2026-04-03", status: "Attente marchandise", assignedTo: "M" },
-    { orderType: "", urgency: "Moyenne", clientName: "Radeau Bleu", zone: "Textile", quantity: 2, note: "Logo Radeau Bleu rose b\xE9b\xE9", deliveryDate: "2026-03-11", status: "Client pr\xE9venu", assignedTo: "M" },
-    { orderType: "", urgency: "Moyenne", clientName: "Achille", zone: "Textile", quantity: 2, note: "Logo Aloha x2 320mm", deliveryDate: "2026-03-18", status: "Maquette \xE0 faire", assignedTo: "L" },
-    { orderType: "PRO", urgency: "Moyenne", clientName: "N Sea Stem", zone: "Textile", quantity: 0, note: "", deliveryDate: "", status: "Client pr\xE9venu", assignedTo: "L" },
-    { orderType: "PRO", urgency: "Moyenne", clientName: "Cool Sxm", zone: "Textile", quantity: 0, note: "Drapeau", deliveryDate: "", status: "En production", assignedTo: "C" },
-    { orderType: "PRO", urgency: "Moyenne", clientName: "Soualiga Elevator", zone: "Textile", quantity: 0, note: "sweet", deliveryDate: "", status: "\xC0 produire", assignedTo: "L" },
-    { orderType: "PRO", urgency: "Moyenne", clientName: "Soualiga Elevator", zone: "Textile", quantity: 16, note: "t-shirt pro", deliveryDate: "", status: "Pr\xE9venir client", assignedTo: "L" },
-    { orderType: "PERSO", urgency: "Moyenne", clientName: "Julien Pharmacie", zone: "Textile", quantity: 0, note: "Tote bag", deliveryDate: "", status: "\xC0 deviser", assignedTo: "L" },
-    { orderType: "PRO", urgency: "Moyenne", clientName: "Blackswan Sbh", zone: "Impression", quantity: 0, note: "", deliveryDate: "", status: "\xC0 pr\xE9parer", assignedTo: "L" },
-    { orderType: "PRO", urgency: "Moyenne", clientName: "Caribbean Luxury", zone: "Goodies", quantity: 0, note: "attente arriv\xE9 marchandise", deliveryDate: "", status: "\xC0 deviser", assignedTo: "L" },
-    { orderType: "PRO", urgency: "Moyenne", clientName: "The Friendly Books", zone: "Impression", quantity: 0, note: "", deliveryDate: "", status: "\xC0 produire", assignedTo: "L" },
-    { orderType: "PERSO", urgency: "Moyenne", clientName: "Raid Des Gendarme", zone: "Impression", quantity: 0, note: "Bon cadeau", deliveryDate: "2026-05-01", status: "\xC0 pr\xE9parer", assignedTo: "L" },
-    { orderType: "PRO", urgency: "Moyenne", clientName: "100 % Villas", zone: "Gravure", quantity: 0, note: "enseigne", deliveryDate: "", status: "\xC0 deviser", assignedTo: "L" },
-    { orderType: "PRO", urgency: "Moyenne", clientName: "Oceano Immo", zone: "Gravure", quantity: 0, note: "enseigne", deliveryDate: "", status: "\xC0 deviser", assignedTo: "L" },
-    { orderType: "PERSO", urgency: "Moyenne", clientName: "Patrice", zone: "Textile", quantity: 0, note: "Casquette", deliveryDate: "", status: "Attente validation", assignedTo: "M" },
-    { orderType: "PERSO", urgency: "Moyenne", clientName: "Vincent", zone: "Gravure", quantity: 20, note: "4.50 euros / 1", deliveryDate: "", status: "\xC0 produire", assignedTo: "L" },
-    { orderType: "", urgency: "Basse", clientName: "Eddy Couteaux", zone: "Gravure", quantity: 0, note: "x20 couteaux", deliveryDate: "2026-03-31", status: "\xC0 deviser", assignedTo: "C" },
-    { orderType: "", urgency: "Haute", clientName: "Guymamalou", zone: "Gravure", quantity: 0, note: "", deliveryDate: "", status: "\xC0 deviser", assignedTo: "C" },
-    { orderType: "", urgency: "Haute", clientName: "Jessica", zone: "Gravure", quantity: 0, note: "1x Verre Ti-punch", deliveryDate: "", status: "Termin\xE9", assignedTo: "M" },
-    { orderType: "PRO", urgency: "Haute", clientName: "Int\xE9rieur Design", zone: "Textile", quantity: 0, note: "", deliveryDate: "", status: "\xC0 deviser", assignedTo: "L" },
-    { orderType: "PRO", urgency: "Haute", clientName: "Karibuni", zone: "Textile", quantity: 12, note: "", deliveryDate: "", status: "\xC0 monter/nettoyer", assignedTo: "R" },
-    { orderType: "PRO", urgency: "Haute", clientName: "3sp", zone: "Textile", quantity: 0, note: "Polo entreprise + enfant", deliveryDate: "", status: "Pr\xE9venir client", assignedTo: "M" },
-    { orderType: "PRO", urgency: "Haute", clientName: "Iguana Fitness", zone: "Textile", quantity: 0, note: "Sur mesure", deliveryDate: "", status: "\xC0 produire", assignedTo: "L" },
-    { orderType: "PRO", urgency: "Haute", clientName: "Shima", zone: "Gravure", quantity: 0, note: "Tasses", deliveryDate: "2026-03-19", status: "\xC0 produire", assignedTo: "C" },
-    { orderType: "", urgency: "Moyenne", clientName: "AFS", zone: "Textile", quantity: 0, note: "x50 T-shirts", deliveryDate: "", status: "Maquette \xE0 faire", assignedTo: "L" },
-    { orderType: "", urgency: "Moyenne", clientName: "Estelle", zone: "Gravure", quantity: 0, note: "Devis pour PC", deliveryDate: "", status: "\xC0 deviser", assignedTo: "M" },
-    { orderType: "", urgency: "Moyenne", clientName: "Ligue De Football SXM", zone: "Gravure", quantity: 0, note: "", deliveryDate: "", status: "Client pr\xE9venu", assignedTo: "M" },
-    { orderType: "", urgency: "Moyenne", clientName: "Watt sun Fabrice", zone: "Textile", quantity: 25, note: "H-012 Navy x5 + Noir x5 L / H-014 Blanc x10", deliveryDate: "", status: "\xC0 deviser", assignedTo: "M" },
-    { orderType: "", urgency: "Moyenne", clientName: "SOTHEBYS", zone: "Gravure", quantity: 50, note: "Plateau en chene", deliveryDate: "", status: "Attente validation", assignedTo: "L" }
-  ];
   var TEAM_NOTE_DEFAULT_ITEMS = {
     Loic: [
       "100 % villa",
@@ -600,7 +515,6 @@
         createdAt: "2026-03-09"
       }
     ],
-    customerOrders: [],
     textileOrders: [
       {
         id: 1,
@@ -675,19 +589,14 @@
     testPlanningItems: []
   };
   var state = {
-    view: "planning",
+    view: "testPlanning",
     search: "",
     expandedClients: /* @__PURE__ */ new Set(),
     selectedDtfIds: /* @__PURE__ */ new Set(),
-    selectedOrderId: null,
-    orderAssigneeFilter: "",
-    orderZoneFilter: "",
     showDtfArchives: false,
-    showOrderArchives: false,
     showTextileArchives: false,
     textileSort: { key: "expectedDate", direction: "asc" },
     activeSheetAction: null,
-    activeOrderId: null,
     activeDtfId: null,
     activeTextileId: null,
     activePurchaseId: null,
@@ -718,11 +627,6 @@
   var loadResult = loadDb();
   var db = loadResult.data;
   db.teamNotes = normalizeTeamNotes(db.teamNotes);
-  var importedOrdersAdded = mergeImportedCustomerOrders();
-  var duplicateOrdersRemoved = dedupeCustomerOrdersInPlace();
-  if (importedOrdersAdded || duplicateOrdersRemoved) {
-    persistDb();
-  }
   state.storageRecoveryMessage = loadResult.recoveryMessage;
   var refs = {
     menuLinks: [...document.querySelectorAll(".menu-link")],
@@ -827,7 +731,6 @@
     }
     let score = 0;
     score += Array.isArray(sourceDb.clients) ? sourceDb.clients.length * 3 : 0;
-    score += Array.isArray(sourceDb.customerOrders) ? sourceDb.customerOrders.length * 5 : 0;
     score += Array.isArray(sourceDb.dtfRequests) ? sourceDb.dtfRequests.length * 4 : 0;
     score += Array.isArray(sourceDb.textileOrders) ? sourceDb.textileOrders.length * 4 : 0;
     score += Array.isArray(sourceDb.purchaseItems) ? sourceDb.purchaseItems.length : 0;
@@ -911,8 +814,6 @@
     remoteRevision = Math.max(0, Number(record.revision) || 0);
     db = normalizeDb(record.data);
     db.teamNotes = normalizeTeamNotes(db.teamNotes);
-    const importedOrdersAdded2 = mergeImportedCustomerOrders();
-    const duplicateOrdersRemoved2 = dedupeCustomerOrdersInPlace();
     const normalizedPayload = JSON.stringify(buildDbSnapshot());
     const incomingPayload = JSON.stringify({
       ...record.data,
@@ -923,7 +824,7 @@
     persistDb({ skipRemote: normalizedPayload === incomingPayload });
     requestRender();
     if (options.announce) {
-      if (importedOrdersAdded2 || duplicateOrdersRemoved2) {
+      if (importedOrdersAdded || duplicateOrdersRemoved) {
       }
     }
   }
@@ -990,7 +891,7 @@
     });
   }
   function handleRootClick(event) {
-    var _a, _b, _c;
+    var _a;
     const target = event.target;
     const actionNode = target.closest("[data-action]");
     if (actionNode) {
@@ -1052,24 +953,6 @@
         requestRender({ transition: true });
         return;
       }
-      if (action === "complete-order-mockup") {
-        const order = db.customerOrders.find((item) => item.id === id);
-        if (!order) {
-          return;
-        }
-        const shouldCreateDtf = normalizeOrderZone(order.zone) === "Textiles";
-        order.mockupCompletedAt = isoNow();
-        if (order.status === "Maquette \xE0 faire") {
-          order.status = "Attente validation";
-        }
-        if (shouldCreateDtf) {
-          createDtfFromTextileOrder(order);
-        }
-        persistDb();
-        requestRender({ header: false, status: true, view: true });
-        showToast(shouldCreateDtf ? "Maquette terminee. Demande DTF ajoutee." : "Maquette commande terminee.");
-        return;
-      }
       if (action === "complete-test-planning-mockup") {
         const tpItem = db.testPlanningItems.find((item) => item.id === id);
         if (!tpItem) {
@@ -1091,12 +974,6 @@
         persistDb();
         requestRender({ header: false, status: true, view: true });
         showToast("Maquette DTF terminee.");
-        return;
-      }
-      if (action === "toggle-order-archives") {
-        state.showOrderArchives = !state.showOrderArchives;
-        state.selectedOrderId = null;
-        requestRender({ transition: true });
         return;
       }
       if (action === "duplicate-dtf") {
@@ -1252,58 +1129,6 @@
         showToast("Ligne production supprimee.");
         return;
       }
-      if (action === "filter-order-assignee") {
-        state.orderAssigneeFilter = state.orderAssigneeFilter === actionNode.dataset.assignee ? "" : String((_b = actionNode.dataset.assignee) != null ? _b : "");
-        requestRender({ header: false, status: true, view: true });
-        return;
-      }
-      if (action === "clear-order-assignee-filter") {
-        state.orderAssigneeFilter = "";
-        requestRender({ header: false, status: true, view: true });
-        return;
-      }
-      if (action === "assign-order") {
-        const order = db.customerOrders.find((item) => item.id === id);
-        if (!order) {
-          return;
-        }
-        const assignee = String((_c = actionNode.dataset.assignee) != null ? _c : "");
-        order.assignedTo = assignee;
-        persistDb();
-        syncOrderAssigneeBubbles(id, assignee);
-        if (actionNode instanceof HTMLElement) {
-          actionNode.blur();
-        }
-        requestRender({ header: false, status: false, view: true });
-        return;
-      }
-      if (action === "archive-order") {
-        db.customerOrders = db.customerOrders.map((item) => item.id === id ? { ...item, archivedAt: isoToday() } : item);
-        if (state.selectedOrderId === id) {
-          state.selectedOrderId = null;
-        }
-        persistDb();
-        requestRender({ header: false, status: true, view: true });
-        showToast("Commande archivee.");
-        return;
-      }
-      if (action === "restore-order") {
-        db.customerOrders = db.customerOrders.map((item) => item.id === id ? { ...item, archivedAt: "" } : item);
-        persistDb();
-        requestRender({ header: false, status: true, view: true });
-        showToast("Commande restauree.");
-        return;
-      }
-      if (action === "delete-order") {
-        db.customerOrders = db.customerOrders.filter((item) => item.id !== id);
-        if (state.selectedOrderId === id) {
-          state.selectedOrderId = null;
-        }
-        persistDb();
-        requestRender({ header: false, status: true, view: true });
-        showToast("Commande supprimee.");
-        return;
-      }
     }
     const stageJumpNode = target.closest("[data-test-stage-jump]");
     if (stageJumpNode) {
@@ -1332,16 +1157,6 @@
     }
     const interactiveNode = target.closest("button, input, select, textarea, a, label");
     if (interactiveNode) {
-      return;
-    }
-    if (state.view === "planning") {
-      const row2 = target.closest("[data-order-id]");
-      if (!row2) {
-        return;
-      }
-      const orderId = Number(row2.dataset.orderId);
-      selectOrderRow(orderId, { render: false });
-      openSheet("editOrder", { id: orderId });
       return;
     }
     if (state.view === "clients") {
@@ -1408,16 +1223,6 @@
     if (interactiveNode) {
       return;
     }
-    if (state.view === "planning") {
-      const row2 = event.target.closest("[data-order-id]");
-      if (!row2) {
-        return;
-      }
-      const orderId = Number(row2.dataset.orderId);
-      selectOrderRow(orderId, { render: false });
-      openSheet("editOrder", { id: orderId });
-      return;
-    }
     if (state.view === "clients") {
       const row2 = event.target.closest("[data-client-id]");
       if (!row2) {
@@ -1477,16 +1282,6 @@
       return;
     }
     event.preventDefault();
-    if (state.view === "planning") {
-      const row2 = event.target.closest("[data-order-id]");
-      if (!row2) {
-        return;
-      }
-      const orderId = Number(row2.dataset.orderId);
-      selectOrderRow(orderId, { render: false });
-      openSheet("editOrder", { id: orderId });
-      return;
-    }
     if (state.view === "clients") {
       const row2 = event.target.closest("[data-client-id]");
       if (!row2) {
@@ -1562,9 +1357,6 @@
         designInput.value = presetValue;
       }
     }
-    if ((target == null ? void 0 : target.name) === "zone") {
-      syncOrderMockupField();
-    }
     if ((target == null ? void 0 : target.name) === "stage" && target instanceof HTMLSelectElement && (state.activeSheetAction === "addTestPlanningOrder" || state.activeSheetAction === "editTestPlanningOrder")) {
       var statusField = (_b = refs.sheetForm) == null ? void 0 : _b.elements.namedItem("status");
       if (statusField instanceof HTMLSelectElement) {
@@ -1589,7 +1381,7 @@
     persistSheetDraft();
   }
   function handleRootChange(event) {
-    var _a, _b, _c, _d;
+    var _a, _b;
     const target = event.target;
     if (target.dataset && target.dataset.inlineStatusSel) {
       handleInlineStatusEvent(target);
@@ -1601,11 +1393,6 @@
         Number(target.dataset.itemId),
         String((_a = target.value) != null ? _a : "")
       );
-      return;
-    }
-    if (target.name === "order-zone-filter") {
-      state.orderZoneFilter = String((_b = target.value) != null ? _b : "");
-      requestRender({ header: false, status: true, view: true });
       return;
     }
     if (target.name === "dtf-select") {
@@ -1638,17 +1425,6 @@
       }
       return;
     }
-    if (target.name === "order-status") {
-      const id = Number(target.dataset.id);
-      const order = db.customerOrders.find((entry) => entry.id === id);
-      if (order) {
-        order.status = normalizeOrderStatus(target.value);
-        order.mockupCompletedAt = order.status === "Maquette \xE0 faire" ? "" : String((_c = order.mockupCompletedAt) != null ? _c : "");
-        persistDb();
-        requestRender({ header: false, status: false, view: true });
-      }
-      return;
-    }
     if (target.name === "task-checked") {
       const id = Number(target.value);
       const item = db.workshopTasks.find((entry) => entry.id === id);
@@ -1674,7 +1450,7 @@
       const id = Number(target.dataset.id);
       const item = db.productionItems.find((entry) => entry.id === id);
       if (item) {
-        item.errorNote = String((_d = target.value) != null ? _d : "").trim();
+        item.errorNote = String((_b = target.value) != null ? _b : "").trim();
         item.updatedAt = isoNow();
         persistDb();
         requestRender({ header: false, status: false, view: false });
@@ -1796,7 +1572,7 @@
     }
   }
   function handleSheetSubmit(event) {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p, _q, _r, _s, _t, _u, _v, _w, _x, _y, _z, _A, _B, _C, _D, _E, _F, _G, _H, _I, _J, _K, _L, _M, _N, _O, _P, _Q, _R, _S, _T, _U, _V, _W, _X, _Y, _Z, __, _$, _aa, _ba, _ca, _da, _ea, _fa, _ga, _ha, _ia, _ja, _ka, _la, _ma, _na, _oa, _pa, _qa, _ra, _sa, _ta, _ua, _va, _wa, _xa, _ya, _za, _Aa, _Ba, _Ca, _Da, _Ea, _Fa, _Ga, _Ha, _Ia, _Ja, _Ka, _La, _Ma, _Na, _Oa, _Pa, _Qa, _Ra, _Sa, _Ta, _Ua;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p, _q, _r, _s, _t, _u, _v, _w, _x, _y, _z, _A, _B, _C, _D, _E, _F, _G, _H, _I, _J, _K, _L, _M, _N, _O, _P, _Q, _R, _S, _T, _U, _V, _W, _X, _Y, _Z, __, _$, _aa, _ba, _ca, _da, _ea, _fa, _ga, _ha, _ia, _ja, _ka, _la, _ma, _na, _oa, _pa, _qa, _ra, _sa, _ta, _ua, _va, _wa, _xa, _ya, _za, _Aa, _Ba, _Ca, _Da;
     event.preventDefault();
     const formData = new FormData(refs.sheetForm);
     if (state.activeSheetAction === "addClient") {
@@ -1851,81 +1627,21 @@
       showToast("Client mis a jour.");
       return;
     }
-    if (state.activeSheetAction === "addOrder") {
-      const client = parseOrderClient(formData.get("clientName"));
-      const rawZone = String((_o = formData.get("zone")) != null ? _o : "").trim();
-      const rawStatus = String((_p = formData.get("status")) != null ? _p : "").trim();
-      const status = formData.get("markMockup") === "on" ? "Maquette \xE0 faire" : rawStatus ? normalizeOrderStatus(rawStatus) : "";
-      db.customerOrders.unshift({
-        id: nextId(db.customerOrders),
-        clientId: client.clientId,
-        clientName: client.clientName,
-        product: String((_q = formData.get("product")) != null ? _q : "").trim(),
-        urgency: String((_r = formData.get("urgency")) != null ? _r : "").trim(),
-        contact: String((_s = formData.get("contact")) != null ? _s : "").trim(),
-        zone: rawZone ? normalizeOrderZone(rawZone) : "",
-        quantity: normalizeOrderQuantity(formData.get("quantity")),
-        note: String((_t = formData.get("note")) != null ? _t : "").trim(),
-        deliveryDate: String((_u = formData.get("deliveryDate")) != null ? _u : "").trim(),
-        status,
-        mockupCompletedAt: "",
-        assignedTo: String((_v = formData.get("assignedTo")) != null ? _v : "").trim(),
-        createdAt: isoNow(),
-        archivedAt: ""
-      });
-      persistDb();
-      clearSheetDraftByAction("addOrder");
-      closeSheet();
-      requestRender({ transition: true });
-      showToast("Commande ajoutee.");
-      return;
-    }
-    if (state.activeSheetAction === "editOrder") {
-      const orderId = state.activeOrderId;
-      const order = db.customerOrders.find((item) => item.id === orderId);
-      if (!order) {
-        closeSheet();
-        showToast("Commande introuvable.");
-        return;
-      }
-      const client = parseOrderClient(formData.get("clientName"));
-      const rawZone = String((_w = formData.get("zone")) != null ? _w : "").trim();
-      const rawStatus = String((_x = formData.get("status")) != null ? _x : "").trim();
-      const status = formData.get("markMockup") === "on" ? "Maquette \xE0 faire" : rawStatus ? normalizeOrderStatus(rawStatus) : "";
-      order.clientId = client.clientId;
-      order.clientName = client.clientName;
-      order.product = String((_y = formData.get("product")) != null ? _y : "").trim();
-      order.urgency = String((_z = formData.get("urgency")) != null ? _z : "").trim();
-      order.contact = String((_A = formData.get("contact")) != null ? _A : "").trim();
-      order.zone = rawZone ? normalizeOrderZone(rawZone) : "";
-      order.quantity = normalizeOrderQuantity(formData.get("quantity"));
-      order.note = String((_B = formData.get("note")) != null ? _B : "").trim();
-      order.deliveryDate = String((_C = formData.get("deliveryDate")) != null ? _C : "").trim();
-      order.status = status;
-      order.mockupCompletedAt = order.status === "Maquette \xE0 faire" ? "" : String((_D = order.mockupCompletedAt) != null ? _D : "");
-      order.assignedTo = String((_E = formData.get("assignedTo")) != null ? _E : "").trim();
-      persistDb();
-      clearSheetDraftByAction("editOrder", orderId);
-      closeSheet();
-      requestRender({ transition: true });
-      showToast("Commande mise a jour.");
-      return;
-    }
     if (state.activeSheetAction === "addDtf") {
       const client = parseOrderClient(formData.get("clientName"));
       db.dtfRequests.unshift({
         id: nextId(db.dtfRequests),
         clientId: client.clientId,
         clientName: client.clientName,
-        dimensions: String((_F = formData.get("dimensions")) != null ? _F : "").trim(),
+        dimensions: String((_o = formData.get("dimensions")) != null ? _o : "").trim(),
         logoPlacement: inferLogoPlacement(formData.get("designName")),
-        designName: String((_G = formData.get("designName")) != null ? _G : "").trim(),
-        size: String((_H = formData.get("size")) != null ? _H : "").trim(),
-        color: String((_I = formData.get("color")) != null ? _I : "").trim(),
-        technicalNote: String((_J = formData.get("technicalNote")) != null ? _J : "").trim(),
-        quantity: Math.max(1, Number((_K = formData.get("quantity")) != null ? _K : 1) || 1),
+        designName: String((_p = formData.get("designName")) != null ? _p : "").trim(),
+        size: String((_q = formData.get("size")) != null ? _q : "").trim(),
+        color: String((_r = formData.get("color")) != null ? _r : "").trim(),
+        technicalNote: String((_s = formData.get("technicalNote")) != null ? _s : "").trim(),
+        quantity: Math.max(1, Number((_t = formData.get("quantity")) != null ? _t : 1) || 1),
         needsMockup: formData.get("needsMockup") === "on",
-        clientType: String((_L = formData.get("clientType")) != null ? _L : "perso"),
+        clientType: String((_u = formData.get("clientType")) != null ? _u : "perso"),
         mockupCompletedAt: "",
         status: "draft",
         archivedAt: "",
@@ -1946,16 +1662,16 @@
       const client = parseOrderClient(formData.get("clientName"));
       dtf.clientId = client.clientId;
       dtf.clientName = client.clientName;
-      dtf.dimensions = String((_M = formData.get("dimensions")) != null ? _M : "").trim();
+      dtf.dimensions = String((_v = formData.get("dimensions")) != null ? _v : "").trim();
       dtf.logoPlacement = inferLogoPlacement(formData.get("designName"), dtf.logoPlacement);
-      dtf.designName = String((_N = formData.get("designName")) != null ? _N : "").trim();
-      dtf.size = String((_O = formData.get("size")) != null ? _O : "").trim();
-      dtf.color = String((_P = formData.get("color")) != null ? _P : "").trim();
-      dtf.technicalNote = String((_Q = formData.get("technicalNote")) != null ? _Q : "").trim();
-      dtf.quantity = Math.max(1, Number((_R = formData.get("quantity")) != null ? _R : 1) || 1);
+      dtf.designName = String((_w = formData.get("designName")) != null ? _w : "").trim();
+      dtf.size = String((_x = formData.get("size")) != null ? _x : "").trim();
+      dtf.color = String((_y = formData.get("color")) != null ? _y : "").trim();
+      dtf.technicalNote = String((_z = formData.get("technicalNote")) != null ? _z : "").trim();
+      dtf.quantity = Math.max(1, Number((_A = formData.get("quantity")) != null ? _A : 1) || 1);
       dtf.needsMockup = formData.get("needsMockup") === "on";
-      dtf.clientType = String((_S = formData.get("clientType")) != null ? _S : "perso");
-      dtf.mockupCompletedAt = dtf.needsMockup ? "" : String((_T = dtf.mockupCompletedAt) != null ? _T : "");
+      dtf.clientType = String((_B = formData.get("clientType")) != null ? _B : "perso");
+      dtf.mockupCompletedAt = dtf.needsMockup ? "" : String((_C = dtf.mockupCompletedAt) != null ? _C : "");
       persistDb();
       clearSheetDraftByAction("editDtf", dtf.id);
       closeSheet();
@@ -1969,17 +1685,17 @@
         id: nextId(db.textileOrders),
         clientId: client.clientId,
         clientName: client.clientName,
-        supplier: String((_U = formData.get("supplier")) != null ? _U : "").trim(),
-        brand: String((_V = formData.get("brand")) != null ? _V : "").trim(),
-        gender: String((_W = formData.get("gender")) != null ? _W : "").trim(),
-        designation: String((_X = formData.get("designation")) != null ? _X : "").trim(),
-        catalogReference: String((_Y = formData.get("catalogReference")) != null ? _Y : "").trim(),
-        color: String((_Z = formData.get("color")) != null ? _Z : "").trim(),
-        size: String((__ = formData.get("size")) != null ? __ : "").trim(),
-        quantity: Math.max(1, Number((_$ = formData.get("quantity")) != null ? _$ : 1) || 1),
-        deliveryStatus: String((_aa = formData.get("deliveryStatus")) != null ? _aa : "pending"),
-        sessionLabel: String((_ba = formData.get("sessionLabel")) != null ? _ba : "").trim(),
-        expectedDate: String((_ca = formData.get("expectedDate")) != null ? _ca : isoToday()),
+        supplier: String((_D = formData.get("supplier")) != null ? _D : "").trim(),
+        brand: String((_E = formData.get("brand")) != null ? _E : "").trim(),
+        gender: String((_F = formData.get("gender")) != null ? _F : "").trim(),
+        designation: String((_G = formData.get("designation")) != null ? _G : "").trim(),
+        catalogReference: String((_H = formData.get("catalogReference")) != null ? _H : "").trim(),
+        color: String((_I = formData.get("color")) != null ? _I : "").trim(),
+        size: String((_J = formData.get("size")) != null ? _J : "").trim(),
+        quantity: Math.max(1, Number((_K = formData.get("quantity")) != null ? _K : 1) || 1),
+        deliveryStatus: String((_L = formData.get("deliveryStatus")) != null ? _L : "pending"),
+        sessionLabel: String((_M = formData.get("sessionLabel")) != null ? _M : "").trim(),
+        expectedDate: String((_N = formData.get("expectedDate")) != null ? _N : isoToday()),
         archivedAt: "",
         createdAt: isoToday()
       });
@@ -2000,17 +1716,17 @@
       const client = parseOrderClient(formData.get("clientName"));
       textileOrder.clientId = client.clientId;
       textileOrder.clientName = client.clientName;
-      textileOrder.supplier = String((_da = formData.get("supplier")) != null ? _da : "").trim();
-      textileOrder.brand = String((_ea = formData.get("brand")) != null ? _ea : "").trim();
-      textileOrder.gender = String((_fa = formData.get("gender")) != null ? _fa : "").trim();
-      textileOrder.designation = String((_ga = formData.get("designation")) != null ? _ga : "").trim();
-      textileOrder.catalogReference = String((_ha = formData.get("catalogReference")) != null ? _ha : "").trim();
-      textileOrder.color = String((_ia = formData.get("color")) != null ? _ia : "").trim();
-      textileOrder.size = String((_ja = formData.get("size")) != null ? _ja : "").trim();
-      textileOrder.quantity = Math.max(1, Number((_ka = formData.get("quantity")) != null ? _ka : 1) || 1);
-      textileOrder.deliveryStatus = String((_la = formData.get("deliveryStatus")) != null ? _la : "pending");
-      textileOrder.sessionLabel = String((_ma = formData.get("sessionLabel")) != null ? _ma : "").trim();
-      textileOrder.expectedDate = String((_na = formData.get("expectedDate")) != null ? _na : isoToday());
+      textileOrder.supplier = String((_O = formData.get("supplier")) != null ? _O : "").trim();
+      textileOrder.brand = String((_P = formData.get("brand")) != null ? _P : "").trim();
+      textileOrder.gender = String((_Q = formData.get("gender")) != null ? _Q : "").trim();
+      textileOrder.designation = String((_R = formData.get("designation")) != null ? _R : "").trim();
+      textileOrder.catalogReference = String((_S = formData.get("catalogReference")) != null ? _S : "").trim();
+      textileOrder.color = String((_T = formData.get("color")) != null ? _T : "").trim();
+      textileOrder.size = String((_U = formData.get("size")) != null ? _U : "").trim();
+      textileOrder.quantity = Math.max(1, Number((_V = formData.get("quantity")) != null ? _V : 1) || 1);
+      textileOrder.deliveryStatus = String((_W = formData.get("deliveryStatus")) != null ? _W : "pending");
+      textileOrder.sessionLabel = String((_X = formData.get("sessionLabel")) != null ? _X : "").trim();
+      textileOrder.expectedDate = String((_Y = formData.get("expectedDate")) != null ? _Y : isoToday());
       persistDb();
       clearSheetDraftByAction("editTextileOrder", textileOrder.id);
       closeSheet();
@@ -2025,9 +1741,9 @@
         showToast("Article introuvable.");
         return;
       }
-      purchaseItem.zone = String((_oa = formData.get("zone")) != null ? _oa : "SXM");
-      purchaseItem.label = String((_pa = formData.get("label")) != null ? _pa : "").trim();
-      purchaseItem.quantity = Math.max(1, Number((_qa = formData.get("quantity")) != null ? _qa : 1) || 1);
+      purchaseItem.zone = String((_Z = formData.get("zone")) != null ? _Z : "SXM");
+      purchaseItem.label = String((__ = formData.get("label")) != null ? __ : "").trim();
+      purchaseItem.quantity = Math.max(1, Number((_$ = formData.get("quantity")) != null ? _$ : 1) || 1);
       persistDb();
       clearSheetDraftByAction("editPurchaseItem", purchaseItem.id);
       closeSheet();
@@ -2042,8 +1758,8 @@
         showToast("Tache introuvable.");
         return;
       }
-      workshopTask.group = String((_ra = formData.get("group")) != null ? _ra : "standard");
-      workshopTask.label = String((_sa = formData.get("label")) != null ? _sa : "").trim();
+      workshopTask.group = String((_aa = formData.get("group")) != null ? _aa : "standard");
+      workshopTask.label = String((_ba = formData.get("label")) != null ? _ba : "").trim();
       workshopTask.recurring = formData.get("recurring") === "on";
       persistDb();
       clearSheetDraftByAction("editWorkshopTask", workshopTask.id);
@@ -2053,13 +1769,13 @@
       return;
     }
     if (state.activeSheetAction === "addProductionItem") {
-      const quantity = Math.max(1, Number((_ta = formData.get("quantity")) != null ? _ta : 1) || 1);
+      const quantity = Math.max(1, Number((_ca = formData.get("quantity")) != null ? _ca : 1) || 1);
       db.productionItems.unshift({
         id: nextId(db.productionItems),
-        clientType: String((_ua = formData.get("clientType")) != null ? _ua : "perso"),
-        label: String((_va = formData.get("label")) != null ? _va : "").trim(),
-        reference: String((_wa = formData.get("reference")) != null ? _wa : "").trim(),
-        size: String((_xa = formData.get("size")) != null ? _xa : "").trim(),
+        clientType: String((_da = formData.get("clientType")) != null ? _da : "perso"),
+        label: String((_ea = formData.get("label")) != null ? _ea : "").trim(),
+        reference: String((_fa = formData.get("reference")) != null ? _fa : "").trim(),
+        size: String((_ga = formData.get("size")) != null ? _ga : "").trim(),
         prints: Array.from({ length: quantity }, (_, index) => ({
           id: index + 1,
           checked: false
@@ -2079,9 +1795,9 @@
     if (state.activeSheetAction === "addPurchaseItem") {
       db.purchaseItems.unshift({
         id: nextId(db.purchaseItems),
-        zone: String((_ya = formData.get("zone")) != null ? _ya : "SXM"),
-        label: String((_za = formData.get("label")) != null ? _za : "").trim(),
-        quantity: Math.max(1, Number((_Aa = formData.get("quantity")) != null ? _Aa : 1) || 1),
+        zone: String((_ha = formData.get("zone")) != null ? _ha : "SXM"),
+        label: String((_ia = formData.get("label")) != null ? _ia : "").trim(),
+        quantity: Math.max(1, Number((_ja = formData.get("quantity")) != null ? _ja : 1) || 1),
         checked: false,
         createdAt: isoToday()
       });
@@ -2095,8 +1811,8 @@
     if (state.activeSheetAction === "addWorkshopTask") {
       db.workshopTasks.unshift({
         id: nextId(db.workshopTasks),
-        group: String((_Ba = formData.get("group")) != null ? _Ba : "standard"),
-        label: String((_Ca = formData.get("label")) != null ? _Ca : "").trim(),
+        group: String((_ka = formData.get("group")) != null ? _ka : "standard"),
+        label: String((_la = formData.get("label")) != null ? _la : "").trim(),
         checked: false,
         recurring: formData.get("recurring") === "on",
         createdAt: isoToday()
@@ -2115,8 +1831,8 @@
         showToast("Remontee introuvable.");
         return;
       }
-      improvementItem.type = String((_Da = formData.get("type")) != null ? _Da : "bug");
-      improvementItem.label = String((_Ea = formData.get("label")) != null ? _Ea : "").trim();
+      improvementItem.type = String((_ma = formData.get("type")) != null ? _ma : "bug");
+      improvementItem.label = String((_na = formData.get("label")) != null ? _na : "").trim();
       persistDb();
       clearSheetDraftByAction("editImprovementItem", improvementItem.id);
       closeSheet();
@@ -2128,18 +1844,18 @@
       const client = parseTestPlanningClient(formData.get("clientName"));
       db.testPlanningItems.unshift({
         id: nextId(db.testPlanningItems),
-        clientType: String((_Fa = formData.get("clientType")) != null ? _Fa : "").trim().toUpperCase(),
+        clientType: String((_oa = formData.get("clientType")) != null ? _oa : "").trim().toUpperCase(),
         clientId: client.clientId,
         clientName: client.clientName,
-        family: String((_Ga = formData.get("family")) != null ? _Ga : "").trim().toUpperCase(),
-        product: String((_Ha = formData.get("product")) != null ? _Ha : "").trim().toUpperCase(),
-        quantity: String((_Ia = formData.get("quantity")) != null ? _Ia : "").trim(),
-        note: String((_Ja = formData.get("note")) != null ? _Ja : "").trim(),
-        deliveryDate: String((_Ka = formData.get("deliveryDate")) != null ? _Ka : "").trim(),
+        family: String((_pa = formData.get("family")) != null ? _pa : "").trim().toUpperCase(),
+        product: String((_qa = formData.get("product")) != null ? _qa : "").trim().toUpperCase(),
+        quantity: String((_ra = formData.get("quantity")) != null ? _ra : "").trim(),
+        note: String((_sa = formData.get("note")) != null ? _sa : "").trim(),
+        deliveryDate: String((_ta = formData.get("deliveryDate")) != null ? _ta : "").trim(),
         needsMockup: formData.get("needsMockup") === "on",
-        mockupStatus: String((_La = formData.get("mockupStatus")) != null ? _La : "").trim(),
+        mockupStatus: String((_ua = formData.get("mockupStatus")) != null ? _ua : "").trim(),
         mockupCompletedAt: "",
-        status: String((_Ma = formData.get("status")) != null ? _Ma : "").trim(),
+        status: String((_va = formData.get("status")) != null ? _va : "").trim(),
         stage: normalizeTestPlanningStage(formData.get("stage")),
         assignedTo: normalizeImportedAssignee(formData.get("assignedTo")),
         createdAt: isoNow()
@@ -2159,21 +1875,21 @@
         return;
       }
       const client = parseTestPlanningClient(formData.get("clientName"));
-      item.clientType = String((_Na = formData.get("clientType")) != null ? _Na : "").trim().toUpperCase();
+      item.clientType = String((_wa = formData.get("clientType")) != null ? _wa : "").trim().toUpperCase();
       item.clientId = client.clientId;
       item.clientName = client.clientName;
-      item.family = String((_Oa = formData.get("family")) != null ? _Oa : "").trim().toUpperCase();
-      item.product = String((_Pa = formData.get("product")) != null ? _Pa : "").trim().toUpperCase();
-      item.quantity = String((_Qa = formData.get("quantity")) != null ? _Qa : "").trim();
-      item.note = String((_Ra = formData.get("note")) != null ? _Ra : "").trim();
-      item.deliveryDate = String((_Sa = formData.get("deliveryDate")) != null ? _Sa : "").trim();
+      item.family = String((_xa = formData.get("family")) != null ? _xa : "").trim().toUpperCase();
+      item.product = String((_ya = formData.get("product")) != null ? _ya : "").trim().toUpperCase();
+      item.quantity = String((_za = formData.get("quantity")) != null ? _za : "").trim();
+      item.note = String((_Aa = formData.get("note")) != null ? _Aa : "").trim();
+      item.deliveryDate = String((_Ba = formData.get("deliveryDate")) != null ? _Ba : "").trim();
       item.needsMockup = formData.get("needsMockup") === "on";
-      item.mockupStatus = String((_Ta = formData.get("mockupStatus")) != null ? _Ta : "").trim();
+      item.mockupStatus = String((_Ca = formData.get("mockupStatus")) != null ? _Ca : "").trim();
       if (item.needsMockup && item.mockupCompletedAt) {
       } else if (!item.needsMockup) {
         item.mockupCompletedAt = "";
       }
-      item.status = String((_Ua = formData.get("status")) != null ? _Ua : "").trim();
+      item.status = String((_Da = formData.get("status")) != null ? _Da : "").trim();
       item.stage = normalizeTestPlanningStage(formData.get("stage"));
       item.assignedTo = normalizeImportedAssignee(formData.get("assignedTo"));
       persistDb();
@@ -2263,9 +1979,6 @@
     switch (state.view) {
       case "tasks":
         refs.viewRoot.innerHTML = renderTasksView();
-        break;
-      case "planning":
-        refs.viewRoot.innerHTML = renderOrdersView();
         break;
       case "testPlanning":
         refs.viewRoot.innerHTML = renderTestPlanningView();
@@ -2377,23 +2090,6 @@
   function renderTeamNoteItem(noteId, item) {
     return '\n    <article class="team-note-item" data-checked="'.concat(item.checked ? "true" : "false", '">\n      <button class="team-note-dot" type="button" data-action="toggle-team-note-item" data-note-id="').concat(noteId, '" data-item-id="').concat(item.id, '" aria-label="').concat(item.checked ? "Marquer comme non faite" : "Marquer comme faite", '"></button>\n      <form class="team-note-edit" data-form="team-note-edit">\n        <input type="hidden" name="noteId" value="').concat(noteId, '">\n        <input type="hidden" name="itemId" value="').concat(item.id, '">\n        <textarea\n          class="team-note-edit-input"\n          name="team-note-edit-label"\n          rows="1"\n          data-note-id="').concat(noteId, '"\n          data-item-id="').concat(item.id, '"\n          autocomplete="off"\n        >').concat(escapeHtml(item.label), '</textarea>\n      </form>\n      <button class="row-action row-action-subtle is-danger" type="button" data-action="delete-team-note-item" data-note-id="').concat(noteId, '" data-item-id="').concat(item.id, '" aria-label="Supprimer la ligne">\xD7</button>\n    </article>\n  ');
   }
-  function renderOrdersView() {
-    const rows = getVisibleCustomerOrders();
-    const sections = buildOrderPlanningSections(rows);
-    const archiveCount = db.customerOrders.filter((item) => item.archivedAt).length;
-    return '\n    <section class="module-layout orders-layout">\n      <div class="archive-toggle">\n        <div>\n          <strong>Archives commandes</strong>\n          <p class="archive-copy">'.concat(archiveCount, '</p>\n        </div>\n        <div class="archive-actions">\n          <button class="pill-button ').concat(state.showOrderArchives ? "is-active" : "", '" type="button" data-action="toggle-order-archives">\n            ').concat(state.showOrderArchives ? "Voir les actives" : "Voir les archives", '\n          </button>\n        </div>\n      </div>\n      <article class="module-panel orders-toolbar">\n        <header class="module-head orders-toolbar-head">\n          <div>\n            <p class="module-kicker">Planning</p>\n            <h3>Commandes</h3>\n          </div>\n          <div class="module-actions">\n            <span class="chip">').concat(rows.length, " commande").concat(rows.length > 1 ? "s" : "", '</span>\n            <label>\n              <span class="sr-only">Filtrer par zone</span>\n              <select class="field-select" name="order-zone-filter" aria-label="Filtrer par zone">\n                <option value="">Toutes les zones</option>\n                ').concat(ORDER_ZONE_OPTIONS.map((zone) => '<option value="'.concat(escapeHtml(zone), '" ').concat(state.orderZoneFilter === zone ? "selected" : "", ">").concat(escapeHtml(zone), "</option>")).join(""), "\n              </select>\n            </label>\n            ").concat(state.showOrderArchives ? "" : '\n              <button class="pill-button '.concat(state.orderAssigneeFilter ? "" : "is-active", '" type="button" data-action="clear-order-assignee-filter">Toutes</button>\n              ').concat(ORDER_ASSIGNEES.map((assignee) => '\n                <button class="team-bubble '.concat(state.orderAssigneeFilter === assignee ? "is-active" : "", '" type="button" data-action="filter-order-assignee" data-assignee="').concat(assignee, '" aria-label="Filtrer les commandes de ').concat(assignee, '">\n                  ').concat(assignee, "\n                </button>\n              ")).join(""), "\n            "), '\n          </div>\n        </header>\n      </article>\n      <section class="orders-planning-list">\n        ').concat(sections.map(renderOrderPlanningSection).join(""), "\n      </section>\n    </section>\n  ");
-  }
-  function renderOrderPlanningSection(section) {
-    return '\n    <article class="planning-section">\n      <header class="planning-section-head">\n        <div>\n          <p class="module-kicker">'.concat(escapeHtml(section.kicker), "</p>\n          <h3>").concat(escapeHtml(section.title), '</h3>\n        </div>\n        <span class="chip">').concat(section.rows.length, '</span>\n      </header>\n      <div class="planning-section-body">\n        ').concat(section.rows.length ? section.rows.map(renderOrderRow).join("") : '<div class="empty-state">Aucune commande.</div>', "\n      </div>\n    </article>\n  ");
-  }
-  function renderOrderRow(order) {
-    const isSelected = state.selectedOrderId === order.id;
-    const hasContact = Boolean(order.contact);
-    const hasNote = Boolean(order.note);
-    const createdAtCopy = formatOrderCreatedAt(order.createdAt);
-    const typeBadge = orderTypeLabel(order) ? '<span class="order-type-badge" data-tone="'.concat(orderTypeTone(order), '">').concat(orderTypeLabel(order), "</span>") : "";
-    return '\n    <article\n      class="order-card order-card-line"\n      data-order-id="'.concat(order.id, '"\n      data-zone="').concat(escapeHtml(order.zone || "Autre"), '"\n      data-selected="').concat(isSelected ? "true" : "false", '"\n      tabindex="0"\n      aria-selected="').concat(isSelected ? "true" : "false", '"\n    >\n      <div class="order-line-primary">\n        <div class="order-line-summary order-line-primary-main">\n          <strong class="order-client-name">').concat(escapeHtml(orderClientLabel(order)), '</strong>\n          <span class="order-zone-chip" data-zone="').concat(escapeHtml(order.zone || "Autre"), '">').concat(escapeHtml(order.zone || "Autre"), "</span>\n          ").concat(typeBadge, '\n          <span class="order-priority-badge" data-tone="').concat(urgencyTone(order.urgency), '">').concat(escapeHtml(order.urgency), "</span>\n          ").concat(order.mockupCompletedAt ? '<span class="status-badge" data-tone="ready">Maquette faite</span>' : "", "\n          ").concat(order.quantity > 0 ? '<span class="order-qty-chip">'.concat(order.quantity, "</span>") : "", "\n          ").concat(hasContact ? '<span class="order-inline-copy">'.concat(escapeHtml(order.contact), "</span>") : "", "\n        </div>\n        ").concat(hasNote || createdAtCopy ? '\n          <div class="order-line-primary-note">\n            '.concat(hasNote ? '<span class="order-inline-copy order-inline-note">'.concat(escapeHtml(order.note), "</span>") : "", "\n            ").concat(createdAtCopy ? '<span class="order-created-meta">'.concat(escapeHtml(createdAtCopy), "</span>") : "", "\n          </div>\n        ") : "", '\n      </div>\n      <div class="order-line-meta">\n        ').concat(renderOrderDeadline(order), '\n      </div>\n      <div class="order-card-controls order-card-controls-line">\n        <select class="field-select table-status-select" name="order-status" data-id="').concat(order.id, '" aria-label="Etat">\n          ').concat(renderOrderStatusOptions(order.status), '\n        </select>\n        <div class="order-controls-inline">\n          <div class="team-bubble-group" aria-label="Assignation commande">\n            ').concat(ORDER_ASSIGNEES.map((assignee) => '\n              <button\n                class="team-bubble '.concat(order.assignedTo === assignee ? "is-active" : "", '"\n                type="button"\n                data-action="assign-order"\n                data-id="').concat(order.id, '"\n                data-assignee="').concat(assignee, '"\n                aria-label="Assigner a ').concat(assignee, '"\n              >\n                ').concat(assignee, "\n              </button>\n            ")).join(""), '\n          </div>\n          <div class="order-side-actions" aria-label="Actions de la commande">\n            <button class="row-action row-action-subtle" type="button" data-action="').concat(order.archivedAt ? "restore-order" : "archive-order", '" data-id="').concat(order.id, '" aria-label="').concat(order.archivedAt ? "Restaurer" : "Archiver", ' la commande">').concat(order.archivedAt ? "\u21BA" : "\u2934", '</button>\n            <button class="row-action row-action-subtle is-danger" type="button" data-action="delete-order" data-id="').concat(order.id, '" aria-label="Supprimer la commande">\xD7</button>\n          </div>\n        </div>\n      </div>\n    </article>\n  ');
-  }
   function renderClientsView() {
     const rows = getVisibleClientRows();
     return '\n    <section class="module-layout">\n      <article class="module-panel orders-toolbar">\n        <header class="module-head orders-toolbar-head">\n          <div>\n            <p class="module-kicker">Liste</p>\n            <h3>Clients Pro</h3>\n          </div>\n          <div class="module-actions">\n            <span class="chip">'.concat(rows.length, " ligne").concat(rows.length > 1 ? "s" : "", '</span>\n          </div>\n        </header>\n      </article>\n      <div class="table-shell">\n        <div class="dense-table-wrap">\n          <table class="data-table">\n            <thead>\n              <tr>\n                <th>Soci\xE9t\xE9</th>\n                <th>Ville</th>\n                <th>Contact</th>\n                <th>T\xE9l.</th>\n                <th>Email</th>\n              </tr>\n            </thead>\n            <tbody>\n              ').concat(rows.length ? rows.map(renderClientRow).join("") : '<tr><td colspan="5"><div class="empty-state">Aucun client ne correspond a la recherche.</div></td></tr>', "\n            </tbody>\n          </table>\n        </div>\n      </div>\n    </section>\n  ");
@@ -2421,15 +2117,14 @@
   }
   function renderMockupsView() {
     const rows = getVisibleMockupItems();
-    const archiveCount = db.customerOrders.filter((item) => item.archivedAt && item.status === "Maquette \xE0 faire").length + db.dtfRequests.filter((item) => item.archivedAt && item.needsMockup).length;
+    const archiveCount = db.dtfRequests.filter((item) => item.archivedAt && item.needsMockup).length;
     return '\n    <section class="module-layout orders-layout">\n      <div class="archive-toggle">\n        <div>\n          <strong>Archives maquettes</strong>\n          <p class="archive-copy">'.concat(archiveCount, '</p>\n        </div>\n        <div class="archive-actions">\n          <button class="pill-button ').concat(state.showDtfArchives ? "is-active" : "", '" type="button" data-action="toggle-dtf-archives">\n            ').concat(state.showDtfArchives ? "Voir les actives" : "Voir les archives", '\n          </button>\n        </div>\n      </div>\n      <section class="orders-board">\n        <div class="orders-list">\n          ').concat(rows.length ? rows.map(renderMockupRow).join("") : '<div class="empty-state">Aucune maquette a faire.</div>', "\n        </div>\n      </section>\n    </section>\n  ");
   }
   function renderMockupRow(item) {
-    const isOrder = item.kind === "order";
     const isTestPlanning = item.kind === "testPlanning";
-    const sourceLabel = isOrder ? "Commande" : isTestPlanning ? "Planning" : "DTF";
-    const zoneLabel = item.zone || (isOrder ? "Autre" : isTestPlanning ? "Test planning" : "DTF");
-    const completeAction = isOrder ? "complete-order-mockup" : isTestPlanning ? "complete-test-planning-mockup" : "complete-dtf-mockup";
+    const sourceLabel = isTestPlanning ? "Planning" : "DTF";
+    const zoneLabel = item.zone || (isTestPlanning ? "Commandes g\xE9n\xE9rales" : "DTF");
+    const completeAction = isTestPlanning ? "complete-test-planning-mockup" : "complete-dtf-mockup";
     return '\n    <article class="order-card order-card-line" data-zone="'.concat(escapeHtml(zoneLabel), '">\n      <div class="order-line-primary">\n        <div class="order-line-summary order-line-primary-main">\n          <strong class="order-client-name">').concat(escapeHtml(item.client), '</strong>\n          <span class="order-zone-chip" data-zone="').concat(escapeHtml(zoneLabel), '">').concat(escapeHtml(zoneLabel), '</span>\n          <span class="order-type-badge" data-tone="pro">').concat(sourceLabel, "</span>\n          ").concat(item.quantity > 0 ? '<span class="order-qty-chip">'.concat(item.quantity, "</span>") : "", "\n          ").concat(item.meta ? '<span class="order-inline-copy">'.concat(escapeHtml(item.meta), "</span>") : "", '\n        </div>\n        <div class="order-line-primary-note">\n          <span class="order-inline-copy order-inline-note">').concat(escapeHtml(item.title), '</span>\n        </div>\n      </div>\n      <div class="order-line-meta">\n        <div class="order-deadline">\n          <strong>').concat(escapeHtml(item.date ? formatDate(item.date) : "\u2014"), '</strong>\n        </div>\n      </div>\n      <div class="order-card-controls order-card-controls-line">\n        <div class="order-controls-inline">\n          <button class="button button-primary" type="button" data-action="').concat(completeAction, '" data-id="').concat(item.id, '">\n            Maquette faite\n          </button>\n        </div>\n      </div>\n    </article>\n  ');
   }
   function renderProductionView() {
@@ -2492,25 +2187,23 @@
     return '\n    <article class="task-row" data-improvement-id="'.concat(item.id, '" tabindex="0">\n      <div class="stack-meta">\n        <strong>').concat(escapeHtml(item.label), "</strong>\n        <span>").concat(escapeHtml(improvementTypeLabel(item.type)), '</span>\n      </div>\n      <button class="row-action is-danger" type="button" data-action="delete-improvement" data-id="').concat(item.id, '">\xD7</button>\n    </article>\n  ');
   }
   function openSheet(action, options = {}) {
-    var _a, _b, _c, _d, _e, _f, _g, _h;
+    var _a, _b, _c, _d, _e, _f, _g;
     state.activeSheetAction = action;
-    state.activeOrderId = action === "editOrder" ? (_a = options.id) != null ? _a : null : null;
-    state.activeDtfId = action === "editDtf" ? (_b = options.id) != null ? _b : null : null;
-    state.activeTextileId = action === "editTextileOrder" ? (_c = options.id) != null ? _c : null : null;
-    state.activePurchaseId = action === "editPurchaseItem" ? (_d = options.id) != null ? _d : null : null;
-    state.activeWorkshopTaskId = action === "editWorkshopTask" ? (_e = options.id) != null ? _e : null : null;
-    state.activeImprovementId = action === "editImprovementItem" ? (_f = options.id) != null ? _f : null : null;
-    state.activeTestPlanningId = action === "editTestPlanningOrder" ? (_g = options.id) != null ? _g : null : null;
-    state.activeClientId = action === "editClient" ? (_h = options.id) != null ? _h : null : null;
+    state.activeDtfId = action === "editDtf" ? (_a = options.id) != null ? _a : null : null;
+    state.activeTextileId = action === "editTextileOrder" ? (_b = options.id) != null ? _b : null : null;
+    state.activePurchaseId = action === "editPurchaseItem" ? (_c = options.id) != null ? _c : null : null;
+    state.activeWorkshopTaskId = action === "editWorkshopTask" ? (_d = options.id) != null ? _d : null : null;
+    state.activeImprovementId = action === "editImprovementItem" ? (_e = options.id) != null ? _e : null : null;
+    state.activeTestPlanningId = action === "editTestPlanningOrder" ? (_f = options.id) != null ? _f : null : null;
+    state.activeClientId = action === "editClient" ? (_g = options.id) != null ? _g : null : null;
     pauseRemotePolling();
-    refs.sheetDialog.dataset.layout = action === "addDtf" || action === "editDtf" ? "dtf-inline" : action === "addOrder" || action === "editOrder" ? "order-inline" : action === "addTextileOrder" || action === "editTextileOrder" ? "textile-inline" : action === "addClient" || action === "editClient" ? "client-inline" : action === "addTestPlanningOrder" || action === "editTestPlanningOrder" ? "test-planning-inline" : "";
+    refs.sheetDialog.dataset.layout = action === "addDtf" || action === "editDtf" ? "dtf-inline" : action === "addTextileOrder" || action === "editTextileOrder" ? "textile-inline" : action === "addClient" || action === "editClient" ? "client-inline" : action === "addTestPlanningOrder" || action === "editTestPlanningOrder" ? "test-planning-inline" : "";
     refs.sheetBody.innerHTML = renderSheetBody(action);
-    if (action === "addOrder" || action === "addTestPlanningOrder") {
+    if (action === "addTestPlanningOrder") {
       clearSheetDraftByAction(action);
     } else {
       restoreSheetDraft(action, options);
     }
-    syncOrderMockupField();
     syncTestPlanningStageField();
     syncTestPlanningMockupField();
     syncProofingFields(refs.sheetBody);
@@ -2586,16 +2279,6 @@
         return "";
       }
       return renderClientForm(client);
-    }
-    if (action === "addOrder") {
-      return renderOrderForm();
-    }
-    if (action === "editOrder") {
-      const order = db.customerOrders.find((item) => item.id === state.activeOrderId);
-      if (!order) {
-        return "";
-      }
-      return renderOrderForm(order);
     }
     if (action === "addTestPlanningOrder") {
       return renderTestPlanningForm();
@@ -2697,32 +2380,17 @@
     const contact = primaryClientContact(client);
     return '\n    <div class="field-grid client-form-grid">\n      <label>\n        <span class="field-label">Soci\xE9t\xE9</span>\n        <input class="field-input" name="name" type="text" value="'.concat(escapeHtml((_a = client == null ? void 0 : client.name) != null ? _a : ""), '">\n      </label>\n      <label>\n        <span class="field-label">Ville</span>\n        <input class="field-input" name="city" type="text" value="').concat(escapeHtml((_b = client == null ? void 0 : client.city) != null ? _b : ""), '">\n      </label>\n      <label>\n        <span class="field-label">Code postal</span>\n        <input class="field-input" name="postalCode" type="text" value="').concat(escapeHtml((_c = client == null ? void 0 : client.postalCode) != null ? _c : ""), '">\n      </label>\n      <label>\n        <span class="field-label">Contact</span>\n        <input class="field-input" name="contactName" type="text" value="').concat(escapeHtml((_d = contact.name) != null ? _d : ""), '">\n      </label>\n      <label>\n        <span class="field-label">T\xE9l\xE9phone</span>\n        <input class="field-input" name="contactPhone" type="tel" value="').concat(escapeHtml((_e = contact.phone) != null ? _e : ""), '">\n      </label>\n      <label class="client-form-wide">\n        <span class="field-label">Email</span>\n        <input class="field-input" name="contactEmail" type="email" value="').concat(escapeHtml((_f = contact.email) != null ? _f : ""), '">\n      </label>\n    </div>\n  ');
   }
-  function renderOrderProductOptions(selectedProduct = "") {
-    const current = String(selectedProduct != null ? selectedProduct : "").trim();
-    const options = current && !ORDER_PRODUCT_OPTIONS.includes(current) ? [current, ...ORDER_PRODUCT_OPTIONS] : ORDER_PRODUCT_OPTIONS;
-    return renderSelectOptions(["", ...options], current);
-  }
-  function renderOrderAssigneeChoices(selectedAssignee = "") {
-    const current = normalizeImportedAssignee(selectedAssignee);
-    return ORDER_ASSIGNEES.map((assignee) => '\n    <label class="team-bubble-choice" aria-label="Assigner a '.concat(assignee, '">\n      <input class="team-bubble-choice-input" type="radio" name="assignedTo" value="').concat(assignee, '" ').concat(current === assignee ? "checked" : "", '>\n      <span class="team-bubble ').concat(current === assignee ? "is-active" : "", '">').concat(assignee, "</span>\n    </label>\n  ")).join("");
-  }
   function renderTestPlanningClientTypeChoices(selectedType = "") {
     const current = String(selectedType != null ? selectedType : "").trim().toUpperCase();
     return ["PRO", "PERSO"].map((type) => '\n    <label class="team-bubble-choice" aria-label="Client '.concat(type, '">\n      <input class="team-bubble-choice-input" type="radio" name="clientType" value="').concat(type, '" ').concat(current === type ? "checked" : "", '>\n      <span class="team-bubble ').concat(current === type ? "is-active" : "", '">').concat(type, "</span>\n    </label>\n  ")).join("");
   }
-  function canOrderUseMockup(zone) {
-    return Boolean(String(zone != null ? zone : "").trim());
-  }
-  function renderOrderForm(order = null) {
-    var _a, _b, _c, _d, _e;
-    const zone = String((_a = order == null ? void 0 : order.zone) != null ? _a : "").trim();
-    const showMockupField = canOrderUseMockup(zone);
-    return '\n    <div class="field-grid order-form-grid">\n      <label>\n        <span class="field-label">Produit</span>\n        <select class="field-select" name="product">\n          '.concat(renderOrderProductOptions(order == null ? void 0 : order.product), '\n        </select>\n      </label>\n      <label>\n        <span class="field-label">Urgence</span>\n        <select class="field-select" name="urgency">\n          ').concat(renderSelectOptions(["", "Haute", "Moyenne", "Basse"], String((_b = order == null ? void 0 : order.urgency) != null ? _b : "").trim()), '\n        </select>\n      </label>\n      <label>\n        <span class="field-label">Client</span>\n        <input class="field-input" name="clientName" type="text" list="clientSuggestions" value="').concat(escapeHtml(order ? orderClientLabel(order) : ""), '">\n      </label>\n      <label>\n        <span class="field-label">Contact</span>\n        <input class="field-input" name="contact" type="text" value="').concat(escapeHtml((_c = order == null ? void 0 : order.contact) != null ? _c : ""), '">\n      </label>\n      <label>\n        <span class="field-label">Zone</span>\n        <select class="field-select" name="zone">\n          ').concat(renderSelectOptions(["", ...ORDER_ZONE_OPTIONS], zone), '\n        </select>\n      </label>\n      <label>\n        <span class="field-label">Quantite</span>\n        <input class="field-input" name="quantity" type="number" min="1" value="').concat((order == null ? void 0 : order.quantity) ? escapeHtml(String(order.quantity)) : "", '">\n      </label>\n      <label>\n        <span class="field-label">Livraison</span>\n        <input class="field-input" name="deliveryDate" type="date" value="').concat(escapeHtml((_d = order == null ? void 0 : order.deliveryDate) != null ? _d : ""), '">\n      </label>\n      <label>\n        <span class="field-label">Statut</span>\n        <select class="field-select" name="status">').concat(renderOrderStatusOptions(order == null ? void 0 : order.status), '</select>\n      </label>\n      <label class="field-checkbox" data-order-mockup-field ').concat(showMockupField ? "" : "hidden", '>\n        <span class="field-label">Maquette</span>\n        <span class="checkbox-row">\n          <input name="markMockup" type="checkbox" ').concat((order == null ? void 0 : order.status) === "Maquette \xE0 faire" ? "checked" : "", " ").concat(showMockupField ? "" : "disabled", '>\n          <span>Maquette \xE0 faire</span>\n        </span>\n      </label>\n      <label class="field-choice-group">\n        <span class="field-label">Assign\xE9</span>\n        <span class="team-bubble-group" aria-label="Assignation commande">\n          ').concat(renderOrderAssigneeChoices(order == null ? void 0 : order.assignedTo), '\n        </span>\n      </label>\n      <label class="order-form-note">\n        <span class="field-label">Note</span>\n        <input class="field-input" name="note" type="text" value="').concat(escapeHtml((_e = order == null ? void 0 : order.note) != null ? _e : ""), '">\n      </label>\n    </div>\n    <datalist id="clientSuggestions">').concat(renderClientSuggestionOptions(), "</datalist>\n  ");
-  }
   function renderTestPlanningForm(item = null) {
     var _a, _b, _c, _d, _e, _f, _g;
     const stage = normalizeTestPlanningStage(item == null ? void 0 : item.stage);
-    return '\n    <div class="test-planning-field-stage">\n      <span class="field-label">\xC9tape</span>\n      <select class="field-select" name="stage">\n        '.concat(TEST_PLANNING_STAGES.map((entry) => '<option value="'.concat(entry.key, '" ').concat(entry.key === stage ? "selected" : "", ">").concat(escapeHtml(entry.label), "</option>")).join(""), '\n      </select>\n    </div>\n    <div class="field-grid test-planning-form-grid">\n      <label class="test-planning-field-type">\n        <span class="field-label">Type</span>\n        <span class="team-bubble-group" aria-label="Type de client test planning">\n          ').concat(renderTestPlanningClientTypeChoices(item == null ? void 0 : item.clientType), '\n        </span>\n      </label>\n      <label class="test-planning-field-client">\n        <span class="field-label">Client</span>\n        <input class="field-input" name="clientName" type="text" list="testPlanningClientSuggestions" value="').concat(escapeHtml((_a = item == null ? void 0 : item.clientName) != null ? _a : ""), '" placeholder="CLIENT">\n      </label>\n      <label class="test-planning-field-family">\n        <span class="field-label">Famille</span>\n        <input class="field-input" name="family" type="text" list="testPlanningFamilyOptions" value="').concat(escapeHtml((_b = item == null ? void 0 : item.family) != null ? _b : ""), '" placeholder="Famille">\n      </label>\n      <label class="test-planning-field-product">\n        <span class="field-label">Produit</span>\n        <input class="field-input" name="product" type="text" list="testPlanningProductOptions" value="').concat(escapeHtml((_c = item == null ? void 0 : item.product) != null ? _c : ""), '" placeholder="Produit">\n      </label>\n      <label class="test-planning-field-quantity">\n        <span class="field-label">Qt\xE9</span>\n        <input class="field-input" name="quantity" type="text" value="').concat(escapeHtml((_d = item == null ? void 0 : item.quantity) != null ? _d : ""), '" placeholder="Qt\xE9">\n      </label>\n      <label class="test-planning-field-delivery">\n        <span class="field-label">Date de livraison</span>\n        <input class="field-input" name="deliveryDate" type="date" value="').concat(escapeHtml((_e = item == null ? void 0 : item.deliveryDate) != null ? _e : ""), '">\n      </label>\n      <label class="test-planning-field-mockup-toggle">\n        <span class="field-label">Maquette \xE0 faire</span>\n        <span class="checkbox-row">\n          <input name="needsMockup" type="checkbox" ').concat((item == null ? void 0 : item.needsMockup) ? "checked" : "", '>\n          <span>Activer</span>\n        </span>\n      </label>\n      <label class="test-planning-field-status">\n        <span class="field-label">\xC9tat</span>\n        <select class="field-select" name="status">\n          <option value="">\u2014 Choisir un \xE9tat \u2014</option>\n          ').concat(renderTestPlanningStatusOptgroups((_f = item == null ? void 0 : item.status) != null ? _f : ""), '\n        </select>\n      </label>\n      <label class="order-form-note">\n        <span class="field-label">Note</span>\n        <input class="field-input" name="note" type="text" value="').concat(escapeHtml((_g = item == null ? void 0 : item.note) != null ? _g : ""), '" placeholder="Note">\n      </label>\n      <label class="test-planning-field-assignee">\n        <span class="field-label">Assign\xE9</span>\n        <span class="team-bubble-group" aria-label="Assignation test planning">\n          ').concat(renderOrderAssigneeChoices(item == null ? void 0 : item.assignedTo), '\n        </span>\n      </label>\n    </div>\n    <datalist id="testPlanningClientSuggestions">').concat(renderTestPlanningClientSuggestionOptions(), '</datalist>\n    <datalist id="testPlanningFamilyOptions">').concat(renderListOptions(testPlanningCombinedOptions("family", TEST_PLANNING_FAMILY_OPTIONS)), '</datalist>\n    <datalist id="testPlanningProductOptions">').concat(renderListOptions(testPlanningCombinedOptions("product", TEST_PLANNING_PRODUCT_OPTIONS)), "</datalist>\n    <!-- status is now a <select> with optgroups -->\n  ");
+    return '\n    <div class="test-planning-field-stage">\n      <span class="field-label">\xC9tape</span>\n      <select class="field-select" name="stage">\n        '.concat(TEST_PLANNING_STAGES.map((entry) => '<option value="'.concat(entry.key, '" ').concat(entry.key === stage ? "selected" : "", ">").concat(escapeHtml(entry.label), "</option>")).join(""), '\n      </select>\n    </div>\n    <div class="field-grid test-planning-form-grid">\n      <label class="test-planning-field-type">\n        <span class="field-label">Type</span>\n        <span class="team-bubble-group" aria-label="Type de client test planning">\n          ').concat(renderTestPlanningClientTypeChoices(item == null ? void 0 : item.clientType), '\n        </span>\n      </label>\n      <label class="test-planning-field-client">\n        <span class="field-label">Client</span>\n        <input class="field-input" name="clientName" type="text" list="testPlanningClientSuggestions" value="').concat(escapeHtml((_a = item == null ? void 0 : item.clientName) != null ? _a : ""), '" placeholder="CLIENT">\n      </label>\n      <label class="test-planning-field-family">\n        <span class="field-label">Famille</span>\n        <input class="field-input" name="family" type="text" list="testPlanningFamilyOptions" value="').concat(escapeHtml((_b = item == null ? void 0 : item.family) != null ? _b : ""), '" placeholder="Famille">\n      </label>\n      <label class="test-planning-field-product">\n        <span class="field-label">Produit</span>\n        <input class="field-input" name="product" type="text" list="testPlanningProductOptions" value="').concat(escapeHtml((_c = item == null ? void 0 : item.product) != null ? _c : ""), '" placeholder="Produit">\n      </label>\n      <label class="test-planning-field-quantity">\n        <span class="field-label">Qt\xE9</span>\n        <input class="field-input" name="quantity" type="text" value="').concat(escapeHtml((_d = item == null ? void 0 : item.quantity) != null ? _d : ""), '" placeholder="Qt\xE9">\n      </label>\n      <label class="test-planning-field-delivery">\n        <span class="field-label">Date de livraison</span>\n        <input class="field-input" name="deliveryDate" type="date" value="').concat(escapeHtml((_e = item == null ? void 0 : item.deliveryDate) != null ? _e : ""), '">\n      </label>\n      <label class="test-planning-field-mockup-toggle">\n        <span class="field-label">Maquette \xE0 faire</span>\n        <span class="checkbox-row">\n          <input name="needsMockup" type="checkbox" ').concat((item == null ? void 0 : item.needsMockup) ? "checked" : "", '>\n          <span>Activer</span>\n        </span>\n      </label>\n      <label class="test-planning-field-status">\n        <span class="field-label">\xC9tat</span>\n        <select class="field-select" name="status">\n          <option value="">\u2014 Choisir un \xE9tat \u2014</option>\n          ').concat(renderTestPlanningStatusOptgroups((_f = item == null ? void 0 : item.status) != null ? _f : ""), '\n        </select>\n      </label>\n      <label class="order-form-note">\n        <span class="field-label">Note</span>\n        <input class="field-input" name="note" type="text" value="').concat(escapeHtml((_g = item == null ? void 0 : item.note) != null ? _g : ""), '" placeholder="Note">\n      </label>\n      <label class="test-planning-field-assignee">\n        <span class="field-label">Assign\xE9</span>\n        <span class="team-bubble-group" aria-label="Assignation test planning">\n          ').concat((() => {
+      const current = normalizeImportedAssignee(item == null ? void 0 : item.assignedTo);
+      return ORDER_ASSIGNEES.map((assignee) => '\n    <label class="team-bubble-choice" aria-label="Assigner a '.concat(assignee, '">\n      <input class="team-bubble-choice-input" type="radio" name="assignedTo" value="').concat(assignee, '" ').concat(current === assignee ? "checked" : "", '>\n      <span class="team-bubble ').concat(current === assignee ? "is-active" : "", '">').concat(assignee, "</span>\n    </label>\n  ")).join("");
+    })(), '\n        </span>\n      </label>\n    </div>\n    <datalist id="testPlanningClientSuggestions">').concat(renderTestPlanningClientSuggestionOptions(), '</datalist>\n    <datalist id="testPlanningFamilyOptions">').concat(renderListOptions(testPlanningCombinedOptions("family", TEST_PLANNING_FAMILY_OPTIONS)), '</datalist>\n    <datalist id="testPlanningProductOptions">').concat(renderListOptions(testPlanningCombinedOptions("product", TEST_PLANNING_PRODUCT_OPTIONS)), "</datalist>\n    <!-- status is now a <select> with optgroups -->\n  ");
   }
   function getVisibleClientRows() {
     const query = state.search;
@@ -2796,121 +2464,6 @@
     }
     return note.items.filter((item) => "".concat(note.name, " ").concat(item.label).toLowerCase().includes(state.search));
   }
-  function getVisibleCustomerOrders(options = {}) {
-    return db.customerOrders.filter((item) => {
-      if (state.showOrderArchives && !item.archivedAt) {
-        return false;
-      }
-      if (!state.showOrderArchives && item.archivedAt) {
-        return false;
-      }
-      if (!state.showOrderArchives && state.orderZoneFilter) {
-        if (normalizeOrderZone(item.zone) !== state.orderZoneFilter) {
-          return false;
-        }
-      }
-      if (!state.showOrderArchives && !options.ignoreAssigneeFilter && state.orderAssigneeFilter && item.assignedTo !== state.orderAssigneeFilter) {
-        return false;
-      }
-      if (options.ignoreSearch || !state.search) {
-        return true;
-      }
-      const haystack = [
-        orderClientLabel(item),
-        item.product,
-        item.urgency,
-        item.contact,
-        item.zone,
-        item.status,
-        item.note,
-        item.assignedTo
-      ].join(" ").toLowerCase();
-      return haystack.includes(state.search);
-    }).sort(compareOrderPlanning);
-  }
-  function selectOrderRow(orderId, options = {}) {
-    if (state.selectedOrderId === orderId) {
-      return;
-    }
-    state.selectedOrderId = orderId;
-    if (options.render === false) {
-      return;
-    }
-    requestRender({ header: false, status: false, view: true });
-  }
-  function syncOrderAssigneeBubbles(orderId, assignee) {
-    const row = refs.viewRoot.querySelector('[data-order-id="'.concat(orderId, '"]'));
-    if (!row) {
-      return;
-    }
-    row.querySelectorAll('[data-action="assign-order"]').forEach((button) => {
-      button.classList.toggle("is-active", button.dataset.assignee === assignee);
-    });
-  }
-  function buildOrderPlanningSections(rows) {
-    const sections = [
-      { key: "late", kicker: "Priorit\xE9", title: "En retard", rows: [] },
-      { key: "today", kicker: "Jour", title: "Aujourd'hui", rows: [] },
-      { key: "soon", kicker: "Court terme", title: "Prochains jours", rows: [] },
-      { key: "week", kicker: "Semaine", title: "Cette semaine", rows: [] },
-      { key: "upcoming", kicker: "\xC0 venir", title: "Plus tard", rows: [] },
-      { key: "none", kicker: "\xC0 classer", title: "Sans date", rows: [] }
-    ];
-    rows.forEach((row) => {
-      const offset = orderDayOffset(row.deliveryDate);
-      if (offset === null) {
-        sections[5].rows.push(row);
-        return;
-      }
-      if (offset < 0) {
-        sections[0].rows.push(row);
-        return;
-      }
-      if (offset === 0) {
-        sections[1].rows.push(row);
-        return;
-      }
-      if (offset <= 3) {
-        sections[2].rows.push(row);
-        return;
-      }
-      if (offset <= 7) {
-        sections[3].rows.push(row);
-        return;
-      }
-      sections[4].rows.push(row);
-    });
-    return sections.filter((section) => section.rows.length);
-  }
-  function compareOrderPlanning(left, right) {
-    var _a, _b;
-    const leftOffset = orderDayOffset(left.deliveryDate);
-    const rightOffset = orderDayOffset(right.deliveryDate);
-    if (leftOffset === null && rightOffset !== null) {
-      return 1;
-    }
-    if (leftOffset !== null && rightOffset === null) {
-      return -1;
-    }
-    if (leftOffset !== null && rightOffset !== null && leftOffset !== rightOffset) {
-      return leftOffset - rightOffset;
-    }
-    const urgencyRank = { Haute: 0, Moyenne: 1, Basse: 2 };
-    const urgencyDiff = ((_a = urgencyRank[left.urgency]) != null ? _a : 3) - ((_b = urgencyRank[right.urgency]) != null ? _b : 3);
-    if (urgencyDiff !== 0) {
-      return urgencyDiff;
-    }
-    return orderClientLabel(left).localeCompare(orderClientLabel(right), "fr");
-  }
-  function renderOrderDeadline(order) {
-    if (!order.deliveryDate) {
-      return '\n      <div class="order-deadline">\n        <strong>Sans date</strong>\n      </div>\n    ';
-    }
-    const offset = orderDayOffset(order.deliveryDate);
-    const tone = deadlineTone(offset);
-    const badge = offset === null ? "" : '\n    <span class="deadline-badge" data-tone="'.concat(tone, '">\n      ').concat(escapeHtml(deadlineCopy(offset)), "\n    </span>\n  ");
-    return '\n    <div class="order-deadline">\n      <strong>'.concat(escapeHtml(formatDate(order.deliveryDate)), "</strong>\n      ").concat(badge, "\n    </div>\n  ");
-  }
   function getVisibleDtfItems() {
     return db.dtfRequests.filter((item) => {
       if (state.showDtfArchives && !item.archivedAt) {
@@ -2939,31 +2492,6 @@
   }
   function getVisibleMockupItems() {
     const rows = [];
-    db.customerOrders.forEach((item) => {
-      if (state.showDtfArchives && !item.archivedAt) {
-        return;
-      }
-      if (!state.showDtfArchives && item.archivedAt) {
-        return;
-      }
-      if (item.status !== "Maquette \xE0 faire" || item.mockupCompletedAt) {
-        return;
-      }
-      const row = {
-        kind: "order",
-        id: item.id,
-        client: orderClientLabel(item),
-        title: item.note || item.product || "Commande",
-        meta: item.contact,
-        quantity: item.quantity,
-        zone: item.zone,
-        date: item.deliveryDate
-      };
-      if (state.search && !mockupSearchHaystack(row).includes(state.search)) {
-        return;
-      }
-      rows.push(row);
-    });
     db.dtfRequests.forEach((item) => {
       if (state.showDtfArchives && !item.archivedAt) {
         return;
@@ -2997,10 +2525,10 @@
         kind: "testPlanning",
         id: item.id,
         client: item.clientName || "Client",
-        title: [item.family, item.product].filter(Boolean).join(" \xB7 ") || "Test planning",
+        title: [item.family, item.product].filter(Boolean).join(" \xB7 ") || "Commandes g\xE9n\xE9rales",
         meta: item.note || "",
         quantity: item.quantity ? Number(item.quantity) : 0,
-        zone: "Test planning",
+        zone: "Commandes g\xE9n\xE9rales",
         date: item.deliveryDate || (item.createdAt ? item.createdAt.slice(0, 10) : "")
       };
       if (state.search && !mockupSearchHaystack(row).includes(state.search)) {
@@ -3301,9 +2829,6 @@
       teamNotes: normalizeTeamNotes(parsed.teamNotes),
       clients,
       dtfRequests: Array.isArray(parsed.dtfRequests) ? parsed.dtfRequests.map(normalizeDtfRequest) : deepClone(seed.dtfRequests),
-      customerOrders: dedupeCustomerOrders(
-        shouldResetCustomerOrders ? [] : Array.isArray(parsed.customerOrders) ? parsed.customerOrders.map(normalizeCustomerOrder) : deepClone(seed.customerOrders)
-      ),
       textileOrders: injectImportedTextileOrders(textileOrders, clients, parsedVersion),
       purchaseItems: mergePurchaseDefaults(Array.isArray(parsed.purchaseItems) ? parsed.purchaseItems : deepClone(seed.purchaseItems)),
       productionItems: Array.isArray(parsed.productionItems) ? parsed.productionItems.map(normalizeProductionItem) : deepClone(seed.productionItems),
@@ -3689,185 +3214,9 @@
     } catch {
     }
   }
-  function normalizeCustomerOrder(order) {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n;
-    return {
-      id: Number(order.id),
-      clientId: Number(order.clientId) || null,
-      clientName: String((_a = order.clientName) != null ? _a : "").trim(),
-      orderType: normalizeOrderType(order.orderType, order.clientId),
-      product: (_c = (_b = order.product) != null ? _b : order.title) != null ? _c : "Commande",
-      urgency: (_d = order.urgency) != null ? _d : "Moyenne",
-      contact: (_e = order.contact) != null ? _e : "",
-      zone: normalizeOrderZone((_g = (_f = order.zone) != null ? _f : order.category) != null ? _g : ""),
-      quantity: normalizeOrderQuantity(order.quantity),
-      note: (_h = order.note) != null ? _h : "",
-      deliveryDate: String((_j = (_i = order.deliveryDate) != null ? _i : order.dueDate) != null ? _j : "").trim(),
-      status: normalizeOrderStatus(order.status),
-      mockupCompletedAt: String((_k = order.mockupCompletedAt) != null ? _k : ""),
-      assignedTo: (_l = order.assignedTo) != null ? _l : "",
-      createdAt: (_m = order.createdAt) != null ? _m : isoToday(),
-      archivedAt: (_n = order.archivedAt) != null ? _n : ""
-    };
-  }
-  function dedupeCustomerOrdersInPlace() {
-    const deduped = dedupeCustomerOrders(db.customerOrders);
-    if (deduped.length === db.customerOrders.length) {
-      return 0;
-    }
-    db.customerOrders = deduped;
-    return 1;
-  }
-  function dedupeCustomerOrders(collection) {
-    const seen = /* @__PURE__ */ new Set();
-    const deduped = [];
-    (Array.isArray(collection) ? collection : []).forEach((order) => {
-      const signature = orderImportSignature(order);
-      if (seen.has(signature)) {
-        return;
-      }
-      seen.add(signature);
-      deduped.push(order);
-    });
-    return deduped;
-  }
-  function mergeImportedCustomerOrders() {
-    const existingSignatures = new Set(db.customerOrders.map(orderImportSignature));
-    const imports = IMPORTED_CUSTOMER_ORDERS.map((item, index) => ({
-      id: nextId(db.customerOrders, db.customerOrders.length + index + 1) + index,
-      clientId: parseOrderClient(item.clientName).clientId,
-      clientName: item.clientName,
-      orderType: item.orderType,
-      product: inferImportedOrderProduct(item.zone, item.note),
-      urgency: item.urgency,
-      contact: "",
-      zone: normalizeOrderZone(item.zone),
-      quantity: normalizeOrderQuantity(item.quantity),
-      note: item.note,
-      deliveryDate: item.deliveryDate,
-      status: normalizeOrderStatus(item.status),
-      mockupCompletedAt: "",
-      assignedTo: normalizeImportedAssignee(item.assignedTo),
-      createdAt: isoNow(),
-      archivedAt: ""
-    })).filter((item) => {
-      const signature = orderImportSignature(item);
-      if (existingSignatures.has(signature)) {
-        return false;
-      }
-      existingSignatures.add(signature);
-      return true;
-    });
-    if (!imports.length) {
-      return 0;
-    }
-    db.customerOrders = [...db.customerOrders, ...imports];
-    return imports.length;
-  }
-  function orderImportSignature(order) {
-    var _a, _b, _c, _d, _e, _f;
-    return [
-      String((_a = order.orderType) != null ? _a : "").trim().toUpperCase(),
-      String((_b = order.urgency) != null ? _b : "").trim(),
-      String((_c = order.clientName) != null ? _c : "").trim().toLowerCase(),
-      String((_d = order.zone) != null ? _d : "").trim().toLowerCase(),
-      String((_e = order.note) != null ? _e : "").trim().toLowerCase(),
-      String((_f = order.deliveryDate) != null ? _f : "").trim(),
-      normalizeImportedAssignee(order.assignedTo),
-      String(normalizeOrderQuantity(order.quantity))
-    ].join("|");
-  }
-  function normalizeOrderQuantity(value) {
-    if (value === "" || value === null || value === void 0) {
-      return 0;
-    }
-    const quantity = Number(value);
-    if (!Number.isFinite(quantity) || quantity <= 0) {
-      return 0;
-    }
-    return Math.round(quantity);
-  }
-  function inferImportedOrderProduct(zone, note) {
-    const noteValue = String(note != null ? note : "").toLowerCase();
-    const zoneValue = normalizeOrderZone(zone).toLowerCase();
-    if (noteValue.includes("casquette")) {
-      return "Casquette";
-    }
-    if (noteValue.includes("tote bag") || noteValue.includes("pochette")) {
-      return "Pochette";
-    }
-    if (noteValue.includes("tasses") || noteValue.includes("verre")) {
-      return "Tasses";
-    }
-    if (zoneValue === "goodies" || zoneValue === "gravure et d\xE9coupe laser" || zoneValue === "impression uv") {
-      return "Goodies";
-    }
-    return "Tshirt";
-  }
-  function normalizeOrderZone(zone) {
-    const value = String(zone != null ? zone : "").trim().toLowerCase();
-    if (!value || value === "-" || value === "textile" || value === "textiles") {
-      return "Textiles";
-    }
-    if (["gravure", "gravure et decoupe laser", "gravure et d\xE9coupe laser", "laser"].includes(value)) {
-      return "Gravure et d\xE9coupe laser";
-    }
-    if (["uv", "impression", "impression uv", "dtf"].includes(value)) {
-      return "Impression UV";
-    }
-    if (value === "goodies") {
-      return "Goodies";
-    }
-    return "Textiles";
-  }
   function normalizeImportedAssignee(value) {
     const normalized = String(value != null ? value : "").trim().toUpperCase();
     return ORDER_ASSIGNEES.includes(normalized) ? normalized : "";
-  }
-  function createDtfFromTextileOrder(order) {
-    var _a, _b, _c;
-    if (!order || normalizeOrderZone(order.zone) !== "Textiles") {
-      return;
-    }
-    const existing = db.dtfRequests.find((item) => Number(item.sourceOrderId) === Number(order.id));
-    if (existing) {
-      return;
-    }
-    db.dtfRequests.unshift({
-      id: nextId(db.dtfRequests),
-      sourceOrderId: order.id,
-      clientId: (_a = order.clientId) != null ? _a : null,
-      clientName: (_b = order.clientName) != null ? _b : "",
-      dimensions: "",
-      logoPlacement: "AV",
-      designName: "",
-      size: "",
-      color: "",
-      technicalNote: String((_c = order.note) != null ? _c : "").trim(),
-      quantity: Math.max(1, Number(order.quantity) || 1),
-      needsMockup: false,
-      mockupCompletedAt: isoNow(),
-      status: "draft",
-      archivedAt: "",
-      createdAt: isoToday()
-    });
-  }
-  function syncOrderMockupField() {
-    if (!refs.sheetForm || !["addOrder", "editOrder"].includes(state.activeSheetAction)) {
-      return;
-    }
-    const zoneField = refs.sheetForm.elements.namedItem("zone");
-    const mockupField = refs.sheetBody.querySelector("[data-order-mockup-field]");
-    const mockupInput = refs.sheetForm.elements.namedItem("markMockup");
-    if (!(zoneField instanceof HTMLSelectElement) || !(mockupField instanceof HTMLElement) || !(mockupInput instanceof HTMLInputElement)) {
-      return;
-    }
-    const shouldShow = canOrderUseMockup(zoneField.value);
-    mockupField.hidden = !shouldShow;
-    mockupInput.disabled = !shouldShow;
-    if (!shouldShow) {
-      mockupInput.checked = false;
-    }
   }
   function normalizeProductionStatus(value) {
     const raw = String(value != null ? value : "").trim().toLowerCase();
@@ -4051,9 +3400,6 @@
     if (!state.activeSheetAction) {
       return "";
     }
-    if (state.activeSheetAction === "editOrder") {
-      return sheetDraftStorageKey(state.activeSheetAction, state.activeOrderId);
-    }
     if (state.activeSheetAction === "editDtf") {
       return sheetDraftStorageKey(state.activeSheetAction, state.activeDtfId);
     }
@@ -4178,66 +3524,6 @@
     };
     return (_a = tones[String(name != null ? name : "").trim()]) != null ? _a : "cool-1";
   }
-  function orderClientLabel(order) {
-    if (order == null ? void 0 : order.clientName) {
-      return order.clientName;
-    }
-    if (order == null ? void 0 : order.clientId) {
-      return clientName(order.clientId);
-    }
-    return "Client inconnu";
-  }
-  function orderTypeLabel(order) {
-    return (order == null ? void 0 : order.orderType) || "";
-  }
-  function orderTypeTone(order) {
-    if ((order == null ? void 0 : order.orderType) === "PRO") {
-      return "pro";
-    }
-    if ((order == null ? void 0 : order.orderType) === "PERSO") {
-      return "perso";
-    }
-    return "muted";
-  }
-  function urgencyTone(urgency) {
-    if (urgency === "Haute") {
-      return "high";
-    }
-    if (urgency === "Basse") {
-      return "low";
-    }
-    return "medium";
-  }
-  function orderDayOffset(value) {
-    if (!value) {
-      return null;
-    }
-    const current = new Date("".concat(isoToday(), "T00:00:00"));
-    const target = new Date("".concat(value, "T00:00:00"));
-    const diff = target.getTime() - current.getTime();
-    return Math.round(diff / 864e5);
-  }
-  function deadlineTone(offset) {
-    if (offset === null) {
-      return "muted";
-    }
-    if (offset < 0) {
-      return "late";
-    }
-    if (offset <= 2) {
-      return "soon";
-    }
-    return "safe";
-  }
-  function deadlineCopy(offset) {
-    if (offset === 0) {
-      return "Aujourd'hui";
-    }
-    if (offset > 0) {
-      return "+".concat(offset, "j");
-    }
-    return "".concat(offset, "j");
-  }
   function normalizeTestPlanningStage(value) {
     const stage = String(value != null ? value : "").trim();
     return TEST_PLANNING_STAGE_KEYS.includes(stage) ? stage : TEST_PLANNING_DEFAULT_STAGE;
@@ -4359,16 +3645,8 @@
     }
     return "draft";
   }
-  function renderOrderStatusOptions(selectedStatus = ORDER_STATUS_DEFAULT) {
-    const current = String(selectedStatus != null ? selectedStatus : "").trim();
-    const emptyOption = '<option value="" '.concat(current ? "" : "selected", "></option>");
-    return emptyOption + ORDER_STATUS_GROUPS.map((group) => '\n    <optgroup label="'.concat(escapeHtml(group.label), '">\n      ').concat(group.options.map((status) => '\n        <option value="'.concat(escapeHtml(status), '" ').concat(status === current ? "selected" : "", ">").concat(escapeHtml(status), "</option>\n      ")).join(""), "\n    </optgroup>\n  ")).join("");
-  }
   function renderProductionStatusOptions(selectedStatus = PRODUCTION_STATUS_DEFAULT) {
     return PRODUCTION_STATUS_OPTIONS.map((status) => '\n    <option value="'.concat(escapeHtml(status), '" ').concat(status === selectedStatus ? "selected" : "", ">").concat(escapeHtml(status), "</option>\n  ")).join("");
-  }
-  function renderSelectOptions(options, selectedValue) {
-    return options.map((option) => '\n    <option value="'.concat(escapeHtml(option), '" ').concat(option === selectedValue ? "selected" : "", ">").concat(escapeHtml(option), "</option>\n  ")).join("");
   }
   function renderListOptions(options) {
     return options.filter(Boolean).map((option) => '<option value="'.concat(escapeHtml(String(option)), '"></option>')).join("");
@@ -4426,38 +3704,10 @@
       clientName: String((_a = parsed.clientName) != null ? _a : "").trim().toUpperCase()
     };
   }
-  function normalizeOrderStatus(status) {
-    const value = String(status != null ? status : "").trim();
-    if (value === "A valider") {
-      return "Attente validation";
-    }
-    if (value === "En cours") {
-      return "En production";
-    }
-    if (value === "Pret") {
-      return "Produit r\xE9cup\xE9r\xE9";
-    }
-    if (ORDER_STATUS_SET.has(value)) {
-      return value;
-    }
-    return ORDER_STATUS_DEFAULT;
-  }
-  function normalizeOrderType(type, clientId) {
-    const value = String(type != null ? type : "").trim().toUpperCase();
-    if (value === "PRO" || value === "PERSO") {
-      return value;
-    }
-    if (Number(clientId)) {
-      return "PRO";
-    }
-    return "";
-  }
   function primaryLabel(action) {
     var _a;
     const labels = {
       addClient: "+ Ajouter un client",
-      addOrder: "+ Ajouter une commande",
-      editOrder: "Modifier la commande",
       addDtf: "+ Ajouter une demande",
       editDtf: "Modifier la demande",
       addTestPlanningOrder: "+ Ajouter une commande",
@@ -4477,8 +3727,6 @@
     var _a;
     const labels = {
       addClient: "Cr\xE9er le client",
-      addOrder: "Cr\xE9er la commande",
-      editOrder: "Enregistrer",
       addDtf: "Cr\xE9er la demande",
       editDtf: "Enregistrer",
       addTestPlanningOrder: "Cr\xE9er la commande",
@@ -4498,12 +3746,10 @@
     var _a;
     const labels = {
       addClient: "Clients Pro",
-      addOrder: "Commandes g\xE9n\xE9rales",
-      editOrder: "Commandes g\xE9n\xE9rales",
       addDtf: "Demande DTF",
       editDtf: "Demande DTF",
-      addTestPlanningOrder: "",
-      editTestPlanningOrder: "",
+      addTestPlanningOrder: "Commandes g\xE9n\xE9rales",
+      editTestPlanningOrder: "Commandes g\xE9n\xE9rales",
       addTextileOrder: "Achat Textile",
       editTextileOrder: "Achat Textile",
       addProductionItem: "Production",
@@ -4541,24 +3787,6 @@
     } catch (e) {
       return "\u2014";
     }
-  }
-  function formatOrderCreatedAt(value) {
-    if (!value) {
-      return "";
-    }
-    const raw = String(value).trim();
-    const hasTime = raw.includes("T");
-    const normalized = hasTime && raw.length === 16 ? "".concat(raw, ":00") : raw;
-    const date = hasTime ? new Date(normalized) : new Date("".concat(raw, "T00:00:00"));
-    if (Number.isNaN(date.getTime())) {
-      return "";
-    }
-    const dateCopy = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short" }).format(date);
-    if (!hasTime) {
-      return "Ajoute le ".concat(dateCopy);
-    }
-    const timeCopy = new Intl.DateTimeFormat("fr-FR", { hour: "2-digit", minute: "2-digit" }).format(date);
-    return "Ajoute le ".concat(dateCopy, " a ").concat(timeCopy);
   }
   function isoToday() {
     const now = /* @__PURE__ */ new Date();
