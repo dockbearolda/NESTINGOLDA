@@ -18,7 +18,7 @@ const DATA_DIR = process.env.DATA_DIR
   : path.join(__dirname, "data");
 const DATA_FILE = path.join(DATA_DIR, "app-db.json");
 const COOKIE_NAME = "dasholda_session";
-const SESSION_TTL_MS = 1000 * 60 * 60 * 12;
+const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
 const STATIC_TYPES = {
   ".html": "text/html; charset=utf-8",
   ".css": "text/css; charset=utf-8",
@@ -369,7 +369,7 @@ function handleGetDb(req, res) {
   const requestUrl = new URL(req.url || "/api/db", `http://${req.headers.host || "localhost"}`);
   const requestedRevision = Number(requestUrl.searchParams.get("revision") || 0);
   if (requestedRevision && requestedRevision === record.revision) {
-    res.writeHead(204, { "Cache-Control": "no-store" });
+    res.writeHead(204, { "Cache-Control": "no-store", "Content-Length": "0" });
     res.end();
     return;
   }
