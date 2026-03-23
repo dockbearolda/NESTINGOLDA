@@ -2070,6 +2070,7 @@ function handleSheetSubmit(event) {
     });
     persistDb();
     clearSheetDraftByAction("addTestPlanningOrder");
+    state.activeTestStage = null;
     closeSheet();
     requestRender({ transition: true });
     showToast("Ligne test planning ajoutée.");

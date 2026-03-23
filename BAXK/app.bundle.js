@@ -1862,6 +1862,7 @@
       });
       persistDb();
       clearSheetDraftByAction("addTestPlanningOrder");
+      state.activeTestStage = null;
       closeSheet();
       requestRender({ transition: true });
       showToast("Ligne test planning ajout\xE9e.");
