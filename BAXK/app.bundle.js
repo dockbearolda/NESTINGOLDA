@@ -604,6 +604,7 @@
     activeImprovementId: null,
     activeTestPlanningId: null,
     activeTestStage: null,
+    activeTestAssignee: null,
     activeClientId: null,
     activeTeamNoteEdit: null,
     toastTimer: null,
@@ -1158,6 +1159,13 @@
       } else {
         state.activeTestStage = state.activeTestStage === stageJump ? null : stageJump;
       }
+      requestRender({ header: false, status: false, view: true });
+      return;
+    }
+    const assigneeFilterNode = target.closest("[data-test-assignee-filter]");
+    if (assigneeFilterNode) {
+      const assignee = assigneeFilterNode.dataset.testAssigneeFilter;
+      state.activeTestAssignee = state.activeTestAssignee === assignee ? null : assignee;
       requestRender({ header: false, status: false, view: true });
       return;
     }
@@ -2054,6 +2062,7 @@
     }));
     const urgentItems = db.testPlanningItems.filter((item) => {
       if (!isUrgentTestPlanningItem(item)) return false;
+      if (state.activeTestAssignee && item.assignedTo !== state.activeTestAssignee) return false;
       if (!state.search) return true;
       return [item.clientName, item.family, item.product, item.quantity, item.note, item.status, item.mockupStatus || ""].join(" ").toLowerCase().includes(state.search);
     }).slice().sort((a, b) => (b.id || 0) - (a.id || 0));
@@ -2064,6 +2073,7 @@
     } else if (activeStage) {
       const filteredItems = db.testPlanningItems.filter((item) => {
         if (item.stage !== activeStage) return false;
+        if (state.activeTestAssignee && item.assignedTo !== state.activeTestAssignee) return false;
         if (!state.search) return true;
         return [item.clientName, item.family, item.product, item.quantity, item.note, item.status, item.mockupStatus || ""].join(" ").toLowerCase().includes(state.search);
       }).slice().sort((a, b) => (b.id || 0) - (a.id || 0));
@@ -2071,12 +2081,18 @@
     } else {
       const allItems = db.testPlanningItems.filter((item) => {
         if (item.stage === "archived") return false;
+        if (state.activeTestAssignee && item.assignedTo !== state.activeTestAssignee) return false;
         if (!state.search) return true;
         return [item.clientName, item.family, item.product, item.quantity, item.note, item.status, item.mockupStatus || ""].join(" ").toLowerCase().includes(state.search);
       }).slice().sort((a, b) => (b.id || 0) - (a.id || 0));
       bodyHtml = allItems.length ? '<section class="test-planning-board">'.concat(allItems.map(renderTestPlanningCard).join(""), "</section>") : '<div class="empty-state">Aucune commande.</div>';
     }
-    return '\n    <section class="module-layout">\n      <section class="test-planning-steps">\n        <button class="test-step-chip '.concat(!activeStage ? "is-active" : "", '" type="button" data-test-stage-jump="__recent__" data-accent="blue">\n          <span>Toutes</span>\n          <strong>').concat(sections.filter((s) => s.key !== "archived").reduce((sum, s) => sum + s.rows.length, 0), '</strong>\n        </button>\n        <button class="test-step-chip ').concat(activeStage === "__urgent__" ? "is-active" : "", '" type="button" data-test-stage-jump="__urgent__" data-accent="red">\n          <span>Urgence</span>\n          <strong>').concat(urgentItems.length, "</strong>\n        </button>\n        ").concat(sections.map(renderTestPlanningStepSummary).join(""), "\n      </section>\n      ").concat(bodyHtml, "\n    </section>\n  ");
+    const activeAssignee = state.activeTestAssignee;
+    const assigneeChips = ORDER_ASSIGNEES.map((a) => {
+      const isActive = activeAssignee === a;
+      return '<button class="test-step-chip test-assignee-chip '.concat(isActive ? "is-active" : "", '" type="button" data-test-assignee-filter="').concat(escapeHtml(a), '">').concat(escapeHtml(a), "</button>");
+    }).join("");
+    return '\n    <section class="module-layout">\n      <section class="test-planning-steps">\n        <button class="test-step-chip '.concat(!activeStage ? "is-active" : "", '" type="button" data-test-stage-jump="__recent__" data-accent="blue">\n          <span>Toutes</span>\n          <strong>').concat(sections.filter((s) => s.key !== "archived").reduce((sum, s) => sum + s.rows.length, 0), '</strong>\n        </button>\n        <button class="test-step-chip ').concat(activeStage === "__urgent__" ? "is-active" : "", '" type="button" data-test-stage-jump="__urgent__" data-accent="red">\n          <span>Urgence</span>\n          <strong>').concat(urgentItems.length, "</strong>\n        </button>\n        ").concat(sections.map(renderTestPlanningStepSummary).join(""), '\n      </section>\n      <section class="test-planning-assignee-filters">\n        ').concat(assigneeChips, "\n      </section>\n      ").concat(bodyHtml, "\n    </section>\n  ");
   }
   function renderTestPlanningStepSummary(stage) {
     const isActive = state.activeTestStage === stage.key;
@@ -2638,6 +2654,9 @@
   function getVisibleTestPlanningItems(stageKey) {
     return db.testPlanningItems.filter((item) => {
       if (item.stage !== stageKey) {
+        return false;
+      }
+      if (state.activeTestAssignee && item.assignedTo !== state.activeTestAssignee) {
         return false;
       }
       if (!state.search) {

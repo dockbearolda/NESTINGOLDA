@@ -1326,6 +1326,42 @@ button {
 .deadline-badge[data-tone="late"] { background: rgba(255, 90, 82, 0.12); color: #d63b32; }
 .deadline-badge[data-tone="muted"] { background: rgba(148, 163, 184, 0.12); color: #64748b; }
 
+/* ── Assignee filter chips ── */
+.test-planning-assignee-filters {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: -6px;
+  margin-bottom: 4px;
+}
+
+.test-assignee-chip {
+  flex: 0 0 auto;
+  height: 28px;
+  min-width: 36px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(0,0,0,0.10);
+  background: transparent;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: rgba(0,0,0,0.5);
+  cursor: pointer;
+  transition: all 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.test-assignee-chip:hover {
+  background: rgba(0,0,0,0.04);
+  color: rgba(0,0,0,0.7);
+}
+
+.test-assignee-chip.is-active {
+  background: #111;
+  border-color: #111;
+  color: #fff;
+}
+
 /* ── Segmented control (iOS-style) ── */
 .test-planning-steps {
   display: flex;

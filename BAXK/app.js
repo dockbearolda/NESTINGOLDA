@@ -609,6 +609,7 @@ const state = {
   activeImprovementId: null,
   activeTestPlanningId: null,
   activeTestStage: null,
+  activeTestAssignee: null,
   activeClientId: null,
   activeTeamNoteEdit: null,
   toastTimer: null,
@@ -1267,6 +1268,14 @@ function handleRootClick(event) {
     } else {
       state.activeTestStage = state.activeTestStage === stageJump ? null : stageJump;
     }
+    requestRender({ header: false, status: false, view: true });
+    return;
+  }
+
+  const assigneeFilterNode = target.closest("[data-test-assignee-filter]");
+  if (assigneeFilterNode) {
+    const assignee = assigneeFilterNode.dataset.testAssigneeFilter;
+    state.activeTestAssignee = state.activeTestAssignee === assignee ? null : assignee;
     requestRender({ header: false, status: false, view: true });
     return;
   }
@@ -2297,6 +2306,7 @@ function renderTestPlanningView() {
 
   const urgentItems = db.testPlanningItems.filter((item) => {
     if (!isUrgentTestPlanningItem(item)) return false;
+    if (state.activeTestAssignee && item.assignedTo !== state.activeTestAssignee) return false;
     if (!state.search) return true;
     return [item.clientName, item.family, item.product, item.quantity, item.note, item.status, item.mockupStatus || ""]
       .join(" ").toLowerCase().includes(state.search);
@@ -2313,6 +2323,7 @@ function renderTestPlanningView() {
     const filteredItems = db.testPlanningItems
       .filter((item) => {
         if (item.stage !== activeStage) return false;
+        if (state.activeTestAssignee && item.assignedTo !== state.activeTestAssignee) return false;
         if (!state.search) return true;
         return [item.clientName, item.family, item.product, item.quantity, item.note, item.status, item.mockupStatus || ""]
           .join(" ").toLowerCase().includes(state.search);
@@ -2326,6 +2337,7 @@ function renderTestPlanningView() {
     const allItems = db.testPlanningItems
       .filter((item) => {
         if (item.stage === "archived") return false;
+        if (state.activeTestAssignee && item.assignedTo !== state.activeTestAssignee) return false;
         if (!state.search) return true;
         return [item.clientName, item.family, item.product, item.quantity, item.note, item.status, item.mockupStatus || ""]
           .join(" ").toLowerCase().includes(state.search);
@@ -2336,6 +2348,12 @@ function renderTestPlanningView() {
       ? `<section class="test-planning-board">${allItems.map(renderTestPlanningCard).join("")}</section>`
       : `<div class="empty-state">Aucune commande.</div>`;
   }
+
+  const activeAssignee = state.activeTestAssignee;
+  const assigneeChips = ORDER_ASSIGNEES.map((a) => {
+    const isActive = activeAssignee === a;
+    return `<button class="test-step-chip test-assignee-chip ${isActive ? "is-active" : ""}" type="button" data-test-assignee-filter="${escapeHtml(a)}">${escapeHtml(a)}</button>`;
+  }).join("");
 
   return `
     <section class="module-layout">
@@ -2349,6 +2367,9 @@ function renderTestPlanningView() {
           <strong>${urgentItems.length}</strong>
         </button>
         ${sections.map(renderTestPlanningStepSummary).join("")}
+      </section>
+      <section class="test-planning-assignee-filters">
+        ${assigneeChips}
       </section>
       ${bodyHtml}
     </section>
@@ -3855,11 +3876,12 @@ function getVisibleTestPlanningItems(stageKey) {
     if (item.stage !== stageKey) {
       return false;
     }
-
+    if (state.activeTestAssignee && item.assignedTo !== state.activeTestAssignee) {
+      return false;
+    }
     if (!state.search) {
       return true;
     }
-
     return [
       item.clientName,
       item.family,
