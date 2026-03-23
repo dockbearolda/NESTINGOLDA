@@ -1116,6 +1116,11 @@ function handleRootClick(event) {
       return;
     }
 
+    if (action === "duplicate-single-dtf") {
+      duplicateDtfItems([id]);
+      return;
+    }
+
     if (action === "delete-single-dtf") {
       deleteDtfItems([id]);
       return;
@@ -2673,6 +2678,7 @@ function renderDtfRow(row) {
       <td><span class="status-badge" data-tone="${typeTone}">${typeLabel}</span></td>
       <td>
         <div class="row-actions">
+          <button class="row-action" type="button" data-action="duplicate-single-dtf" data-id="${row.id}" title="Dupliquer">⧉</button>
           <button class="row-action" type="button" data-action="${row.archivedAt ? "restore-single-dtf" : "archive-single-dtf"}" data-id="${row.id}">
             ${row.archivedAt ? "↺" : "⤴"}
           </button>
