@@ -595,6 +595,7 @@
     selectedDtfIds: /* @__PURE__ */ new Set(),
     showDtfArchives: false,
     showTextileArchives: false,
+    showPurchaseArchives: false,
     textileSort: { key: "expectedDate", direction: "asc" },
     activeSheetAction: null,
     activeDtfId: null,
@@ -1075,6 +1076,19 @@
         showToast("Article supprime.");
         return;
       }
+      if (action === "archive-single-purchase") {
+        archivePurchaseItem(id, true);
+        return;
+      }
+      if (action === "restore-single-purchase") {
+        archivePurchaseItem(id, false);
+        return;
+      }
+      if (action === "toggle-purchase-archives") {
+        state.showPurchaseArchives = !state.showPurchaseArchives;
+        requestRender({ transition: true });
+        return;
+      }
       if (action === "delete-task") {
         db.workshopTasks = db.workshopTasks.filter((item) => item.id !== id);
         persistDb();
@@ -1396,7 +1410,7 @@
     }
   }
   function handleSheetDraftInput(event) {
-    var _a, _b, _c, _d;
+    var _a, _b, _c;
     const target = event == null ? void 0 : event.target;
     if (((_a = target == null ? void 0 : target.classList) == null ? void 0 : _a.contains("team-bubble-choice-input")) && target instanceof HTMLInputElement && target.checked) {
       const group = refs.sheetForm.querySelectorAll('.team-bubble-choice-input[name="'.concat(CSS.escape(target.name), '"]'));
@@ -1405,15 +1419,8 @@
         if (bubble) bubble.classList.toggle("is-active", input === target);
       });
     }
-    if ((target == null ? void 0 : target.name) === "designPreset") {
-      const presetValue = String((_b = target.value) != null ? _b : "").trim();
-      const designInput = refs.sheetForm.elements.namedItem("designName");
-      if (designInput instanceof HTMLInputElement) {
-        designInput.value = presetValue;
-      }
-    }
     if ((target == null ? void 0 : target.name) === "stage" && target instanceof HTMLSelectElement && (state.activeSheetAction === "addTestPlanningOrder" || state.activeSheetAction === "editTestPlanningOrder")) {
-      var statusField = (_c = refs.sheetForm) == null ? void 0 : _c.elements.namedItem("status");
+      var statusField = (_b = refs.sheetForm) == null ? void 0 : _b.elements.namedItem("status");
       if (statusField instanceof HTMLSelectElement) {
         statusField.value = testPlanningDefaultStatus(target.value);
       }
@@ -1423,7 +1430,7 @@
       var newStatus = target.value;
       var targetStage = testPlanningStageForStatus(newStatus);
       if (targetStage) {
-        var stageField = (_d = refs.sheetForm) == null ? void 0 : _d.elements.namedItem("stage");
+        var stageField = (_c = refs.sheetForm) == null ? void 0 : _c.elements.namedItem("stage");
         if (stageField instanceof HTMLSelectElement && stageField.value !== targetStage) {
           stageField.value = targetStage;
           syncTestPlanningStageField();
@@ -2177,7 +2184,7 @@
     const checked = state.selectedDtfIds.has(row.id);
     const typeTone = row.mockupCompletedAt ? "ready" : row.needsMockup ? "urgent" : row.clientType === "pro" ? "pro" : "perso";
     const typeLabel = row.mockupCompletedAt ? "Maquette faite" : row.needsMockup ? "Maquette" : row.clientType === "pro" ? "PRO" : "Perso";
-    return '\n    <tr data-dtf-id="'.concat(row.id, '">\n      <td class="checkbox-cell"><input type="checkbox" name="dtf-select" value="').concat(row.id, '" ').concat(checked ? "checked" : "", '></td>\n      <td><span class="order-date-chip">').concat(formatDate(row.createdAt), "</span></td>\n      <td>").concat(escapeHtml(dtfClientLabel(row)), "</td>\n      <td><strong>").concat(escapeHtml(row.designName), "</strong></td>\n      <td>").concat(escapeHtml(row.dimensions), '</td>\n      <td><span class="status-badge" data-tone="draft">').concat(escapeHtml(normalizeLogoPlacement(row.logoPlacement)), "</span></td>\n      <td>").concat(escapeHtml(row.size), "</td>\n      <td>").concat(escapeHtml(row.color), "</td>\n      <td>").concat(escapeHtml(row.technicalNote), "</td>\n      <td>").concat(row.quantity, '</td>\n      <td><span class="status-badge" data-tone="').concat(typeTone, '">').concat(typeLabel, '</span></td>\n      <td>\n        <div class="row-actions">\n          <button class="row-action" type="button" data-action="duplicate-single-dtf" data-id="').concat(row.id, '" title="Dupliquer">\u29C9</button>\n          <button class="row-action" type="button" data-action="').concat(row.archivedAt ? "restore-single-dtf" : "archive-single-dtf", '" data-id="').concat(row.id, '">\n            ').concat(row.archivedAt ? "\u21BA" : "\u2934", '\n          </button>\n          <button class="row-action is-danger" type="button" data-action="delete-single-dtf" data-id="').concat(row.id, '">\xD7</button>\n        </div>\n      </td>\n    </tr>\n  ');
+    return '\n    <tr data-dtf-id="'.concat(row.id, '">\n      <td class="checkbox-cell"><input type="checkbox" name="dtf-select" value="').concat(row.id, '" ').concat(checked ? "checked" : "", '></td>\n      <td><span class="order-date-chip">').concat(formatDate(row.createdAt), "</span></td>\n      <td>").concat(escapeHtml(dtfClientLabel(row)), "</td>\n      <td><strong>").concat(escapeHtml(row.designName), "</strong></td>\n      <td>").concat(escapeHtml(row.dimensions), '</td>\n      <td><span class="status-badge" data-tone="draft">').concat(escapeHtml(normalizeLogoPlacement(row.logoPlacement)), "</span></td>\n      <td>").concat(escapeHtml(row.size), "</td>\n      <td>").concat(escapeHtml(row.color), "</td>\n      <td>").concat(escapeHtml(row.technicalNote), "</td>\n      <td>").concat(row.quantity, '</td>\n      <td><span class="status-badge" data-tone="').concat(typeTone, '">').concat(typeLabel, '</span></td>\n      <td>\n        <div class="row-actions">\n          <button class="row-action" type="button" data-action="duplicate-single-dtf" data-id="').concat(row.id, '" title="Dupliquer">\u29C9</button>\n          <button class="row-action" type="button" data-action="').concat(row.archivedAt ? "restore-single-dtf" : "archive-single-dtf", '" data-id="').concat(row.id, '">\n            ').concat(row.archivedAt ? "\u21BA" : "\u{1F4E6}", '\n          </button>\n          <button class="row-action is-danger" type="button" data-action="delete-single-dtf" data-id="').concat(row.id, '">\xD7</button>\n        </div>\n      </td>\n    </tr>\n  ');
   }
   function renderMockupsView() {
     const rows = getVisibleMockupItems();
@@ -2212,18 +2219,19 @@
     return '<th><button class="sort-button" type="button" data-action="sort-textile" data-key="'.concat(key, '" ').concat(direction ? 'data-direction="'.concat(direction, '"') : "", ">").concat(label, "</button></th>");
   }
   function renderTextileRow(row) {
-    return '\n    <tr data-textile-id="'.concat(row.id, '" tabindex="0">\n      <td>').concat(escapeHtml(textileClientLabel(row)), "</td>\n      <td>").concat(escapeHtml(row.supplier), "</td>\n      <td>").concat(escapeHtml(row.brand), "</td>\n      <td>").concat(escapeHtml(row.gender), "</td>\n      <td>").concat(escapeHtml(row.designation), "</td>\n      <td>").concat(escapeHtml(row.catalogReference), "</td>\n      <td>").concat(escapeHtml(row.color), "</td>\n      <td>").concat(escapeHtml(row.size), "</td>\n      <td>").concat(row.quantity, '</td>\n      <td><span class="delivery-badge" data-tone="').concat(deliveryTone(row.deliveryStatus), '">').concat(escapeHtml(row.deliveryStatus), "</span></td>\n      <td>").concat(escapeHtml(row.sessionLabel), "</td>\n      <td>").concat(formatDate(row.expectedDate), '</td>\n      <td>\n        <div class="row-actions">\n          <button class="row-action" type="button" data-action="').concat(row.archivedAt ? "restore-textile" : "archive-textile", '" data-id="').concat(row.id, '">\n            ').concat(row.archivedAt ? "\u21BA" : "\u2934", '\n          </button>\n          <button class="row-action is-danger" type="button" data-action="delete-textile" data-id="').concat(row.id, '">\xD7</button>\n        </div>\n      </td>\n    </tr>\n  ');
+    return '\n    <tr data-textile-id="'.concat(row.id, '" tabindex="0">\n      <td>').concat(escapeHtml(textileClientLabel(row)), "</td>\n      <td>").concat(escapeHtml(row.supplier), "</td>\n      <td>").concat(escapeHtml(row.brand), "</td>\n      <td>").concat(escapeHtml(row.gender), "</td>\n      <td>").concat(escapeHtml(row.designation), "</td>\n      <td>").concat(escapeHtml(row.catalogReference), "</td>\n      <td>").concat(escapeHtml(row.color), "</td>\n      <td>").concat(escapeHtml(row.size), "</td>\n      <td>").concat(row.quantity, '</td>\n      <td><span class="delivery-badge" data-tone="').concat(deliveryTone(row.deliveryStatus), '">').concat(escapeHtml(row.deliveryStatus), "</span></td>\n      <td>").concat(escapeHtml(row.sessionLabel), "</td>\n      <td>").concat(formatDate(row.expectedDate), '</td>\n      <td>\n        <div class="row-actions">\n          <button class="row-action" type="button" data-action="').concat(row.archivedAt ? "restore-textile" : "archive-textile", '" data-id="').concat(row.id, '">\n            ').concat(row.archivedAt ? "\u21BA" : "\u{1F4E6}", '\n          </button>\n          <button class="row-action is-danger" type="button" data-action="delete-textile" data-id="').concat(row.id, '">\xD7</button>\n        </div>\n      </td>\n    </tr>\n  ');
   }
   function renderPurchaseView() {
     const zones = ["SXM", "Europe", "USA"];
-    return '\n    <section class="module-layout">\n      <div class="zone-grid">\n        '.concat(zones.map(renderPurchaseZone).join(""), "\n      </div>\n    </section>\n  ");
+    const archiveCount = db.purchaseItems.filter((item) => item.archivedAt && !item.deletedAt).length;
+    return '\n    <section class="module-layout">\n      <div class="archive-toggle">\n        <div>\n          <strong>Archives achats</strong>\n          <p class="archive-copy">'.concat(archiveCount, '</p>\n        </div>\n        <button class="pill-button ').concat(state.showPurchaseArchives ? "is-active" : "", '" type="button" data-action="toggle-purchase-archives">\n          ').concat(state.showPurchaseArchives ? "Voir les actifs" : "Voir les archives", '\n        </button>\n      </div>\n      <div class="zone-grid">\n        ').concat(zones.map(renderPurchaseZone).join(""), "\n      </div>\n    </section>\n  ");
   }
   function renderPurchaseZone(zone) {
     const items = getVisiblePurchaseItems(zone);
     return '\n    <article class="zone-column">\n      <header class="module-head">\n        <div>\n          <p class="module-kicker">'.concat(zone, "</p>\n          <h3>").concat(items.length, " article").concat(items.length > 1 ? "s" : "", '</h3>\n        </div>\n      </header>\n      <div class="module-body">\n        <form class="quick-add" data-form="purchase-quick-add">\n          <input type="hidden" name="zone" value="').concat(zone, '">\n          <div class="quick-add-row">\n            <input name="label" type="text" placeholder="Nouvel article">\n            <button class="button" type="submit">Ajouter</button>\n          </div>\n        </form>\n        <div class="list-grid">\n          ').concat(items.length ? items.map(renderPurchaseItem).join("") : '<div class="empty-state">Aucun article pour '.concat(zone, ".</div>"), "\n        </div>\n      </div>\n    </article>\n  ");
   }
   function renderPurchaseItem(item) {
-    return '\n    <article class="item-row" data-purchase-id="'.concat(item.id, '" tabindex="0">\n      <label class="stack-meta">\n        <input type="checkbox" name="purchase-checked" value="').concat(item.id, '" ').concat(item.checked ? "checked" : "", ">\n        <strong>").concat(escapeHtml(item.label), "</strong>\n        <span>x").concat(item.quantity, '</span>\n      </label>\n      <button class="row-action is-danger" type="button" data-action="delete-purchase" data-id="').concat(item.id, '">\xD7</button>\n    </article>\n  ');
+    return '\n    <article class="item-row" data-purchase-id="'.concat(item.id, '" tabindex="0">\n      <label class="stack-meta">\n        <input type="checkbox" name="purchase-checked" value="').concat(item.id, '" ').concat(item.checked ? "checked" : "", ">\n        <strong>").concat(escapeHtml(item.label), "</strong>\n        <span>x").concat(item.quantity, '</span>\n      </label>\n      <div class="row-actions">\n        <button class="row-action" type="button" data-action="').concat(item.archivedAt ? "restore-single-purchase" : "archive-single-purchase", '" data-id="').concat(item.id, '" title="').concat(item.archivedAt ? "Restaurer" : "Archiver", '">\n          ').concat(item.archivedAt ? "\u21BA" : "\u{1F4E6}", '\n        </button>\n        <button class="row-action is-danger" type="button" data-action="delete-purchase" data-id="').concat(item.id, '">\xD7</button>\n      </div>\n    </article>\n  ');
   }
   function renderWorkshopView() {
     const groups = [
@@ -2423,7 +2431,7 @@
   }
   function renderDtfForm(dtf = null) {
     var _a, _b, _c, _d, _e, _f;
-    return '\n    <div class="field-grid dtf-form-grid">\n      <label class="dtf-form-wide">\n        <span class="field-label">Client</span>\n        <input class="field-input" name="clientName" type="text" list="clientSuggestions" value="'.concat(escapeHtml(dtfClientLabel(dtf)), '">\n      </label>\n      <label>\n        <span class="field-label">Dimension</span>\n        <input class="field-input" name="dimensions" type="text" value="').concat(escapeHtml((_a = dtf == null ? void 0 : dtf.dimensions) != null ? _a : ""), '">\n      </label>\n      <label class="dtf-logo-field">\n        <span class="field-label">Nom du logo</span>\n        <div class="field-stack">\n          <input class="field-input" name="designName" type="text" value="').concat(escapeHtml((_b = dtf == null ? void 0 : dtf.designName) != null ? _b : ""), '" placeholder="Design perso ou logo existant">\n          <select class="field-select" name="designPreset">\n            ').concat(renderLogoPresetOptions(dtf == null ? void 0 : dtf.designName), '\n          </select>\n        </div>\n      </label>\n      <label>\n        <span class="field-label">Taille</span>\n        <input class="field-input" name="size" type="text" value="').concat(escapeHtml((_c = dtf == null ? void 0 : dtf.size) != null ? _c : ""), '">\n      </label>\n      <label>\n        <span class="field-label">Couleur</span>\n        <input class="field-input" name="color" type="text" list="dtfColorOptions" value="').concat(escapeHtml((_d = dtf == null ? void 0 : dtf.color) != null ? _d : ""), '">\n      </label>\n      <label>\n        <span class="field-label">Quantite</span>\n        <input class="field-input" name="quantity" type="number" min="1" value="').concat(Math.max(1, Number(dtf == null ? void 0 : dtf.quantity) || 1), '">\n      </label>\n      <label>\n        <span class="field-label">Type de client</span>\n        <select class="field-select" name="clientType">\n          <option value="perso" ').concat(((_e = dtf == null ? void 0 : dtf.clientType) != null ? _e : "perso") === "perso" ? "selected" : "", '>Perso</option>\n          <option value="pro" ').concat((dtf == null ? void 0 : dtf.clientType) === "pro" ? "selected" : "", '>Pro</option>\n        </select>\n      </label>\n      <label class="field-checkbox">\n        <span class="field-label">Type de demande</span>\n        <span class="checkbox-row">\n          <input name="needsMockup" type="checkbox" ').concat((dtf == null ? void 0 : dtf.needsMockup) ? "checked" : "", '>\n          <span>Maquette \xE0 faire</span>\n        </span>\n      </label>\n      <label class="dtf-form-note">\n        <span class="field-label">Note technique</span>\n        <input class="field-input" name="technicalNote" type="text" value="').concat(escapeHtml((_f = dtf == null ? void 0 : dtf.technicalNote) != null ? _f : ""), '">\n      </label>\n    </div>\n    <datalist id="clientSuggestions">').concat(renderClientSuggestionOptions(), '</datalist>\n    <datalist id="dtfColorOptions">').concat(renderListOptions(TEXTILE_COLOR_OPTIONS), "</datalist>\n  ");
+    return '\n    <div class="field-grid dtf-form-grid">\n      <label class="dtf-form-wide">\n        <span class="field-label">Client</span>\n        <input class="field-input" name="clientName" type="text" list="clientSuggestions" value="'.concat(escapeHtml(dtfClientLabel(dtf)), '">\n      </label>\n      <label>\n        <span class="field-label">Dimension</span>\n        <input class="field-input" name="dimensions" type="text" value="').concat(escapeHtml((_a = dtf == null ? void 0 : dtf.dimensions) != null ? _a : ""), '">\n      </label>\n      <label class="dtf-logo-field">\n        <span class="field-label">Nom du logo</span>\n        <input class="field-input" name="designName" type="text" list="dtfLogoPresets" value="').concat(escapeHtml((_b = dtf == null ? void 0 : dtf.designName) != null ? _b : ""), '" placeholder="Taper ou choisir un logo">\n        <datalist id="dtfLogoPresets">\n          ').concat([...FRONT_LOGO_OPTIONS, ...BACK_LOGO_OPTIONS].map((o) => '<option value="'.concat(escapeHtml(o), '">')).join(""), '\n        </datalist>\n      </label>\n      <label>\n        <span class="field-label">Taille</span>\n        <input class="field-input" name="size" type="text" value="').concat(escapeHtml((_c = dtf == null ? void 0 : dtf.size) != null ? _c : ""), '">\n      </label>\n      <label>\n        <span class="field-label">Couleur</span>\n        <input class="field-input" name="color" type="text" list="dtfColorOptions" value="').concat(escapeHtml((_d = dtf == null ? void 0 : dtf.color) != null ? _d : ""), '">\n      </label>\n      <label>\n        <span class="field-label">Quantite</span>\n        <input class="field-input" name="quantity" type="number" min="1" value="').concat(Math.max(1, Number(dtf == null ? void 0 : dtf.quantity) || 1), '">\n      </label>\n      <label>\n        <span class="field-label">Type de client</span>\n        <select class="field-select" name="clientType">\n          <option value="perso" ').concat(((_e = dtf == null ? void 0 : dtf.clientType) != null ? _e : "perso") === "perso" ? "selected" : "", '>Perso</option>\n          <option value="pro" ').concat((dtf == null ? void 0 : dtf.clientType) === "pro" ? "selected" : "", '>Pro</option>\n        </select>\n      </label>\n      <label class="field-checkbox">\n        <span class="field-label">Type de demande</span>\n        <span class="checkbox-row">\n          <input name="needsMockup" type="checkbox" ').concat((dtf == null ? void 0 : dtf.needsMockup) ? "checked" : "", '>\n          <span>Maquette \xE0 faire</span>\n        </span>\n      </label>\n      <label class="dtf-form-note">\n        <span class="field-label">Note technique</span>\n        <input class="field-input" name="technicalNote" type="text" value="').concat(escapeHtml((_f = dtf == null ? void 0 : dtf.technicalNote) != null ? _f : ""), '">\n      </label>\n    </div>\n    <datalist id="clientSuggestions">').concat(renderClientSuggestionOptions(), '</datalist>\n    <datalist id="dtfColorOptions">').concat(renderListOptions(TEXTILE_COLOR_OPTIONS), "</datalist>\n  ");
   }
   function renderTextileOrderForm(order = null) {
     var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j;
@@ -2647,6 +2655,12 @@
       if (item.deletedAt) {
         return false;
       }
+      if (state.showPurchaseArchives && !item.archivedAt) {
+        return false;
+      }
+      if (!state.showPurchaseArchives && item.archivedAt) {
+        return false;
+      }
       if (item.zone !== zone) {
         return false;
       }
@@ -2721,6 +2735,15 @@
     state.selectedDtfIds.clear();
     requestRender();
     showToast("Demandes mises a jour.");
+  }
+  function archivePurchaseItem(id, shouldArchive) {
+    const item = db.purchaseItems.find((item2) => item2.id === id);
+    if (item) {
+      item.archivedAt = shouldArchive ? isoToday() : "";
+    }
+    persistDb();
+    requestRender();
+    showToast(shouldArchive ? "Article archive." : "Article restaure.");
   }
   function archiveDtfItems(ids, shouldArchive) {
     db.dtfRequests = db.dtfRequests.map((item) => ids.includes(item.id) ? { ...item, status: shouldArchive ? item.status : "draft", archivedAt: shouldArchive ? isoToday() : "" } : item);
@@ -3790,12 +3813,6 @@
   function improvementTypeLabel(type) {
     var _a, _b;
     return (_b = (_a = IMPROVEMENT_TYPES.find((item) => item.key === type)) == null ? void 0 : _a.label) != null ? _b : "Bug";
-  }
-  function renderLogoPresetOptions(selectedValue = "") {
-    const current = String(selectedValue != null ? selectedValue : "").trim();
-    const knownValues = /* @__PURE__ */ new Set([...FRONT_LOGO_OPTIONS, ...BACK_LOGO_OPTIONS]);
-    const customOption = current && !knownValues.has(current) ? '<option value="'.concat(escapeHtml(current), '" selected>').concat(escapeHtml(current), "</option>") : '<option value="" '.concat(current ? "" : "selected", ">Choisir</option>");
-    return "\n    ".concat(customOption, '\n    <optgroup label="Avant">\n      ').concat(FRONT_LOGO_OPTIONS.map((option) => '<option value="'.concat(escapeHtml(option), '" ').concat(option === current ? "selected" : "", ">").concat(escapeHtml(option), "</option>")).join(""), '\n    </optgroup>\n    <optgroup label="Arriere">\n      ').concat(BACK_LOGO_OPTIONS.map((option) => '<option value="'.concat(escapeHtml(option), '" ').concat(option === current ? "selected" : "", ">").concat(escapeHtml(option), "</option>")).join(""), "\n    </optgroup>\n  ");
   }
   function inferLogoPlacement(designName, fallback = "AV") {
     const current = String(designName != null ? designName : "").trim();

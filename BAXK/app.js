@@ -600,6 +600,7 @@ const state = {
   selectedDtfIds: new Set(),
   showDtfArchives: false,
   showTextileArchives: false,
+  showPurchaseArchives: false,
   textileSort: { key: "expectedDate", direction: "asc" },
   activeSheetAction: null,
   activeDtfId: null,
@@ -1168,6 +1169,22 @@ function handleRootClick(event) {
       persistDb();
       requestRender();
       showToast("Article supprime.");
+      return;
+    }
+
+    if (action === "archive-single-purchase") {
+      archivePurchaseItem(id, true);
+      return;
+    }
+
+    if (action === "restore-single-purchase") {
+      archivePurchaseItem(id, false);
+      return;
+    }
+
+    if (action === "toggle-purchase-archives") {
+      state.showPurchaseArchives = !state.showPurchaseArchives;
+      requestRender({ transition: true });
       return;
     }
 
@@ -2673,7 +2690,7 @@ function renderDtfRow(row) {
         <div class="row-actions">
           <button class="row-action" type="button" data-action="duplicate-single-dtf" data-id="${row.id}" title="Dupliquer">⧉</button>
           <button class="row-action" type="button" data-action="${row.archivedAt ? "restore-single-dtf" : "archive-single-dtf"}" data-id="${row.id}">
-            ${row.archivedAt ? "↺" : "⤴"}
+            ${row.archivedAt ? "↺" : "📦"}
           </button>
           <button class="row-action is-danger" type="button" data-action="delete-single-dtf" data-id="${row.id}">×</button>
         </div>
@@ -2878,7 +2895,7 @@ function renderTextileRow(row) {
       <td>
         <div class="row-actions">
           <button class="row-action" type="button" data-action="${row.archivedAt ? "restore-textile" : "archive-textile"}" data-id="${row.id}">
-            ${row.archivedAt ? "↺" : "⤴"}
+            ${row.archivedAt ? "↺" : "📦"}
           </button>
           <button class="row-action is-danger" type="button" data-action="delete-textile" data-id="${row.id}">×</button>
         </div>
@@ -2889,8 +2906,18 @@ function renderTextileRow(row) {
 
 function renderPurchaseView() {
   const zones = ["SXM", "Europe", "USA"];
+  const archiveCount = db.purchaseItems.filter((item) => item.archivedAt && !item.deletedAt).length;
   return `
     <section class="module-layout">
+      <div class="archive-toggle">
+        <div>
+          <strong>Archives achats</strong>
+          <p class="archive-copy">${archiveCount}</p>
+        </div>
+        <button class="pill-button ${state.showPurchaseArchives ? "is-active" : ""}" type="button" data-action="toggle-purchase-archives">
+          ${state.showPurchaseArchives ? "Voir les actifs" : "Voir les archives"}
+        </button>
+      </div>
       <div class="zone-grid">
         ${zones.map(renderPurchaseZone).join("")}
       </div>
@@ -2932,7 +2959,12 @@ function renderPurchaseItem(item) {
         <strong>${escapeHtml(item.label)}</strong>
         <span>x${item.quantity}</span>
       </label>
-      <button class="row-action is-danger" type="button" data-action="delete-purchase" data-id="${item.id}">×</button>
+      <div class="row-actions">
+        <button class="row-action" type="button" data-action="${item.archivedAt ? "restore-single-purchase" : "archive-single-purchase"}" data-id="${item.id}" title="${item.archivedAt ? "Restaurer" : "Archiver"}">
+          ${item.archivedAt ? "↺" : "📦"}
+        </button>
+        <button class="row-action is-danger" type="button" data-action="delete-purchase" data-id="${item.id}">×</button>
+      </div>
     </article>
   `;
 }
@@ -3853,6 +3885,14 @@ function getVisiblePurchaseItems(zone) {
       return false;
     }
 
+    if (state.showPurchaseArchives && !item.archivedAt) {
+      return false;
+    }
+
+    if (!state.showPurchaseArchives && item.archivedAt) {
+      return false;
+    }
+
     if (item.zone !== zone) {
       return false;
     }
@@ -3945,6 +3985,16 @@ function updateDtfStatus(ids, status) {
   state.selectedDtfIds.clear();
   requestRender();
   showToast("Demandes mises a jour.");
+}
+
+function archivePurchaseItem(id, shouldArchive) {
+  const item = db.purchaseItems.find((item) => item.id === id);
+  if (item) {
+    item.archivedAt = shouldArchive ? isoToday() : "";
+  }
+  persistDb();
+  requestRender();
+  showToast(shouldArchive ? "Article archive." : "Article restaure.");
 }
 
 function archiveDtfItems(ids, shouldArchive) {
