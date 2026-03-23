@@ -693,6 +693,11 @@ async function startRemoteSync() {
   try {
     const response = await fetchRemoteDb();
 
+    if (response.status === 401) {
+      window.location.href = "/login";
+      return;
+    }
+
     if (response.status === 404) {
       remoteSyncReady = true;
       startRemotePolling();
@@ -703,6 +708,12 @@ async function startRemoteSync() {
 
     if (!response.ok) {
       throw new Error(`Remote sync failed with status ${response.status}`);
+    }
+
+    const contentType = response.headers.get("content-type") || "";
+    if (!contentType.includes("application/json")) {
+      window.location.href = "/login";
+      return;
     }
 
     const record = await response.json();
@@ -720,6 +731,12 @@ async function startRemoteSync() {
     startRemotePolling();
     remoteBootstrapComplete = true;
   } catch (error) {
+    if (error instanceof TypeError || error instanceof SyntaxError) {
+      window.setTimeout(() => {
+        void startRemoteSync();
+      }, REMOTE_SYNC_INTERVAL_MS);
+      return;
+    }
     console.error(error);
     notifyRemoteSyncIssue();
     window.setTimeout(() => {
