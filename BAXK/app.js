@@ -81,6 +81,13 @@ const views = {
     intro: "",
     primaryAction: null,
     searchPlaceholder: "Rechercher..."
+  },
+  newOnglet: {
+    label: "New onglet",
+    eyebrow: "New onglet",
+    intro: "",
+    primaryAction: null,
+    searchPlaceholder: "Rechercher..."
   }
 };
 
@@ -2331,6 +2338,9 @@ function renderView() {
     case "workshop":
       refs.viewRoot.innerHTML = renderWorkshopView();
       break;
+    case "newOnglet":
+      refs.viewRoot.innerHTML = renderNewOngletView();
+      break;
     default:
       refs.viewRoot.innerHTML = renderPlaceholderView();
       break;
@@ -2345,6 +2355,17 @@ function renderView() {
     (state.view === "testPlanning" && state.showTestPlanningArchives)
   );
   document.body.toggleAttribute("data-archive-mode", isArchiveMode);
+}
+
+function renderNewOngletView() {
+  return `
+    <section class="module-layout">
+      <article class="placeholder-card">
+        <p class="module-kicker">New onglet</p>
+        <strong>Bienvenue dans le nouvel onglet</strong>
+      </article>
+    </section>
+  `;
 }
 
 function renderPlaceholderView() {
